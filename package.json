@@ -1,0 +1,44 @@
+{
+  "name": "CasperWalletCommon",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Comp0te/coreTest"
+  },
+  "scripts": {
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "code:check": "tsc --skipLibCheck --noEmit && yarn lint",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "@make-software/ces-js-parser": "^1.3.3",
+    "@react-native/typescript-config": "0.74.83",
+    "@types/uuid": "^10.0.0",
+    "apisauce": "^3.0.1",
+    "casper-cep18-js-client": "^1.0.2",
+    "casper-js-sdk": "2.15.4",
+    "date-fns": "^2.30.0",
+    "decimal.js": "^10.4.3",
+    "lru-cache": "10.4.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@react-native/eslint-config": "0.74.83",
+    "eslint": "8.22.0",
+    "eslint-plugin-prettier": "5.0.0",
+    "eslint-plugin-simple-import-sort": "^10.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^13.2.2",
+    "prettier": "3.2.5",
+    "typescript": "5.1.6"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": "eslint --fix"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "yarn@4.2.2"
+}

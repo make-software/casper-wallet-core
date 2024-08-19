@@ -1,0 +1,8 @@
+node_modules/*
+./node_modules/**
+**/node_modules/*
+coverage-ts/**
+out/
+.eslintrc.js
+__generated__
+coverage
