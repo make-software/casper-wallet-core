@@ -103,6 +103,7 @@ export interface INftDeploy extends IDeploy {
   readonly nftTokenIds: string[];
   readonly nftActionsResult: INftActionsResult[];
   readonly iconUrl: Maybe<string>;
+  readonly collectionHash: string;
 }
 
 export interface INativeCsprDeploy extends IDeploy {

@@ -1,6 +1,7 @@
 import {
   derivePublicKeyFromNftActionResults,
   getAccountInfoFromMap,
+  getCollectionHashFormDeploy,
   getEntryPoint,
   getNftTokenIdsFromArguments,
   getNftTokensQuantity,
@@ -45,6 +46,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
     this.nftActionsResult = getNftActionsResult(activePublicKey, data, accountInfoMap);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
+    this.collectionHash = getCollectionHashFormDeploy(data);
   }
 
   readonly entryPoint: NFTEntryPointType;
@@ -57,6 +59,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
   readonly recipientKeyType: AccountKeyType;
   readonly isReceive: boolean;
+  readonly collectionHash: string;
 }
 
 export function getNftRecipientKeys(
@@ -76,8 +79,8 @@ export function getNftRecipientKeys(
     tokenOwner ??
     accountSpenderHash ??
     owner ??
-    sourceKey ??
     targetKey ??
+    sourceKey ??
     contractSpenderHash ??
     operatorHash;
 

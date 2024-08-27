@@ -2,6 +2,7 @@ import {
   derivePublicKeyFromNftActionResults,
   derivePublicKeyFromTransfersActionResults,
   getAccountInfoFromMap,
+  getCollectionHashFormDeploy,
   getCsprFiatAmount,
   getDeployAmount,
   getEntryPoint,
@@ -95,45 +96,5 @@ export function getOffererFormDeploy(
   return {
     offererHash: offererHash?.hash ?? '',
     offererHashType: offererHash?.keyType ?? 'accountHash',
-  };
-}
-
-export function getCollectionHashFormDeploy(deploy?: Partial<ExtendedCloudDeploy>) {
-  const collection = deploy?.args?.collection;
-
-  if (collection?.cl_type !== 'Key') {
-    return '';
-  }
-
-  return collection?.parsed && typeof collection.parsed === 'object' && 'Hash' in collection.parsed
-    ? deriveSplitDataFromNamedKeyValue(collection.parsed.Hash || '').hash
-    : '';
-}
-
-const NamedKeyPrefixes = [
-  'hash-',
-  'contract-',
-  'uref-',
-  'deploy-',
-  'era-',
-  'balance-',
-  'bid-',
-  'withdraw-',
-  'dictionary-',
-  'account-hash-',
-  'contract-package-',
-];
-
-const hashPrefixRegEx = new RegExp(`(${NamedKeyPrefixes.join('|')})(?=[0-9a-fA-F])`, 'i');
-
-function deriveSplitDataFromNamedKeyValue(namedKeyValue: string) {
-  const [hash, lastDigits] = namedKeyValue.replace(hashPrefixRegEx, '').split('-');
-
-  const formattedPrefix = namedKeyValue.match(hashPrefixRegEx)?.[0] ?? '';
-  const formattedHash = lastDigits ? `${hash}-${lastDigits}` : `${hash}`;
-
-  return {
-    prefix: formattedPrefix,
-    hash: formattedHash,
   };
 }

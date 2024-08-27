@@ -322,3 +322,15 @@ export const deriveSplitDataFromNamedKeyValue = (namedKeyValue: string): SplitDa
     hash: formattedHash,
   };
 };
+
+export function getCollectionHashFormDeploy(deploy?: Partial<ExtendedCloudDeploy>) {
+  const collection = deploy?.args?.collection;
+
+  if (collection?.cl_type !== 'Key') {
+    return '';
+  }
+
+  return collection?.parsed && typeof collection.parsed === 'object' && 'Hash' in collection.parsed
+    ? deriveSplitDataFromNamedKeyValue(collection.parsed.Hash || '').hash
+    : '';
+}
