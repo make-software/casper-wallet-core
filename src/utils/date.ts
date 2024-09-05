@@ -1,4 +1,4 @@
-import { formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceToNowStrict, isAfter } from 'date-fns';
 import en from 'date-fns/locale/en-US';
 
 /** @param {string} timestamp - 2023-05-24T20:43:50.000Z
@@ -64,4 +64,12 @@ export const getCurrentTime = () => {
     .getMinutes()
     .toString()
     .padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+};
+
+export const isExpired = (date?: string) => {
+  if (!date) {
+    return true;
+  }
+
+  return isAfter(new Date(), new Date(date));
 };

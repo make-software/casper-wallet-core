@@ -8,10 +8,13 @@ import {
   IAccountInfo,
   DataResponse,
   IGetAccountsInfoParams,
+  HttpClientNotFoundError,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { AccountsInfoDto } from '../../dto';
-import { IGetAccountsInfoResponse } from './types';
+import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto } from '../../dto';
+import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from './types';
+import { isExpired } from '../../../utils';
+import { Maybe } from '../../../typings';
 
 export * from './types';
 
@@ -37,7 +40,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
       );
 
       const resp = await this._httpProvider.post<DataResponse<IGetAccountsInfoResponse[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts?includes=account_info,centralized_account_info`,
+        url: `${CasperWalletApiUrl[network]}/accounts?includes=account_info,centralized_account_info,cspr_name`,
         data: {
           account_hashes: accountsHashesForFetch,
         },
@@ -69,6 +72,29 @@ export class AccountInfoRepository implements IAccountInfoRepository {
       );
     } catch (e) {
       this._processError(e, 'getAccountsInfo');
+    }
+  }
+
+  async resolveAccountFromCsprName(csprName: string): Promise<Maybe<IAccountInfo>> {
+    try {
+      const resp = await this._httpProvider.get<DataResponse<ICloudResolveFromCsprNameResponse>>({
+        url: `https://cspr-wallet-api.dev.make.services:443/cspr-name-resolutions/${csprName}`, // TODO replace with prod version
+        params: {
+          includes: 'resolved_public_key,account_info,centralized_account_info',
+        },
+        headers: CSPR_API_PROXY_HEADERS,
+        errorType: 'resolveAccountFromCsprName',
+      });
+
+      return isExpired(resp?.data?.expires_at)
+        ? null
+        : new AccountsInfoResolutionFromCsprNameDto(resp?.data);
+    } catch (e) {
+      if (e instanceof HttpClientNotFoundError) {
+        return null;
+      }
+
+      this._processError(e, 'resolveAccountFromCsprName');
     }
   }
 

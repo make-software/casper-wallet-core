@@ -7,6 +7,7 @@ export interface IGetAccountsInfoResponse {
   public_key: string;
   account_info?: ICloudAccountInfoResult;
   centralized_account_info?: CloudCentralizedAccountInfo;
+  cspr_name: Maybe<string>;
 }
 
 export interface ICloudAccountInfoResult {
@@ -89,4 +90,14 @@ export interface CloudCentralizedAccountInfo {
   avatar_url: Maybe<string>;
   name: string;
   url: Maybe<string>;
+}
+
+export interface ICloudResolveFromCsprNameResponse {
+  account_info: Maybe<ICloudAccountInfoResult>;
+  centralized_account_info: Maybe<CloudCentralizedAccountInfo>;
+  expires_at: string;
+  name: string;
+  name_token_id: string;
+  resolved_hash: string;
+  resolved_public_key: string;
 }
