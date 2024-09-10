@@ -17,11 +17,9 @@ import {
   CSPRMarketEntryPointType,
   IAccountInfo,
   ICasperMarketDeploy,
-  INftActionsResult,
   Network,
 } from '../../../domain';
 import { DeployDto } from './DeployDto';
-import { getNftActionsResult } from './ActionResults';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
 
@@ -47,7 +45,6 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
     this.amount = getDeployAmount(data?.args);
     this.decimalAmount = getDecimalTokenBalance(this.amount, CSPR_COIN.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, CSPR_COIN.decimals);
-    this.nftActionsResult = getNftActionsResult(activePublicKey, data, accountInfoMap);
     this.fiatAmount = getCsprFiatAmount(
       this.amount,
       data?.time_transaction_currency_rate ?? data?.rate,
@@ -67,7 +64,6 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
   readonly decimalAmount: string;
   readonly formattedDecimalAmount: string;
   readonly fiatAmount: string;
-  readonly nftActionsResult: INftActionsResult[];
   readonly iconUrl: Maybe<string>;
 }
 

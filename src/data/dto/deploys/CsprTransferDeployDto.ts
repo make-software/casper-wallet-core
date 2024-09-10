@@ -10,7 +10,9 @@ import {
   DeployStatus,
   DeployType,
   IAccountInfo,
+  ICep18ActionsResult,
   INativeCsprDeploy,
+  INftActionsResult,
   ITransferActionsResult,
 } from '../../../domain';
 import { getAccountInfoFromMap, getCsprFiatAmount } from './common';
@@ -70,6 +72,8 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
     this.timestamp = data?.timestamp ?? '';
     this.errorMessage = null;
     this.transfersActionsResult = [];
+    this.nftActionsResult = [];
+    this.cep18ActionsResult = [];
     this.deployHash = data?.deployHash ?? '';
     this.id = getUniqueId();
   }
@@ -104,6 +108,8 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
   readonly timestamp: string;
   readonly errorMessage: Maybe<string>;
   readonly transfersActionsResult: ITransferActionsResult[];
+  readonly nftActionsResult: INftActionsResult[];
+  readonly cep18ActionsResult: ICep18ActionsResult[];
   readonly id: string;
   readonly deployHash: string;
 }

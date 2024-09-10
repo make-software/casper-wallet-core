@@ -8,13 +8,11 @@ import {
   guardedDeriveSplitDataFromArguments,
 } from './common';
 import { DeployDto } from './DeployDto';
-import { getNftActionsResult } from './ActionResults';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { isKeysEqual } from '../../../utils';
 import {
   AccountKeyType,
   IAccountInfo,
-  INftActionsResult,
   INftDeploy,
   Network,
   NFTEntryPointType,
@@ -43,7 +41,6 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
 
     this.amountOfNFTs = getNftTokensQuantity(data, ['approve', 'update_token_meta']);
     this.nftTokenIds = data?.args ? getNftTokenIdsFromArguments(data?.args) : [];
-    this.nftActionsResult = getNftActionsResult(activePublicKey, data, accountInfoMap);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
     this.collectionHash = getCollectionHashFormDeploy(data);
@@ -53,7 +50,6 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
   readonly contractName: string;
   readonly amountOfNFTs: Maybe<number>;
   readonly nftTokenIds: string[];
-  readonly nftActionsResult: INftActionsResult[];
   readonly iconUrl: Maybe<string>;
   readonly recipientKey: string;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;

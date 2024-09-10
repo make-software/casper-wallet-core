@@ -5,7 +5,9 @@ import {
   DeployStatus,
   DeployType,
   IAccountInfo,
+  ICep18ActionsResult,
   IDeploy,
+  INftActionsResult,
   ITransferActionsResult,
   Network,
 } from '../../../domain';
@@ -16,7 +18,11 @@ import {
   getDeployType,
   getEntryPoint,
 } from './common';
-import { getTransferActionsResult } from './ActionResults';
+import {
+  getCep18ActionsResult,
+  getNftActionsResult,
+  getTransferActionsResult,
+} from './ActionResults';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
 
@@ -58,6 +64,8 @@ export class DeployDto implements IDeploy {
     this.callerKeyType = this.callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType;
 
     this.transfersActionsResult = getTransferActionsResult(activePublicKey, data, accountInfoMap);
+    this.cep18ActionsResult = getCep18ActionsResult(activePublicKey, data, accountInfoMap);
+    this.nftActionsResult = getNftActionsResult(activePublicKey, data, accountInfoMap);
   }
 
   readonly deployHash: string;
@@ -81,6 +89,8 @@ export class DeployDto implements IDeploy {
   readonly callerKeyType: AccountKeyType;
   readonly callerAccountInfo: Maybe<IAccountInfo>;
   readonly transfersActionsResult: ITransferActionsResult[];
+  readonly nftActionsResult: INftActionsResult[];
+  readonly cep18ActionsResult: ICep18ActionsResult[];
 }
 
 export function getDeployStatus(deploy?: Partial<ExtendedCloudDeploy>): DeployStatus {

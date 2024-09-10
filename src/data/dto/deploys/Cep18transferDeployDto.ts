@@ -13,6 +13,7 @@ import {
   IAccountInfo,
   ICep18ActionsResult,
   ICep18Deploy,
+  INftActionsResult,
   ITransferActionsResult,
 } from '../../../domain';
 
@@ -73,12 +74,14 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.formattedPaymentAmount = formatTokenBalance(this.paymentAmount, CSPR_COIN.decimals);
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.deploy?.rate);
     this.fiatAmount = '';
+    this.nftActionsResult = [];
   }
 
   readonly entryPoint: CEP18EntryPointType;
   readonly contractName: string;
   readonly iconUrl: Maybe<string>;
   readonly cep18ActionsResult: ICep18ActionsResult[];
+  readonly nftActionsResult: INftActionsResult[];
   readonly recipientKey: string;
   readonly recipientKeyType: AccountKeyType;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;

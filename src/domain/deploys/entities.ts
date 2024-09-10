@@ -46,6 +46,8 @@ export interface IDeploy extends IEntity {
   readonly errorMessage: Maybe<string>;
 
   readonly transfersActionsResult: ITransferActionsResult[];
+  readonly nftActionsResult: INftActionsResult[];
+  readonly cep18ActionsResult: ICep18ActionsResult[];
 }
 
 export type AccountKeyType = 'publicKey' | 'accountHash' | 'contractHash' | 'purse';
@@ -88,8 +90,6 @@ export interface ICasperMarketDeploy extends IDeploy {
   readonly decimalAmount: string;
   readonly formattedDecimalAmount: string;
   readonly fiatAmount: string;
-
-  readonly nftActionsResult: INftActionsResult[];
 }
 
 export interface INftDeploy extends IDeploy {
@@ -101,7 +101,6 @@ export interface INftDeploy extends IDeploy {
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
   readonly amountOfNFTs: Maybe<number>;
   readonly nftTokenIds: string[];
-  readonly nftActionsResult: INftActionsResult[];
   readonly iconUrl: Maybe<string>;
   readonly collectionHash: string;
 }
@@ -124,8 +123,6 @@ export interface ICep18Deploy extends INativeCsprDeploy {
   readonly entryPoint: CEP18EntryPointType;
   readonly contractName: string;
   readonly iconUrl: Maybe<string>;
-
-  readonly cep18ActionsResult: ICep18ActionsResult[];
 }
 
 export type ICep18ActionsResult = Pick<

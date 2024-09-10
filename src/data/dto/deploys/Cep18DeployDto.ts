@@ -12,13 +12,11 @@ import {
   isNotEmpty,
 } from '../../../utils';
 import { DeployDto } from './DeployDto';
-import { getCep18ActionsResult } from './ActionResults';
 import { ExtendedCloudDeploy } from '../../repositories';
 import {
   AccountKeyType,
   CEP18EntryPointType,
   IAccountInfo,
-  ICep18ActionsResult,
   ICep18Deploy,
   Network,
 } from '../../../domain';
@@ -40,7 +38,6 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
     this.decimalAmount = getDecimalTokenBalance(this.amount, this.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, this.decimals);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
-    this.cep18ActionsResult = getCep18ActionsResult(activePublicKey, data, accountInfoMap);
     this.fiatAmount = '';
     const { recipientKey, recipientKeyType } = getCep18RecipientKeyAndType(data);
     this.recipientAccountInfo = getAccountInfoFromMap(
@@ -63,7 +60,6 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   readonly decimals: number;
   readonly contractName: string;
   readonly iconUrl: Maybe<string>;
-  readonly cep18ActionsResult: ICep18ActionsResult[];
   readonly fiatAmount: string;
   readonly recipientKeyType: AccountKeyType;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
