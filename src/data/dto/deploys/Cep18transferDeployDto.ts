@@ -18,7 +18,7 @@ import {
 
 import { getAccountInfoFromMap, getCsprFiatAmount } from './common';
 import { Maybe } from '../../../typings';
-import { IErc20TokensTransferResponse } from '../../repositories';
+import { FTActionTypeEnum, IErc20TokensTransferResponse } from '../../repositories';
 
 /** @deprecated clarity usage */
 export class Cep18TransferDeployDto implements ICep18Deploy {
@@ -34,7 +34,7 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.contractPackageHash = data?.contract_package?.contract_package_hash ?? '';
     this.status = 'success'; // transfer cannot have another status
     this.type = 'CEP18';
-    this.entryPoint = 'transfer';
+    this.entryPoint = FTActionType[data?.erc20_action_type_id ?? FTActionTypeEnum.Transfer];
     this.contractName = data?.contract_package?.contract_name ?? '';
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.cep18ActionsResult = [];
@@ -109,3 +109,10 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
   readonly transfersActionsResult: ITransferActionsResult[];
   readonly id: string;
 }
+
+export const FTActionType: Record<FTActionTypeEnum, CEP18EntryPointType> = {
+  [FTActionTypeEnum.Mint]: 'mint',
+  [FTActionTypeEnum.Transfer]: 'transfer',
+  [FTActionTypeEnum.Approve]: 'approve',
+  [FTActionTypeEnum.Burn]: 'burn',
+};
