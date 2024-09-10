@@ -16,13 +16,6 @@ export interface ICsprTransferResponse {
   rate?: number;
 }
 
-export enum FTActionTypeEnum {
-  'Mint' = 1,
-  'Transfer' = 2,
-  'Approve' = 3,
-  'Burn' = 4,
-}
-
 export interface IErc20TokensTransferResponse {
   deploy_hash: string;
   contract_package_hash: string;
@@ -32,7 +25,7 @@ export interface IErc20TokensTransferResponse {
   to_type: Maybe<string | 'account-hash'>;
   to_hash: Maybe<string>;
   to_public_key?: string;
-  erc20_action_type_id: FTActionTypeEnum;
+  erc20_action_type_id: number;
   amount: string;
   timestamp: string;
   deploy?: IApiErc20Deploy;

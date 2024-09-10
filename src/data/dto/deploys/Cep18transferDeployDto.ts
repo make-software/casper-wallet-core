@@ -19,7 +19,7 @@ import {
 
 import { getAccountInfoFromMap, getCsprFiatAmount } from './common';
 import { Maybe } from '../../../typings';
-import { FTActionTypeEnum, IErc20TokensTransferResponse } from '../../repositories';
+import { IErc20TokensTransferResponse } from '../../repositories';
 
 /** @deprecated clarity usage */
 export class Cep18TransferDeployDto implements ICep18Deploy {
@@ -35,7 +35,7 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.contractPackageHash = data?.contract_package?.contract_package_hash ?? '';
     this.status = 'success'; // transfer cannot have another status
     this.type = 'CEP18';
-    this.entryPoint = FTActionType[data?.erc20_action_type_id ?? FTActionTypeEnum.Transfer];
+    this.entryPoint = FTActionType[data?.erc20_action_type_id ?? 2];
     this.contractName = data?.contract_package?.contract_name ?? '';
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.cep18ActionsResult = [];
@@ -113,9 +113,9 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
   readonly id: string;
 }
 
-export const FTActionType: Record<FTActionTypeEnum, CEP18EntryPointType> = {
-  [FTActionTypeEnum.Mint]: 'mint',
-  [FTActionTypeEnum.Transfer]: 'transfer',
-  [FTActionTypeEnum.Approve]: 'approve',
-  [FTActionTypeEnum.Burn]: 'burn',
+export const FTActionType: Record<number, CEP18EntryPointType> = {
+  1: 'mint',
+  2: 'transfer',
+  3: 'approve',
+  4: 'burn',
 };
