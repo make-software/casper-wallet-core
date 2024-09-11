@@ -63,6 +63,7 @@ export function getCep18ActionsResult(
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
         callerAccountInfo,
         callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        contractPackageHash: action?.contract_package_hash,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerPublicKeyType,
         symbol: action?.contract_package?.metadata?.symbol ?? '',
         contractName: action?.contract_package?.name ?? '',

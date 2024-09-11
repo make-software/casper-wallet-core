@@ -131,6 +131,7 @@ export type ICep18ActionsResult = Pick<
   | 'callerPublicKey'
   | 'callerKeyType'
   | 'callerAccountInfo'
+  | 'contractPackageHash'
   | 'entryPoint'
   | 'symbol'
   | 'contractName'
