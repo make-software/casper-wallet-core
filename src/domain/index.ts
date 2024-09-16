@@ -6,3 +6,4 @@ export * from './nfts/';
 export * from './validator';
 export * from './onRamp';
 export * from './accountInfo';
+export * from './casperNetwork';

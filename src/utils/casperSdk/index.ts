@@ -14,7 +14,7 @@ import { NftStandard } from '../../domain';
 // SEC = 02 public keys should be 68 chars long (with the prefix)
 
 export const getAccountHashFromPublicKey = (publicKey: string): string =>
-  encodeBase16(CLPublicKey.fromHex(publicKey).toAccountHash());
+  encodeBase16(CLPublicKey.fromFormattedString(publicKey).toAccountHash().data);
 
 const getRuntimeArgsForCep78Transfer = (args: IArgsForTransferNft) => {
   const runtimeArgs = RuntimeArgs.fromMap({

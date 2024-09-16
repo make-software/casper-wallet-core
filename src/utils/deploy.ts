@@ -7,6 +7,9 @@ import {
   INativeCsprDeploy,
   INftDeploy,
 } from '../domain';
+import { Maybe } from '../typings';
+import { Deploy } from 'casper-js-sdk/dist/lib/DeployUtil';
+import { TransactionV1 } from 'casper-js-sdk/dist/lib/TransactionUtil';
 
 export const isAuctionDeploy = (deploy: IDeploy): deploy is IAuctionDeploy => {
   return deploy.type === 'AUCTION';
@@ -40,3 +43,35 @@ export const isWasmDeployExecutionType = (deploy: IDeploy) => Number(deploy.exec
 export const isContractCallExecutionType = (deploy: IDeploy) =>
   Number(deploy.executionTypeId) > 1 && Number(deploy.executionTypeId) < 6;
 export const isTransferExecutionType = (deploy: IDeploy) => Number(deploy.executionTypeId) === 6;
+
+export const getDeployFromJson = (json: string): Maybe<Deploy> => {
+  try {
+    const data: Record<string, any> = JSON.parse(json);
+
+    const deploy: Maybe<Deploy> =
+      data.deploy ?? data.Deploy ?? data?.transaction?.Deploy ?? data ?? null;
+
+    if (deploy?.hash && deploy?.header?.account) {
+      return deploy;
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getTransactionV1FromJson = (json: string): Maybe<TransactionV1> => {
+  try {
+    const data: Record<string, any> = JSON.parse(json);
+    const tx: Maybe<TransactionV1> = data?.transaction?.Version1 ?? data?.Version1 ?? data ?? null;
+
+    if (tx?.hash && tx?.header?.initiatorAddr) {
+      return tx;
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+};

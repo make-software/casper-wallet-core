@@ -17,7 +17,7 @@
     "@types/uuid": "^10.0.0",
     "apisauce": "^3.0.1",
     "casper-cep18-js-client": "^1.0.2",
-    "casper-js-sdk": "2.15.4",
+    "casper-js-sdk": "3.0.0-rc05",
     "date-fns": "^2.30.0",
     "decimal.js": "^10.4.3",
     "lru-cache": "10.4.3",

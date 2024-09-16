@@ -6,6 +6,7 @@ import {
   ValidatorsRepository,
   OnRampRepository,
   AccountInfoRepository,
+  CasperTransactionsRepository,
 } from './data/repositories';
 import { Logger } from './utils';
 import { ILogger } from './domain';
@@ -25,6 +26,7 @@ export const setupRepositories = ({ logger, debug }: ISetupRepositoriesParams = 
   const nftsRepository = new NftsRepository(httpDataProvider);
   const validatorsRepository = new ValidatorsRepository(httpDataProvider);
   const deploysRepository = new DeploysRepository(httpDataProvider, accountInfoRepository);
+  const casperTransactionsRepository = new CasperTransactionsRepository(httpDataProvider);
 
   return {
     accountInfoRepository,
@@ -33,5 +35,6 @@ export const setupRepositories = ({ logger, debug }: ISetupRepositoriesParams = 
     nftsRepository,
     validatorsRepository,
     deploysRepository,
+    casperTransactionsRepository,
   };
 };

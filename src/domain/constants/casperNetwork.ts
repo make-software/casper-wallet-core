@@ -1,5 +1,5 @@
 import { CasperNetwork, Network } from '../common';
-import { ICsprBalance, IToken, NftStandard } from '../../domain';
+import { AuctionManagerEntryPointType, ICsprBalance, IToken, NftStandard } from '../../domain';
 
 export const CSPR_DECIMALS = 9;
 
@@ -107,3 +107,11 @@ export const NFT_DEFAULT_TRANSFER_PAYMENT_AMOUNT: Record<NftStandard, string> = 
   CEP47: '1',
   CEP78: '3',
 };
+
+export const AuctionManagerEntryPoint: Record<AuctionManagerEntryPointType, string> = {
+  DELEGATE: 'delegate',
+  UNDELEGATE: 'undelegate',
+  REDELEGATE: 'redelegate',
+};
+export const CASPER_MESSAGE_HEADER = 'Casper Message:\n';
+export const DEFAULT_DEPLOY_TTL = 1800000;

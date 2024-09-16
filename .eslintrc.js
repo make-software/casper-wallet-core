@@ -6,4 +6,10 @@ module.exports = {
     'jest/expect-expect': 'off',
     'jest/no-disabled-tests': 'off',
   },
+
+  settings: {
+    react: {
+      version: '18',
+    },
+  },
 };

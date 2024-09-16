@@ -263,7 +263,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/bignumber@npm:^5.0.8, @ethersproject/bignumber@npm:^5.7.0":
+"@ethersproject/bignumber@npm:^5.7.0":
   version: 5.7.0
   resolution: "@ethersproject/bignumber@npm:5.7.0"
   dependencies:
@@ -790,7 +790,7 @@ __metadata:
     "@types/uuid": "npm:^10.0.0"
     apisauce: "npm:^3.0.1"
     casper-cep18-js-client: "npm:^1.0.2"
-    casper-js-sdk: "npm:2.15.4"
+    casper-js-sdk: "npm:3.0.0-rc05"
     date-fns: "npm:^2.30.0"
     decimal.js: "npm:^10.4.3"
     eslint: "npm:8.22.0"
@@ -1146,11 +1146,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"casper-js-sdk@npm:2.15.4":
-  version: 2.15.4
-  resolution: "casper-js-sdk@npm:2.15.4"
+"casper-js-sdk@npm:3.0.0-rc05":
+  version: 3.0.0-rc05
+  resolution: "casper-js-sdk@npm:3.0.0-rc05"
   dependencies:
-    "@ethersproject/bignumber": "npm:^5.0.8"
+    "@ethersproject/bignumber": "npm:^5.7.0"
     "@ethersproject/bytes": "npm:^5.0.5"
     "@ethersproject/constants": "npm:^5.0.5"
     "@noble/curves": "npm:^1.1.0"
@@ -1170,7 +1170,7 @@ __metadata:
     reflect-metadata: "npm:^0.1.13"
     ts-results: "npm:@casperlabs/ts-results@^3.3.4"
     typedjson: "npm:^1.6.0-rc2"
-  checksum: 10c0/483eb10162f0f126a93e54f28f4be918d81bc65d61e7a16f73d5748a1ef96c12432da2fa20880cb0d43c9e3f31519d80e8304d0cb50e0136e528620391f2b757
+  checksum: 10c0/f569814943fe4e0f4cff204586ae95e72c288fc9b378ae3e906900e2f488509abb69701349e25c32fab052551b5da466eda28671155083c1aa07305b628964e7
   languageName: node
   linkType: hard
 
