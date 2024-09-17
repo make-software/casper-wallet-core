@@ -1,4 +1,6 @@
-import { CLPublicKey, decodeBase16, DeployUtil } from 'casper-js-sdk';
+import { CLPublicKey, decodeBase16, DeployUtil, Keys, TransactionUtil } from 'casper-js-sdk';
+import { blake2b } from '@noble/hashes/blake2b';
+import { TypedJSON } from 'typedjson';
 import {
   IAssociatedKeysDeploy,
   IAuctionDeploy,
@@ -9,15 +11,6 @@ import {
   INftDeploy,
 } from '../domain';
 import { Maybe } from '../typings';
-import { arrayEquals, Deploy } from 'casper-js-sdk/dist/lib/DeployUtil';
-import {
-  serializeBody,
-  serializeHeader,
-  TransactionV1,
-} from 'casper-js-sdk/dist/lib/TransactionUtil';
-import { byteHash } from 'casper-js-sdk/dist/lib/ByteConverters';
-import { validateSignature } from 'casper-js-sdk/dist/lib/Keys';
-import { TypedJSON } from 'typedjson';
 
 export const isAuctionDeploy = (deploy: IDeploy): deploy is IAuctionDeploy => {
   return deploy.type === 'AUCTION';
@@ -52,7 +45,7 @@ export const isContractCallExecutionType = (deploy: IDeploy) =>
   Number(deploy.executionTypeId) > 1 && Number(deploy.executionTypeId) < 6;
 export const isTransferExecutionType = (deploy: IDeploy) => Number(deploy.executionTypeId) === 6;
 
-export const getDeployFromJson = (json: string | Record<string, any>): Maybe<Deploy> => {
+export const getDeployFromJson = (json: string | Record<string, any>): Maybe<DeployUtil.Deploy> => {
   try {
     const data: Record<string, any> = typeof json === 'string' ? JSON.parse(json) : json;
 
@@ -74,7 +67,7 @@ export const getDeployFromJson = (json: string | Record<string, any>): Maybe<Dep
 
 export const getTransactionV1FromJson = (
   json: string | Record<string, any>,
-): Maybe<TransactionV1> => {
+): Maybe<TransactionUtil.TransactionV1> => {
   try {
     const data: Record<string, any> = typeof json === 'string' ? JSON.parse(json) : json;
     const tx: Maybe<Record<string, any>> =
@@ -91,19 +84,21 @@ export const getTransactionV1FromJson = (
   }
 };
 
-export const validateTransactionV1 = (tx: TransactionV1): TransactionV1 => {
-  const serializedBody = serializeBody(tx.body);
+export const validateTransactionV1 = (
+  tx: TransactionUtil.TransactionV1,
+): TransactionUtil.TransactionV1 => {
+  const serializedBody = TransactionUtil.serializeBody(tx.body);
   const bodyHash = byteHash(serializedBody);
 
-  if (!arrayEquals(tx.header.bodyHash, bodyHash)) {
+  if (!DeployUtil.arrayEquals(tx.header.bodyHash, bodyHash)) {
     throw new Error(`Invalid tx: bodyHash mismatch. Expected: ${bodyHash},
                   got: ${tx.header.bodyHash}.`);
   }
 
-  const serializedHeader = serializeHeader(tx.header).unwrap();
+  const serializedHeader = TransactionUtil.serializeHeader(tx.header).unwrap();
   const txHash = byteHash(serializedHeader);
 
-  if (!arrayEquals(tx.hash, txHash)) {
+  if (!DeployUtil.arrayEquals(tx.hash, txHash)) {
     throw new Error(`Invalid tx: hash mismatch. Expected: ${txHash},
                   got: ${tx.hash}.`);
   }
@@ -111,7 +106,7 @@ export const validateTransactionV1 = (tx: TransactionV1): TransactionV1 => {
   const isProperlySigned = tx.approvals.every(({ signer, signature }) => {
     const pk = CLPublicKey.fromFormattedString(signer, false);
     const signatureRaw = decodeBase16(signature.slice(2));
-    return validateSignature(tx.hash, signatureRaw, pk);
+    return Keys.validateSignature(tx.hash, signatureRaw, pk);
   });
 
   if (!isProperlySigned) {
@@ -121,11 +116,11 @@ export const validateTransactionV1 = (tx: TransactionV1): TransactionV1 => {
   }
 };
 
-export const transactionV1FromJson = (json: Record<string, any>): TransactionV1 => {
+export const transactionV1FromJson = (json: Record<string, any>): TransactionUtil.TransactionV1 => {
   let tx = null;
 
   try {
-    const serializer = new TypedJSON(TransactionV1);
+    const serializer = new TypedJSON(TransactionUtil.TransactionV1);
     tx = serializer.parse(json);
   } catch (serializationError) {
     throw new Error(`${serializationError}`);
@@ -137,3 +132,14 @@ export const transactionV1FromJson = (json: Record<string, any>): TransactionV1 
 
   return validateTransactionV1(tx);
 };
+
+/**
+ * Use blake2b to compute hash of ByteArray
+ * @param x Byte array of type `Uint8Array` to compute the blake2b hash on
+ * @returns `Uint8Array` buffer of the blake2b hash
+ */
+export function byteHash(x: Uint8Array): Uint8Array {
+  return blake2b(x, {
+    dkLen: 32,
+  });
+}
