@@ -1,6 +1,4 @@
-import { CLPublicKey, decodeBase16, DeployUtil, Keys, TransactionUtil } from 'casper-js-sdk';
-import { blake2b } from '@noble/hashes/blake2b';
-import { TypedJSON } from 'typedjson';
+import { DeployUtil, TransactionUtil } from 'casper-js-sdk';
 import {
   IAssociatedKeysDeploy,
   IAuctionDeploy,
@@ -77,71 +75,71 @@ export const getTransactionV1FromJson = (
       return null;
     }
 
-    return transactionV1FromJson(tx);
+    return TransactionUtil.transactionV1FromJson(tx);
   } catch (e) {
     console.log('-------- e', e);
     return null;
   }
 };
 
-export const validateTransactionV1 = (
-  tx: TransactionUtil.TransactionV1,
-): TransactionUtil.TransactionV1 => {
-  const serializedBody = TransactionUtil.serializeBody(tx.body);
-  const bodyHash = byteHash(serializedBody);
-
-  if (!DeployUtil.arrayEquals(tx.header.bodyHash, bodyHash)) {
-    throw new Error(`Invalid tx: bodyHash mismatch. Expected: ${bodyHash},
-                  got: ${tx.header.bodyHash}.`);
-  }
-
-  const serializedHeader = TransactionUtil.serializeHeader(tx.header).unwrap();
-  const txHash = byteHash(serializedHeader);
-
-  if (!DeployUtil.arrayEquals(tx.hash, txHash)) {
-    throw new Error(`Invalid tx: hash mismatch. Expected: ${txHash},
-                  got: ${tx.hash}.`);
-  }
-
-  const isProperlySigned = tx.approvals.every(({ signer, signature }) => {
-    const pk = CLPublicKey.fromFormattedString(signer, false);
-    const signatureRaw = decodeBase16(signature.slice(2));
-    return Keys.validateSignature(tx.hash, signatureRaw, pk);
-  });
-
-  if (!isProperlySigned) {
-    throw new Error('Invalid signature.');
-  } else {
-    return tx;
-  }
-};
-
-export const transactionV1FromJson = (json: Record<string, any>): TransactionUtil.TransactionV1 => {
-  let tx = null;
-
-  try {
-    const serializer = new TypedJSON(TransactionUtil.TransactionV1);
-    console.log('-------- serializer', serializer);
-    tx = serializer.parse(JSON.stringify(json));
-    console.log('-------- tx ser', tx);
-  } catch (serializationError) {
-    throw new Error(`${serializationError}`);
-  }
-
-  if (!tx) {
-    throw new Error("The JSON can't be parsed as a TransactionV1.");
-  }
-
-  return validateTransactionV1(tx);
-};
-
-/**
- * Use blake2b to compute hash of ByteArray
- * @param x Byte array of type `Uint8Array` to compute the blake2b hash on
- * @returns `Uint8Array` buffer of the blake2b hash
- */
-export function byteHash(x: Uint8Array): Uint8Array {
-  return blake2b(x, {
-    dkLen: 32,
-  });
-}
+// export const validateTransactionV1 = (
+//   tx: TransactionUtil.TransactionV1,
+// ): TransactionUtil.TransactionV1 => {
+//   const serializedBody = TransactionUtil.serializeBody(tx.body);
+//   const bodyHash = byteHash(serializedBody);
+//
+//   if (!DeployUtil.arrayEquals(tx.header.bodyHash, bodyHash)) {
+//     throw new Error(`Invalid tx: bodyHash mismatch. Expected: ${bodyHash},
+//                   got: ${tx.header.bodyHash}.`);
+//   }
+//
+//   const serializedHeader = TransactionUtil.serializeHeader(tx.header).unwrap();
+//   const txHash = byteHash(serializedHeader);
+//
+//   if (!DeployUtil.arrayEquals(tx.hash, txHash)) {
+//     throw new Error(`Invalid tx: hash mismatch. Expected: ${txHash},
+//                   got: ${tx.hash}.`);
+//   }
+//
+//   const isProperlySigned = tx.approvals.every(({ signer, signature }) => {
+//     const pk = CLPublicKey.fromFormattedString(signer, false);
+//     const signatureRaw = decodeBase16(signature.slice(2));
+//     return Keys.validateSignature(tx.hash, signatureRaw, pk);
+//   });
+//
+//   if (!isProperlySigned) {
+//     throw new Error('Invalid signature.');
+//   } else {
+//     return tx;
+//   }
+// };
+//
+// export const transactionV1FromJson = (json: Record<string, any>): TransactionUtil.TransactionV1 => {
+//   let tx = null;
+//
+//   try {
+//     const serializer = new TypedJSON(TransactionUtil.TransactionV1);
+//     console.log('-------- serializer', serializer);
+//     tx = serializer.parse(JSON.stringify(json));
+//     console.log('-------- tx ser', tx);
+//   } catch (serializationError) {
+//     throw new Error(`${serializationError}`);
+//   }
+//
+//   if (!tx) {
+//     throw new Error("The JSON can't be parsed as a TransactionV1.");
+//   }
+//
+//   return validateTransactionV1(tx);
+// };
+//
+// /**
+//  * Use blake2b to compute hash of ByteArray
+//  * @param x Byte array of type `Uint8Array` to compute the blake2b hash on
+//  * @returns `Uint8Array` buffer of the blake2b hash
+//  */
+// export function byteHash(x: Uint8Array): Uint8Array {
+//   return blake2b(x, {
+//     dkLen: 32,
+//   });
+// }

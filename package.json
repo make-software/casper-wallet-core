@@ -13,16 +13,14 @@
   },
   "dependencies": {
     "@make-software/ces-js-parser": "^1.3.3",
-    "@noble/hashes": "^1.5.0",
     "@react-native/typescript-config": "0.74.83",
     "@types/uuid": "^10.0.0",
     "apisauce": "^3.0.1",
     "casper-cep18-js-client": "^1.0.2",
-    "casper-js-sdk": "3.0.0-rc05",
+    "casper-js-sdk": "patch:casper-js-sdk@npm%3A3.0.0-rc05#~/.yarn/patches/casper-js-sdk-npm-3.0.0-rc05-06f28955bc.patch",
     "date-fns": "^2.30.0",
     "decimal.js": "^10.4.3",
     "lru-cache": "10.4.3",
-    "typedjson": "^1.6.0-rc2",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
