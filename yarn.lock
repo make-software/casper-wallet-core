@@ -800,6 +800,7 @@ __metadata:
     lint-staged: "npm:^13.2.2"
     lru-cache: "npm:10.4.3"
     prettier: "npm:3.2.5"
+    typedjson: "npm:^1.8.0"
     typescript: "npm:5.1.6"
     uuid: "npm:^9.0.0"
   languageName: unknown
@@ -3887,7 +3888,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typedjson@npm:^1.6.0-rc2":
+"typedjson@npm:^1.6.0-rc2, typedjson@npm:^1.8.0":
   version: 1.8.0
   resolution: "typedjson@npm:1.8.0"
   dependencies:
