@@ -9,7 +9,8 @@
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "code:check": "tsc --skipLibCheck --noEmit && yarn lint",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@make-software/ces-js-parser": "^1.3.3",
@@ -17,10 +18,11 @@
     "@types/uuid": "^10.0.0",
     "apisauce": "^3.0.1",
     "casper-cep18-js-client": "^1.0.2",
-    "casper-js-sdk": "patch:casper-js-sdk@npm%3A3.0.0-rc05#~/.yarn/patches/casper-js-sdk-npm-3.0.0-rc05-06f28955bc.patch",
+    "casper-js-sdk": "3.0.0-rc05",
     "date-fns": "^2.30.0",
     "decimal.js": "^10.4.3",
     "lru-cache": "10.4.3",
+    "patch-package": "^8.0.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
