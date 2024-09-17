@@ -22,7 +22,7 @@
     "date-fns": "^2.30.0",
     "decimal.js": "^10.4.3",
     "lru-cache": "10.4.3",
-    "typedjson": "^1.8.0",
+    "typedjson": "^1.6.0-rc2",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

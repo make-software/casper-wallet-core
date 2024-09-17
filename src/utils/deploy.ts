@@ -121,7 +121,9 @@ export const transactionV1FromJson = (json: Record<string, any>): TransactionUti
 
   try {
     const serializer = new TypedJSON(TransactionUtil.TransactionV1);
-    tx = serializer.parse(json);
+    console.log('-------- serializer', serializer);
+    tx = serializer.parse(JSON.stringify(json));
+    console.log('-------- tx ser', tx);
   } catch (serializationError) {
     throw new Error(`${serializationError}`);
   }
