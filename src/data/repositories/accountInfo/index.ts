@@ -9,12 +9,14 @@ import {
   DataResponse,
   IGetAccountsInfoParams,
   HttpClientNotFoundError,
+  ICsprBalance,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto } from '../../dto';
+import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto, CsprBalanceDto } from '../../dto';
 import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from './types';
 import { isExpired } from '../../../utils';
 import { Maybe } from '../../../typings';
+import { IGetCsprBalanceResponse } from '../tokens';
 
 export * from './types';
 
@@ -72,6 +74,36 @@ export class AccountInfoRepository implements IAccountInfoRepository {
       );
     } catch (e) {
       this._processError(e, 'getAccountsInfo');
+    }
+  }
+
+  async getAccountsBalances({
+    network,
+    accountHashes,
+  }: IGetAccountsInfoParams): Promise<Record<string, ICsprBalance>> {
+    try {
+      const resp = await this._httpProvider.post<DataResponse<IGetCsprBalanceResponse[]>>({
+        url: `${CasperWalletApiUrl[network]}/accounts?includes=delegated_balance,undelegating_balance`,
+        data: {
+          account_hashes: accountHashes,
+        },
+        headers: CSPR_API_PROXY_HEADERS,
+        errorType: 'getAccountsBalances',
+      });
+
+      return (
+        resp?.data
+          .map(acc => new CsprBalanceDto(acc))
+          .reduce<Record<string, ICsprBalance>>(
+            (acc, cur) => ({
+              ...acc,
+              [cur.accountHash]: cur,
+            }),
+            {},
+          ) ?? {}
+      );
+    } catch (e) {
+      this._processError(e, 'getAccountsBalances');
     }
   }
 

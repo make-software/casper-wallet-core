@@ -25,6 +25,9 @@ export interface ITokenWithFiatBalance extends IToken {
 }
 
 export interface ICsprBalance {
+  readonly publicKey: string;
+  readonly accountHash: string;
+
   readonly totalBalance: string;
   readonly totalDecimalBalance: string;
   readonly totalFormattedDecimalBalance: string;

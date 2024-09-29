@@ -49,7 +49,7 @@ export class TokensRepository implements ITokensRepository {
 
   async getCsprBalance({ publicKey, network }: IGetCsprBalanceParams) {
     try {
-      const resp = await this._httpProvider.get<IGetCsprBalanceResponse>({
+      const resp = await this._httpProvider.get<DataResponse<IGetCsprBalanceResponse>>({
         url: `${CasperWalletApiUrl[network]}/accounts/${publicKey}`,
         errorType: 'getCsprBalance',
         params: {
@@ -58,10 +58,10 @@ export class TokensRepository implements ITokensRepository {
         headers: CSPR_API_PROXY_HEADERS,
       });
 
-      return new CsprBalanceDto(resp);
+      return new CsprBalanceDto(resp?.data);
     } catch (e) {
       if (e instanceof HttpClientNotFoundError) {
-        return new CsprBalanceDto({ data: { balance: 0 } });
+        return new CsprBalanceDto({ balance: 0 });
       } else {
         this._processError(e, 'getCsprBalance');
       }

@@ -44,18 +44,21 @@ export class TokenDto implements IToken {
 
 export class CsprBalanceDto implements ICsprBalance {
   constructor(resp?: Partial<IGetCsprBalanceResponse>) {
-    this.liquidBalance = `${resp?.data?.balance ?? '0'}`;
+    this.accountHash = resp?.account_hash ?? '';
+    this.publicKey = resp?.public_key ?? '';
+
+    this.liquidBalance = `${resp?.balance ?? '0'}`;
     this.liquidDecimalBalance = getDecimalTokenBalance(this.liquidBalance, CSPR_DECIMALS);
     this.liquidFormattedDecimalBalance = formatTokenBalance(this.liquidBalance, CSPR_DECIMALS);
 
-    this.delegatedBalance = `${resp?.data?.delegated_balance ?? '0'}`;
+    this.delegatedBalance = `${resp?.delegated_balance ?? '0'}`;
     this.delegatedDecimalBalance = getDecimalTokenBalance(this.delegatedBalance, CSPR_DECIMALS);
     this.delegatedFormattedDecimalBalance = formatTokenBalance(
       this.delegatedBalance,
       CSPR_DECIMALS,
     );
 
-    this.undelegatingBalance = `${resp?.data?.undelegating_balance ?? '0'}`;
+    this.undelegatingBalance = `${resp?.undelegating_balance ?? '0'}`;
     this.undelegatingDecimalBalance = getDecimalTokenBalance(
       this.undelegatingBalance,
       CSPR_DECIMALS,
@@ -72,6 +75,9 @@ export class CsprBalanceDto implements ICsprBalance {
     this.totalDecimalBalance = getDecimalTokenBalance(this.totalBalance, CSPR_DECIMALS);
     this.totalFormattedDecimalBalance = formatTokenBalance(this.totalBalance, CSPR_DECIMALS);
   }
+
+  readonly publicKey: string;
+  readonly accountHash: string;
 
   readonly totalBalance: string;
   readonly totalDecimalBalance: string;

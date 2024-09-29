@@ -80,7 +80,7 @@ export const CSPR_COIN: IToken = {
   isNative: true,
 } as const;
 
-export const CSPR_BALANCE: ICsprBalance = {
+export const CSPR_BALANCE: Omit<ICsprBalance, 'accountHash' | 'publicKey'> = {
   totalBalance: '0',
   totalDecimalBalance: '0',
   totalFormattedDecimalBalance: '0',

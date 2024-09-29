@@ -1,15 +1,13 @@
 import { Network } from '../../../domain';
 
 export interface IGetCsprBalanceResponse {
-  data: {
-    balance: number;
-    delegated_balance?: number;
-    undelegating_balance?: number;
+  balance: number;
+  delegated_balance?: number;
+  undelegating_balance?: number;
 
-    public_key?: string;
-    account_hash?: string;
-    main_purse_uref?: string;
-  };
+  public_key?: string;
+  account_hash?: string;
+  main_purse_uref?: string;
 }
 
 export interface IGetCurrencyRateResponse {
