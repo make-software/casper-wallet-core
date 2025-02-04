@@ -45,7 +45,10 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
     deploy?.contract_package?.latest_version_contract_type_id ||
     deploy?.contract_package?.contract_type_id;
 
-  if (deploy?.contract_hash === AuctionManagerContractHash[network]) {
+  if (
+    deploy?.contract_package?.name === 'Auction' ||
+    deploy?.contract_hash === AuctionManagerContractHash[network]
+  ) {
     return 'AUCTION';
   } else if (deploy?.contract_hash === AssociatedKeysContractHash[network]) {
     return 'ASSOCIATED_KEYS';
@@ -66,7 +69,7 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
     contractTypeId === ContractTypeId.CustomCEP47Nft
   ) {
     return 'NFT';
-  } else if (deploy?.execution_type_id === 6) {
+  } else if (deploy?.contract_package?.name === 'Mint' || deploy?.execution_type_id === 6) {
     return 'CSPR_NATIVE';
   }
 
