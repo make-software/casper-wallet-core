@@ -6,11 +6,13 @@ export const CSPR_DECIMALS = 9;
 export const CasperLiveUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://cspr.live',
   testnet: 'https://testnet.cspr.live',
+  devnet: 'https://devnet.cspr.live',
 };
 
 export const CasperWalletApiUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://api.mainnet.casperwallet.io',
   testnet: 'https://api.testnet.casperwallet.io',
+  devnet: 'https://cspr-wallet-api-condor.dev.make.services',
 };
 
 export const OnRampApiUrl = 'https://onramp-api.cspr.click/api';
@@ -18,36 +20,43 @@ export const OnRampApiUrl = 'https://onramp-api.cspr.click/api';
 export const GrpcUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://node.cspr.cloud/rpc',
   testnet: 'https://node.testnet.cspr.cloud/rpc',
+  devnet: 'http://44.197.182.12:7777/rpc',
 };
 
 export const CasperSdkNetworkName: Record<CasperNetwork, string> = {
   mainnet: 'casper',
   testnet: 'casper-test',
+  devnet: 'dev-net',
 };
 
 export const AuctionManagerContractHash: Record<Network, string> = {
   mainnet: 'ccb576d6ce6dec84a551e48f0d0b7af89ddba44c7390b690036257a04a3ae9ea',
   testnet: '93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2',
+  devnet: '',
 };
 
 export const AuctionPoolContractHash: Record<Network, string> = {
   mainnet: '6174cf2e6f8fed1715c9a3bace9c50bfe572eecb763b0ed3f644532616452008',
   testnet: '6174cf2e6f8fed1715c9a3bace9c50bfe572eecb763b0ed3f644532616452008',
+  devnet: '',
 };
 
 export const CSPRMarketContractHash: Record<Network, string> = {
   mainnet: '31cc023b17c903a963ec60eab96a60f1fa37cb74b4b3bafc91a441e0e9d70f97',
   testnet: '154ff59b5f9feec42d3a418058d66badcb2121dc3ffb2e3cf92596bf5aafbc88',
+  devnet: '',
 };
 
 export const CSPRStudioCep47ContractHash: Record<Network, string> = {
   mainnet: 'c4e5a03066ce3c6006f562939e48f7076c77de5d46cf8fe625c41e02c5e74814',
   testnet: '998af6825d77da15485baf4bb89aeef3f1dfb4a78841d149574b0be694ce4821',
+  devnet: '',
 };
 
 export const AssociatedKeysContractHash: Record<Network, string> = {
   mainnet: 'b2ec4f982efa8643c979cb3ab42ad1a18851c2e6f91804cd3e65c079679bdc59',
   testnet: '676794cbbb35ff5642d0ae9c35302e244a7236a614d7e9ef58d0fb2cba6be3ed',
+  devnet: '',
 };
 
 export const ExecutionTypesMap: Record<number, string> = {
