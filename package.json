@@ -15,7 +15,7 @@
     "@react-native/typescript-config": "0.74.83",
     "@types/uuid": "^10.0.0",
     "apisauce": "^3.0.1",
-    "casper-js-sdk": "5.0.3-beta2",
+    "casper-js-sdk": "5.0.8-beta2",
     "date-fns": "^2.30.0",
     "decimal.js": "^10.4.3",
     "lru-cache": "10.4.3",

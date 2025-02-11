@@ -768,7 +768,7 @@ __metadata:
     "@react-native/typescript-config": "npm:0.74.83"
     "@types/uuid": "npm:^10.0.0"
     apisauce: "npm:^3.0.1"
-    casper-js-sdk: "npm:5.0.3-beta2"
+    casper-js-sdk: "npm:5.0.8-beta2"
     date-fns: "npm:^2.30.0"
     decimal.js: "npm:^10.4.3"
     eslint: "npm:8.22.0"
@@ -1122,9 +1122,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"casper-js-sdk@npm:5.0.3-beta2":
-  version: 5.0.3-beta2
-  resolution: "casper-js-sdk@npm:5.0.3-beta2"
+"casper-js-sdk@npm:5.0.8-beta2":
+  version: 5.0.8-beta2
+  resolution: "casper-js-sdk@npm:5.0.8-beta2"
   dependencies:
     "@ethersproject/bignumber": "npm:^5.0.8"
     "@ethersproject/bytes": "npm:^5.0.5"
@@ -1147,7 +1147,7 @@ __metadata:
     reflect-metadata: "npm:^0.1.13"
     ts-results: "npm:@casperlabs/ts-results@^3.3.4"
     typedjson: "npm:^1.6.0-rc2"
-  checksum: 10c0/e9be6d5029337d18f3ea8dc6517358a596df9d2d79962eeb9a6a603964d007e8635cf92da6b923bf168f1af991b17af244e76a7a86566d1fa8fe01b1ae9d8621
+  checksum: 10c0/6c56fb88cf19010d063098a5d9d2e550b89a0ebc693185a82bc8b89763eeaf42df898bb5ca474b487cdce136386a19360b9e853d4250dcf80d67ba9564220316
   languageName: node
   linkType: hard
 
