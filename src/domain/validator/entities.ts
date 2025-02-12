@@ -16,4 +16,8 @@ export interface IValidator extends IEntity {
 
   readonly svgLogo?: string;
   readonly imgLogo?: string;
+
+  readonly minAmount: string;
+  readonly maxAmount: string;
+  readonly reservedSlots: number;
 }
