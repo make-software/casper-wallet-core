@@ -123,13 +123,16 @@ export class ValidatorsRepository implements IValidatorsRepository {
     return auctionInfo.auctionState.bids
       .map(bid => bid.bid.validator)
       .filter(isNotEmpty<ValidatorBid>)
-      .reduce<Record<string, ValidatorBid>>(
-        (acc, validator) => ({
-          ...acc,
-          [validator.validatorPublicKey.toHex()]: validator,
-        }),
-        {},
-      );
+      .reduce<Record<string, ValidatorBid>>((acc, validator) => {
+        if (validator.validatorPublicKey) {
+          return {
+            ...acc,
+            [validator.validatorPublicKey.toHex()]: validator,
+          };
+        }
+
+        return acc;
+      }, {});
   }
 
   private _processError(e: unknown, type: keyof IValidatorsRepository): never {
