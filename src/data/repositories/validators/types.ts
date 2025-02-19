@@ -15,6 +15,9 @@ export interface IApiValidator {
   rank: number;
   average_performance?: IValidatorAveragePerformance;
   account_info?: IValidatorAccountInfo;
+  maximum_delegation_amount?: string; // '1000000000000000000';
+  minimum_delegation_amount?: string; // '500000000000';
+  reserved_slots?: number;
 }
 
 export interface IValidatorAveragePerformance {
@@ -122,6 +125,9 @@ export interface IApiBidder {
   self_share: string;
   self_stake: number;
   total_stake: number;
+  maximum_delegation_amount?: string; // '1000000000000000000';
+  minimum_delegation_amount?: string; // '500000000000';
+  reserved_slots?: number;
 }
 
 export interface IAuctionMetricsResponse {

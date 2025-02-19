@@ -10,14 +10,11 @@ import { Maybe } from '../../typings';
 import {
   DEFAULT_MAXIMUM_DELEGATION_AMOUNT,
   DEFAULT_MINIMUM_DELEGATION_AMOUNT,
-  ValidatorBid,
 } from 'casper-js-sdk';
+import Decimal from 'decimal.js';
 
 export class ValidatorDto implements IValidator {
-  constructor(
-    apiValidator?: Partial<IApiValidator>,
-    validatorBids: Record<string, ValidatorBid> = {},
-  ) {
+  constructor(apiValidator?: Partial<IApiValidator>) {
     this.id = apiValidator?.public_key ?? getUniqueId();
     this.publicKey = apiValidator?.public_key ?? '';
     this.name = apiValidator?.account_info?.info?.owner?.name ?? formatAddress(this.publicKey);
@@ -30,11 +27,9 @@ export class ValidatorDto implements IValidator {
       apiValidator?.account_info?.info?.owner?.branding?.logo?.png_256 ??
       apiValidator?.account_info?.info?.owner?.branding?.logo?.png_1024;
 
-    const validatorBid: ValidatorBid | undefined = validatorBids[this.publicKey];
-
-    this.minAmount = getMinAmount(validatorBid);
-    this.maxAmount = getMaxAmount(validatorBid);
-    this.reservedSlots = validatorBid?.reservedSlots ?? 0;
+    this.minAmount = getMinAmount(apiValidator?.minimum_delegation_amount);
+    this.maxAmount = getMaxAmount(apiValidator?.maximum_delegation_amount);
+    this.reservedSlots = apiValidator?.reserved_slots ?? 0;
   }
 
   id: string;
@@ -55,10 +50,7 @@ export class ValidatorDto implements IValidator {
 }
 
 export class ValidatorWithStateDto implements IValidator {
-  constructor(
-    apiValidator?: Partial<IApiValidatorWithStake>,
-    validatorBids: Record<string, ValidatorBid> = {},
-  ) {
+  constructor(apiValidator?: Partial<IApiValidatorWithStake>) {
     this.id = apiValidator?.bidder?.public_key ?? getUniqueId();
     this.publicKey = apiValidator?.bidder?.public_key ?? '';
     this.name =
@@ -75,11 +67,9 @@ export class ValidatorWithStateDto implements IValidator {
       apiValidator?.validator_account_info?.info?.owner?.branding?.logo?.png_256 ??
       apiValidator?.validator_account_info?.info?.owner?.branding?.logo?.png_1024;
 
-    const validatorBid: ValidatorBid | undefined = validatorBids[this.publicKey];
-
-    this.minAmount = getMinAmount(validatorBid);
-    this.maxAmount = getMaxAmount(validatorBid);
-    this.reservedSlots = validatorBid?.reservedSlots ?? 0;
+    this.minAmount = getMinAmount(apiValidator?.bidder?.minimum_delegation_amount);
+    this.maxAmount = getMaxAmount(apiValidator?.bidder?.maximum_delegation_amount);
+    this.reservedSlots = apiValidator?.bidder?.reserved_slots ?? 0;
   }
 
   id: string;
@@ -99,23 +89,20 @@ export class ValidatorWithStateDto implements IValidator {
   reservedSlots: number;
 }
 
-function getMinAmount(validatorBid?: ValidatorBid) {
-  if (!validatorBid) {
+function getMinAmount(minAmount?: string) {
+  if (!minAmount) {
     return DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString();
   }
 
-  return validatorBid?.minimumDelegationAmount >= DEFAULT_MINIMUM_DELEGATION_AMOUNT
-    ? validatorBid?.minimumDelegationAmount.toString()
+  return minAmount && new Decimal(minAmount).gte(DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString())
+    ? minAmount
     : DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString();
 }
 
-function getMaxAmount(validatorBid?: ValidatorBid) {
-  if (!validatorBid) {
+function getMaxAmount(maxAmount?: string) {
+  if (!maxAmount) {
     return DEFAULT_MAXIMUM_DELEGATION_AMOUNT.toString();
   }
 
-  return (
-    validatorBid?.maximumDelegationAmount?.toString() ??
-    DEFAULT_MAXIMUM_DELEGATION_AMOUNT.toString()
-  );
+  return maxAmount;
 }

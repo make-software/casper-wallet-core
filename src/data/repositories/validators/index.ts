@@ -5,21 +5,17 @@ import {
   DataResponse,
   DEFAULT_PAGE_LIMIT,
   EMPTY_PAGINATED_RESPONSE,
-  GrpcUrl,
   IGetGetCurrentEraIdParams,
   IGetValidatorsParams,
   IGetValidatorsWithStakesParams,
   isValidatorsError,
   IValidator,
   IValidatorsRepository,
-  Network,
   ValidatorsError,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
 import { ValidatorDto, ValidatorWithStateDto } from '../../dto';
 import { IApiValidator, IApiValidatorWithStake, IAuctionMetricsResponse } from './types';
-import { HttpHandler, RpcClient, ValidatorBid } from 'casper-js-sdk';
-import { isNotEmpty } from '../../../utils';
 
 export * from './types';
 
@@ -52,13 +48,11 @@ export class ValidatorsRepository implements IValidatorsRepository {
         return EMPTY_PAGINATED_RESPONSE;
       }
 
-      const validatorBidsMap = await this._getValidatorBids(network);
-
       return {
         itemCount: resp.item_count,
         pageCount: resp.page_count,
         pages: resp.pages,
-        data: resp.data.map(apiValidator => new ValidatorDto(apiValidator, validatorBidsMap)),
+        data: resp.data.map(apiValidator => new ValidatorDto(apiValidator)),
       };
     } catch (e) {
       this._processError(e, 'getValidators');
@@ -85,10 +79,8 @@ export class ValidatorsRepository implements IValidatorsRepository {
         errorType: 'getValidatorsWithStakes',
       });
 
-      const validatorBidsMap = await this._getValidatorBids(network);
-
       return (validatorsList?.data ?? []).map(apiValidator => {
-        return new ValidatorWithStateDto(apiValidator, validatorBidsMap);
+        return new ValidatorWithStateDto(apiValidator);
       });
     } catch (e) {
       this._processError(e, 'getValidatorsWithStakes');
@@ -111,28 +103,6 @@ export class ValidatorsRepository implements IValidatorsRepository {
     } catch (e) {
       this._processError(e, 'getCurrentEraId');
     }
-  }
-
-  private async _getValidatorBids(network: Network): Promise<Record<string, ValidatorBid>> {
-    const handler = new HttpHandler(GrpcUrl[network], 'fetch');
-    handler.setCustomHeaders(CSPR_API_PROXY_HEADERS);
-    const rpcClient = new RpcClient(handler);
-
-    const auctionInfo = await rpcClient.getLatestAuctionInfo();
-
-    return auctionInfo.auctionState.bids
-      .map(bid => bid.bid.validator)
-      .filter(isNotEmpty<ValidatorBid>)
-      .reduce<Record<string, ValidatorBid>>((acc, validator) => {
-        if (validator.validatorPublicKey) {
-          return {
-            ...acc,
-            [validator.validatorPublicKey.toHex()]: validator,
-          };
-        }
-
-        return acc;
-      }, {});
   }
 
   private _processError(e: unknown, type: keyof IValidatorsRepository): never {
