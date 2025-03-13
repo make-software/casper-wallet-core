@@ -17,5 +17,9 @@ export interface IAccountInfoRepository {
     csprName: string,
     withProxyHeader?: boolean,
   ): Promise<Maybe<IAccountInfo>>;
-  getAccountsBalances(params: IGetAccountsInfoParams): Promise<Record<string, ICsprBalance>>;
+  getAccountsBalances(params: IGetAccountsBalancesParams): Promise<Record<string, ICsprBalance>>;
+}
+
+export interface IGetAccountsBalancesParams extends IGetAccountsInfoParams {
+  withDelegationBalances?: boolean;
 }

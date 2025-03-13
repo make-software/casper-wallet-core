@@ -10,6 +10,7 @@ import {
   IGetAccountsInfoParams,
   HttpClientNotFoundError,
   ICsprBalance,
+  IGetAccountsBalancesParams,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
 import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto, CsprBalanceDto } from '../../dto';
@@ -82,10 +83,11 @@ export class AccountInfoRepository implements IAccountInfoRepository {
     network,
     accountHashes,
     withProxyHeader = true,
-  }: IGetAccountsInfoParams): Promise<Record<string, ICsprBalance>> {
+    withDelegationBalances = false,
+  }: IGetAccountsBalancesParams): Promise<Record<string, ICsprBalance>> {
     try {
       const resp = await this._httpProvider.post<DataResponse<IGetCsprBalanceResponse[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts?includes=delegated_balance,undelegating_balance`,
+        url: `${CasperWalletApiUrl[network]}/accounts${withDelegationBalances ? '?includes=delegated_balance,undelegating_balance' : ''}`,
         data: {
           account_hashes: accountHashes,
         },
