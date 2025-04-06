@@ -5,6 +5,7 @@ import {
   INft,
   INftMetadata,
   NftStandard,
+  NftTokenIdType,
   RETINA_SCALE,
 } from '../../domain';
 import { IApiNft, ImageProxyUrlProps, NFtMetadataEntry } from '../repositories';
@@ -16,6 +17,8 @@ export class NftDto implements INft {
       ? `${apiNft?.contract_package_hash}${apiNft?.token_id}`
       : getUniqueId();
     this.tokenId = apiNft?.token_id ?? '';
+    this.tokenIdType =
+      Number(apiNft?.contract_package?.metadata?.identifier_mode) === 1 ? 'hash' : 'uint';
     this.trackingId = apiNft?.tracking_id ?? '';
     this.standard = mapNftStandard[apiNft?.token_standard_id ?? 1];
     this.contractPackageHash = apiNft?.contract_package_hash ?? '';
@@ -33,6 +36,7 @@ export class NftDto implements INft {
 
   id: string;
   tokenId: string;
+  tokenIdType: NftTokenIdType;
   trackingId: string;
   standard: NftStandard;
   contractPackageHash: string;

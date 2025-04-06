@@ -3,6 +3,8 @@ import { Maybe } from '../../typings';
 
 export interface INft extends IEntity {
   readonly tokenId: string;
+  /** token_id can be uint64 or hash - depends on identifier_mode on contract_hash */
+  readonly tokenIdType: NftTokenIdType;
   readonly trackingId: string;
   readonly standard: NftStandard;
 
@@ -21,6 +23,7 @@ export interface INft extends IEntity {
 export type NftStandard = 'CEP47' | 'CEP78';
 /** audio/*, video/*, image/*, unknown */
 export type NftContentType = string | 'unknown';
+export type NftTokenIdType = 'uint' | 'hash';
 
 export interface INftMetadata {
   name?: string;
