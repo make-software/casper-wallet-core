@@ -517,24 +517,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/bn.js@npm:*":
-  version: 5.1.6
-  resolution: "@types/bn.js@npm:5.1.6"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10c0/073d383d87afea513a8183ce34af7bc0a7a798d057c7ae651982b7f30dd7d93f33247323bca3ba39f1f6af146b564aff547b15467bdf9fc922796c17e8426bf6
-  languageName: node
-  linkType: hard
-
-"@types/elliptic@npm:^6.4.9":
-  version: 6.4.18
-  resolution: "@types/elliptic@npm:6.4.18"
-  dependencies:
-    "@types/bn.js": "npm:*"
-  checksum: 10c0/0c438130b9a16b6ff566f47319dbac39979172ead7748cfbe8a782232506c2e64b03c8c3cfcc221f727ecc7036f5749623567cf66946b0478f217d5b5930c22b
-  languageName: node
-  linkType: hard
-
 "@types/json-schema@npm:^7.0.12, @types/json-schema@npm:^7.0.9":
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
@@ -767,8 +749,8 @@ __metadata:
     "@react-native/eslint-config": "npm:0.74.83"
     "@react-native/typescript-config": "npm:0.74.83"
     "@types/uuid": "npm:^10.0.0"
-    apisauce: "npm:^3.0.1"
-    casper-js-sdk: "npm:5.0.10-beta2"
+    apisauce: "npm:^3.1.1"
+    casper-js-sdk: "npm:5.0.1"
     date-fns: "npm:^2.30.0"
     decimal.js: "npm:^10.4.3"
     eslint: "npm:8.22.0"
@@ -861,12 +843,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"apisauce@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "apisauce@npm:3.0.1"
+"apisauce@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "apisauce@npm:3.1.1"
   dependencies:
-    axios: "npm:^1.4.0"
-  checksum: 10c0/7ed882d09b68f83fab47fca146a2c91a198398233844050818e914bcb92e1783078de55dd20320b62f8484e5ce6669c3487d03c5d7e79ac44bf82ac285ec632f
+    axios: "npm:^1.7.7"
+  checksum: 10c0/a88498049588e803042b1b5e2ffe3670aa61e6381b2c6a88afd4f47b1e50e1bd574ba9719c6891c92cecff207812387f861e4115666600bd8e09e6d3bbab231b
   languageName: node
   linkType: hard
 
@@ -975,7 +957,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"asn1.js@npm:^5.0.1":
+"asn1.js@npm:^5.4.1":
   version: 5.4.1
   resolution: "asn1.js@npm:5.4.1"
   dependencies:
@@ -1003,25 +985,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.4.0":
-  version: 1.7.4
-  resolution: "axios@npm:1.7.4"
+"axios@npm:^1.7.7, axios@npm:^1.8.4":
+  version: 1.8.4
+  resolution: "axios@npm:1.8.4"
   dependencies:
     follow-redirects: "npm:^1.15.6"
     form-data: "npm:^4.0.0"
     proxy-from-env: "npm:^1.1.0"
-  checksum: 10c0/5ea1a93140ca1d49db25ef8e1bd8cfc59da6f9220159a944168860ad15a2743ea21c5df2967795acb15cbe81362f5b157fdebbea39d53117ca27658bab9f7f17
-  languageName: node
-  linkType: hard
-
-"axios@npm:^1.7.9":
-  version: 1.7.9
-  resolution: "axios@npm:1.7.9"
-  dependencies:
-    follow-redirects: "npm:^1.15.6"
-    form-data: "npm:^4.0.0"
-    proxy-from-env: "npm:^1.1.0"
-  checksum: 10c0/b7a41e24b59fee5f0f26c1fc844b45b17442832eb3a0fb42dd4f1430eb4abc571fe168e67913e8a1d91c993232bd1d1ab03e20e4d1fee8c6147649b576fc1b0b
+  checksum: 10c0/450993c2ba975ffccaf0d480b68839a3b2435a5469a71fa2fb0b8a55cdb2c2ae47e609360b9c1e2b2534b73dfd69e2733a1cf9f8215bee0bcd729b72f801b0ce
   languageName: node
   linkType: hard
 
@@ -1032,7 +1003,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bn.js@npm:^4.0.0, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9":
+"bn.js@npm:^4.0.0, bn.js@npm:^4.11.9":
   version: 4.12.1
   resolution: "bn.js@npm:4.12.1"
   checksum: 10c0/b7f37a0cd5e4b79142b6f4292d518b416be34ae55d6dd6b0f66f96550c8083a50ffbbf8bda8d0ab471158cb81aa74ea4ee58fe33c7802e4a30b13810e98df116
@@ -1122,9 +1093,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"casper-js-sdk@npm:5.0.10-beta2":
-  version: 5.0.10-beta2
-  resolution: "casper-js-sdk@npm:5.0.10-beta2"
+"casper-js-sdk@npm:5.0.1":
+  version: 5.0.1
+  resolution: "casper-js-sdk@npm:5.0.1"
   dependencies:
     "@ethersproject/bignumber": "npm:^5.0.8"
     "@ethersproject/bytes": "npm:^5.0.5"
@@ -1137,17 +1108,19 @@ __metadata:
     "@scure/bip32": "npm:^1.1.5"
     "@scure/bip39": "npm:^1.2.0"
     "@types/ws": "npm:^8.2.2"
-    axios: "npm:^1.7.9"
+    asn1.js: "npm:^5.4.1"
+    axios: "npm:^1.8.4"
+    bn.js: "npm:^5.2.1"
+    elliptic: "npm:6.6.1"
     eventsource: "npm:^2.0.2"
     glob: "npm:^7.1.6"
     humanize-duration: "npm:^3.24.0"
-    key-encoder: "npm:^2.0.3"
     lodash: "npm:^4.17.21"
     node-fetch: "npm:2.6.13"
     reflect-metadata: "npm:^0.1.13"
     ts-results: "npm:@casperlabs/ts-results@^3.3.4"
     typedjson: "npm:^1.6.0-rc2"
-  checksum: 10c0/e7632bc49e13b470e98bc15520693c3c302b58514f5d578d1b297b9ac6a9670ad536a5d3205b3e09b6985b95e153e8485e60124564d6c11fc46d8b4a6e859fa5
+  checksum: 10c0/e014a90746c94ef03c1cd155534d6ff3294ef246e9bc7b8195dff30335eabaf97097696f44a63cdc1b7a83fee24df03e5622bd23d65f35313e55b10af6fdc96b
   languageName: node
   linkType: hard
 
@@ -1428,7 +1401,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"elliptic@npm:^6.4.1":
+"elliptic@npm:6.6.1":
   version: 6.6.1
   resolution: "elliptic@npm:6.6.1"
   dependencies:
@@ -2727,18 +2700,6 @@ __metadata:
     object.assign: "npm:^4.1.4"
     object.values: "npm:^1.1.6"
   checksum: 10c0/a32679e9cb55469cb6d8bbc863f7d631b2c98b7fc7bf172629261751a6e7bc8da6ae374ddb74d5fbd8b06cf0eb4572287b259813d92b36e384024ed35e4c13e1
-  languageName: node
-  linkType: hard
-
-"key-encoder@npm:^2.0.3":
-  version: 2.0.3
-  resolution: "key-encoder@npm:2.0.3"
-  dependencies:
-    "@types/elliptic": "npm:^6.4.9"
-    asn1.js: "npm:^5.0.1"
-    bn.js: "npm:^4.11.8"
-    elliptic: "npm:^6.4.1"
-  checksum: 10c0/0bc92980211beda41d4be7847c115e7a254367b2b4237c46eec2d52a28b28bf2b9a1e4ad812bee965b5f401569f04b1a2d84bdf95463fa2ae7def79537862237
   languageName: node
   linkType: hard
 
