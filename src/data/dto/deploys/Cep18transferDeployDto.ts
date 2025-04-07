@@ -66,7 +66,7 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.errorMessage = data?.deploy?.error_message ?? null;
     this.timestamp = data?.timestamp ?? '';
 
-    this.cost = data?.deploy?.cost ?? '0';
+    this.cost = data?.deploy?.consumed_gas ?? '0';
     this.formattedCost = formatTokenBalance(this.cost, CSPR_COIN.decimals);
     this.fiatCost = getCsprFiatAmount(this.cost, data?.deploy?.rate);
     this.paymentAmount = data?.deploy?.payment_amount ?? '0';

@@ -132,6 +132,7 @@ export interface ExtendedCloudDeploy {
   contract_hash: string | null;
   contract_package_hash: string | null;
   cost: string;
+  consumed_gas: string;
   deploy_hash: string;
   error_message: string | null;
   payment_amount: string | null;
