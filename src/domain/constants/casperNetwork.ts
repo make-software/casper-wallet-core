@@ -1,5 +1,6 @@
 import { CasperNetwork, Network } from '../common';
 import { ICsprBalance, IToken, NftStandard } from '../../domain';
+import { IEnv } from '../env';
 
 export const CSPR_DECIMALS = 9;
 
@@ -15,6 +16,11 @@ export const CasperWalletApiUrl: Record<CasperNetwork, string> = {
   testnet: 'https://api.testnet.casperwallet.io',
   devnet: 'https://cspr-wallet-api-condor.dev.make.services',
   integration: 'https://api.integration.casperwallet.io',
+};
+
+export const CasperWalletApiEndpoints: Record<IEnv, string> = {
+  PRODUCTION: 'https://api.casperwallet.io',
+  STAGING: 'https://cspr-wallet-api.stg.make.services',
 };
 
 export const OnRampApiUrl = 'https://onramp-api.cspr.click/api';

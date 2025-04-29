@@ -6,6 +6,7 @@ import {
   OnRampErrorType,
   TokensErrorType,
   ValidatorsErrorType,
+  AppEventsErrorType,
 } from '../../../domain';
 
 export interface IHttpDataProvider {
@@ -29,7 +30,8 @@ export type IHttpErrorType =
   | NftsErrorType
   | ValidatorsErrorType
   | OnRampErrorType
-  | AccountInfoErrorType;
+  | AccountInfoErrorType
+  | AppEventsErrorType;
 
 export interface IHttpMethodBaseParams {
   url: string;
