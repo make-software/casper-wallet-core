@@ -20,13 +20,15 @@ export class AppMarketingEventDto implements IAppMarketingEvent {
     this.id = apiEvent?.id ?? 0;
     this.name = apiEvent?.name ?? '';
     this.description = apiEvent?.description ?? '';
-    this.endAt = apiEvent?.end_at ?? '';
+    this.endAt = apiEvent?.end_at ?? null;
     this.startAt = apiEvent?.start_at ?? '';
+    this.url = apiEvent?.url ?? '';
   }
 
   readonly id: number;
   readonly name: string;
   readonly description: string;
-  readonly endAt: string;
+  readonly endAt: string | null;
   readonly startAt: string;
+  readonly url: string;
 }

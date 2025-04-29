@@ -1,17 +1,22 @@
 import {
   AppEventsError,
+  AppEventsErrorType,
   CasperWalletApiEndpoints,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
   IAppEventsRepository,
   IAppMarketingEvent,
   IAppReleaseEvent,
+  IGetActiveMarketingEventParams,
   IGetMarketingEventsParams,
   IGetReleaseUpdatesParams,
   IHttpDataProvider,
+  isAppEventsError,
 } from '../../../domain';
-import { IMarketingEventApiResponse, IReleaseEventApiResponse } from './types.ts';
+import { IMarketingEventApiResponse, IReleaseEventApiResponse } from './types';
 import { AppMarketingEventDto, AppReleaseEventDto } from '../../dto';
+import { Maybe } from 'src/typings';
+import { isAppEventActive } from '../../../utils';
 
 export * from './types';
 
@@ -35,7 +40,7 @@ export class AppEventsRepository implements IAppEventsRepository {
 
       return response?.data?.map(event => new AppReleaseEventDto(event)) ?? [];
     } catch (e) {
-      throw new AppEventsError(e, 'getReleaseEvents');
+      this._processError(e, 'getReleaseEvents');
     }
   }
 
@@ -52,7 +57,33 @@ export class AppEventsRepository implements IAppEventsRepository {
 
       return response?.data?.map(evt => new AppMarketingEventDto(evt)) ?? [];
     } catch (e) {
-      throw new AppEventsError(e, 'getMarketingEvents');
+      this._processError(e, 'getMarketingEvents');
     }
+  }
+
+  async getActiveMarketingEvent({
+    env,
+    withProxyHeader,
+    ignoreEventIds,
+  }: IGetActiveMarketingEventParams): Promise<Maybe<IAppMarketingEvent>> {
+    try {
+      const events = await this.getMarketingEvents({ env, withProxyHeader });
+
+      return (
+        events
+          .filter(evt => isAppEventActive(evt))
+          .filter(evt => !ignoreEventIds.includes(evt.id))?.[0] ?? null
+      );
+    } catch (e) {
+      this._processError(e, 'getActiveMarketingEvent');
+    }
+  }
+
+  private _processError(e: unknown, type: AppEventsErrorType): never {
+    if (isAppEventsError(e)) {
+      throw e;
+    }
+
+    throw new AppEventsError(e, type);
   }
 }

@@ -1,5 +1,6 @@
-import { formatDistanceToNowStrict, isAfter } from 'date-fns';
+import { formatDistanceToNowStrict, isAfter, isBefore } from 'date-fns';
 import en from 'date-fns/locale/en-US';
+import { IAppMarketingEvent } from '../domain';
 
 /** @param {string} timestamp - 2023-05-24T20:43:50.000Z
  * @param {string} locale
@@ -72,4 +73,19 @@ export const isExpired = (date?: string) => {
   }
 
   return isAfter(new Date(), new Date(date));
+};
+
+export const isAppEventActive = (evt: IAppMarketingEvent): boolean => {
+  try {
+    const now = new Date();
+    const startDate = new Date(evt.startAt);
+
+    if (evt.endAt) {
+      return isAfter(now, startDate) && isBefore(now, new Date(evt.endAt));
+    }
+
+    return isAfter(now, startDate);
+  } catch {
+    return false;
+  }
 };
