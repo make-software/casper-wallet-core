@@ -15,7 +15,7 @@ import {
 } from '../../../domain';
 import { IMarketingEventApiResponse, IReleaseEventApiResponse } from './types';
 import { AppMarketingEventDto, AppReleaseEventDto } from '../../dto';
-import { Maybe } from 'src/typings';
+import { Maybe } from '../../../typings';
 import { isAppEventActive } from '../../../utils';
 
 export * from './types';
