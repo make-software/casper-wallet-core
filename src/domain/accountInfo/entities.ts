@@ -7,4 +7,5 @@ export interface IAccountInfo extends IEntity {
   name: string;
   brandingLogo: Maybe<string>;
   csprName: Maybe<string>;
+  explorerLink: Maybe<string>;
 }

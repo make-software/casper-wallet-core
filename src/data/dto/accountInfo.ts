@@ -1,9 +1,10 @@
-import { IAccountInfo } from '../../domain';
+import { CasperNetwork, IAccountInfo } from '../../domain';
 import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from '../repositories';
 import { Maybe } from '../../typings';
+import { getBlockExplorerAccountUrl } from '../../utils';
 
 export class AccountsInfoDto implements IAccountInfo {
-  constructor(result?: Partial<IGetAccountsInfoResponse>) {
+  constructor(network: CasperNetwork, result?: Partial<IGetAccountsInfoResponse>) {
     this.publicKey = result?.public_key ?? '';
     this.id = this.publicKey;
     this.accountHash = result?.account_hash ?? '';
@@ -17,6 +18,7 @@ export class AccountsInfoDto implements IAccountInfo {
       result?.centralized_account_info?.avatar_url ??
       null;
     this.csprName = result?.cspr_name ?? null;
+    this.explorerLink = getBlockExplorerAccountUrl(network, this.publicKey || this.accountHash);
   }
 
   readonly publicKey: string;
@@ -25,10 +27,11 @@ export class AccountsInfoDto implements IAccountInfo {
   readonly brandingLogo: Maybe<string>;
   readonly id: string;
   readonly csprName: Maybe<string>;
+  readonly explorerLink: Maybe<string>;
 }
 
 export class AccountsInfoResolutionFromCsprNameDto implements IAccountInfo {
-  constructor(result?: Partial<ICloudResolveFromCsprNameResponse>) {
+  constructor(network: CasperNetwork, result?: Partial<ICloudResolveFromCsprNameResponse>) {
     this.publicKey = result?.resolved_public_key ?? '';
     this.id = this.publicKey;
     this.accountHash = result?.resolved_hash ?? '';
@@ -42,6 +45,7 @@ export class AccountsInfoResolutionFromCsprNameDto implements IAccountInfo {
       result?.centralized_account_info?.avatar_url ??
       null;
     this.csprName = result?.name ?? null;
+    this.explorerLink = getBlockExplorerAccountUrl(network, this.publicKey || this.accountHash);
   }
 
   readonly publicKey: string;
@@ -50,4 +54,5 @@ export class AccountsInfoResolutionFromCsprNameDto implements IAccountInfo {
   readonly brandingLogo: Maybe<string>;
   readonly id: string;
   readonly csprName: Maybe<string>;
+  readonly explorerLink: Maybe<string>;
 }

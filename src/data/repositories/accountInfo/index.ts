@@ -54,7 +54,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
       const remoteAccountsInfo =
         resp?.data
-          .map(acc => new AccountsInfoDto(acc))
+          .map(acc => new AccountsInfoDto(network, acc))
           .reduce<Record<string, IAccountInfo>>(
             (acc, cur) => ({
               ...acc,
@@ -127,7 +127,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
       return isExpired(resp?.data?.expires_at)
         ? null
-        : new AccountsInfoResolutionFromCsprNameDto(resp?.data);
+        : new AccountsInfoResolutionFromCsprNameDto('testnet', resp?.data); // TODO
     } catch (e) {
       if (e instanceof HttpClientNotFoundError) {
         return null;
