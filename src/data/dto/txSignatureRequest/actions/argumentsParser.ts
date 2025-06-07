@@ -25,7 +25,7 @@ function parseArg(
   switch (type) {
     case TypeID.Bool:
     case TypeID.String:
-      return [key, parsePrefixedStringValue(arg.toString(), chainName)];
+      return [key, parsePrefixedStringValue(arg.toString(), chainName, key)];
     case TypeID.Unit:
       return [key, { type: 'string', value: 'CLValue Unit' }];
     case TypeID.I32:
@@ -35,11 +35,22 @@ function parseArg(
     case TypeID.U64:
     case TypeID.U128:
     case TypeID.U256:
-    case TypeID.U512:
-      return [key, { type: 'number', value: arg.toString() }];
+    case TypeID.U512: {
+      const numStr = arg.toString();
+
+      if (isUnixTimestamp(numStr, key)) {
+        const isoDate = dateFromUnixTimestamp(numStr);
+
+        return isoDate
+          ? [key, { type: 'timestamp', value: isoDate }]
+          : [key, { type: 'number', value: numStr }];
+      }
+
+      return [key, { type: 'number', value: numStr }];
+    }
 
     case TypeID.URef: {
-      return [key, parsePrefixedStringValue(arg.uref?.toPrefixedString() ?? '', chainName)];
+      return [key, parsePrefixedStringValue(arg.uref?.toPrefixedString() ?? '', chainName, key)];
     }
 
     case TypeID.Key: {
@@ -51,16 +62,16 @@ function parseArg(
 
         return [
           key,
-          parsePrefixedStringValue(keyArg.account.toPrefixedString(), chainName, accountInfo),
+          parsePrefixedStringValue(keyArg.account.toPrefixedString(), chainName, key, accountInfo),
         ];
       }
 
       if (keyArg?.uRef) {
-        return [key, parsePrefixedStringValue(keyArg.uRef.toPrefixedString(), chainName)];
+        return [key, parsePrefixedStringValue(keyArg.uRef.toPrefixedString(), chainName, key)];
       }
 
       if (keyArg?.hash) {
-        return [key, parsePrefixedStringValue(keyArg.hash.toHex(), chainName)];
+        return [key, parsePrefixedStringValue(keyArg.hash.toHex(), chainName, key)];
       }
 
       return [key, { type: 'hash', value: keyArg?.toJSON() ?? '' }];
@@ -240,6 +251,7 @@ function parseArg(
 function parsePrefixedStringValue(
   val: string,
   chainName: string,
+  key: string,
   accountInfo?: IAccountInfo,
 ): ITxSignatureRequestArg {
   try {
@@ -263,6 +275,10 @@ function parsePrefixedStringValue(
       const link = getBlockExplorerHashUrl(chainName, hash.toHex());
 
       return { type: 'hash', value: hash.toHex(), ...(link ? { link } : {}) };
+    } else if (isUnixTimestamp(val, key)) {
+      const isoDate = dateFromUnixTimestamp(val);
+
+      return isoDate ? { type: 'timestamp', value: isoDate } : { type: 'string', value: val };
     }
 
     return { type: 'string', value: val };
@@ -273,4 +289,47 @@ function parsePrefixedStringValue(
 
 function isValidHashArg(val: string): boolean {
   return /^(hash-)?[a-fA-F0-9]{64}$/.test(val);
+}
+
+function isUnixTimestamp(str: string, key: string): boolean {
+  const possibleTimestampKeys = ['deadline', 'timestamp', 'time_to_live', 'expiration'];
+
+  if (!possibleTimestampKeys.includes(key)) {
+    return false;
+  }
+
+  if (!/^\d+$/.test(str)) {
+    return false;
+  }
+
+  const num = Number(str);
+
+  const maxDate = new Date('2060-12-31T23:59:59Z');
+  const maxSeconds = Math.floor(maxDate.getTime() / 1000);
+  const maxMillis = maxDate.getTime();
+
+  if (str.length === 10) {
+    return num >= 0 && num <= maxSeconds;
+  }
+
+  if (str.length === 13) {
+    return num >= 0 && num <= maxMillis;
+  }
+
+  return false;
+}
+
+/** @return ISO string */
+function dateFromUnixTimestamp(str: string): string | null {
+  if (!/^\d+$/.test(str)) {
+    return null;
+  }
+
+  if (str.length === 10) {
+    return new Date(Number(str) * 1000).toISOString();
+  } else if (str.length === 13) {
+    return new Date(Number(str)).toISOString();
+  }
+
+  return null;
 }

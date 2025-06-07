@@ -203,6 +203,7 @@ export type ITxSignatureRequestArgType =
   | 'hash'
   | 'number'
   | 'string'
+  | 'timestamp'
   | 'list'
   | 'map'
   | 'singleInner'
