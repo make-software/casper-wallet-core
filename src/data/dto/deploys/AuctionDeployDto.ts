@@ -6,17 +6,13 @@ import {
   IAuctionDeploy,
   Network,
 } from '../../../domain';
-import {
-  deriveKeyType,
-  getAccountInfoFromMap,
-  getCsprFiatAmount,
-  getDeployAmount,
-  getEntryPoint,
-} from './common';
+import { getDeployAmount, getEntryPoint } from './common';
+import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../utils';
 import { DeployDto } from './DeployDto';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
+import { getCsprFiatAmount } from '../common';
 
 export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
   constructor(

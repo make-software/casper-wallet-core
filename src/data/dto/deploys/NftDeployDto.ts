@@ -1,6 +1,5 @@
 import {
   derivePublicKeyFromNftActionResults,
-  getAccountInfoFromMap,
   getCollectionHashFormDeploy,
   getEntryPoint,
   getNftTokenIdsFromArguments,
@@ -18,6 +17,7 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
+import { getAccountInfoFromMap } from '../common';
 
 export class NftDeployDto extends DeployDto implements INftDeploy {
   constructor(

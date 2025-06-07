@@ -14,8 +14,9 @@ import {
   ITransferActionsResult,
   NFTEntryPointType,
 } from '../../../domain';
-import { getAccountInfoFromMap, getCsprFiatAmount } from './common';
+import { getAccountInfoFromMap } from '../common';
 import { ExtendedCloudDeploy } from '../../repositories';
+import { getCsprFiatAmount } from '../common';
 
 const mapCep18EntryPointIdToName: Record<number, CEP18EntryPointType> = {
   1: 'mint',

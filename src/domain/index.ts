@@ -7,3 +7,4 @@ export * from './validator';
 export * from './onRamp';
 export * from './accountInfo';
 export * from './appEvents';
+export * from './tx-signature-request';

@@ -6,15 +6,11 @@ import {
   INativeCsprDeploy,
   Network,
 } from '../../../domain';
-import {
-  derivePublicKeyFromTransfersActionResults,
-  getAccountInfoFromMap,
-  getCsprFiatAmount,
-  getDeployAmount,
-} from './common';
+import { derivePublicKeyFromTransfersActionResults, getDeployAmount } from './common';
 import { DeployDto } from './DeployDto';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
+import { getAccountInfoFromMap, getCsprFiatAmount } from '../common';
 
 export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy {
   constructor(

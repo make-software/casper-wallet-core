@@ -1,6 +1,7 @@
-import { CasperNetwork, Network } from '../common';
+import { CasperNetwork, IContractInfo, Network } from '../common';
 import { ICsprBalance, IToken, NftStandard } from '../../domain';
 import { IEnv } from '../env';
+import { CasperNetworkName } from 'casper-js-sdk';
 
 export const CSPR_DECIMALS = 9;
 
@@ -124,4 +125,92 @@ export const CEP18_DEFAULT_TRANSFER_PAYMENT_AMOUNT = '1.5';
 export const NFT_DEFAULT_TRANSFER_PAYMENT_AMOUNT: Record<NftStandard, string> = {
   CEP47: '1',
   CEP78: '3',
+};
+
+export const AuctionManagerContractInfo: Record<CasperNetwork, IContractInfo> = {
+  mainnet: {
+    contractHash: 'ccb576d6ce6dec84a551e48f0d0b7af89ddba44c7390b690036257a04a3ae9ea',
+    contactName: 'Auction',
+    contractPackageHash: '86f2d45f024d7bb7fb5266b2390d7c253b588a0a16ebd946a60cb4314600af74',
+    contractPackageName: 'Auction',
+  },
+  testnet: {
+    contractHash: '93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2',
+    contactName: 'Auction',
+    contractPackageHash: 'e375d42c29c0e4b2baefa63cf2d70af34439eda851e08129d8515515d63bd6a9',
+    contractPackageName: 'Auction',
+  },
+  devnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+  integration: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+};
+
+export const CSPRMarketContractInfo: Record<CasperNetwork, IContractInfo> = {
+  mainnet: {
+    contractHash: '5adb720d529964437caf75f3df974edffd204fe511b9e359e7dff28f79d12337',
+    contactName: 'CSPR.market',
+    contractPackageHash: '31cc023b17c903a963ec60eab96a60f1fa37cb74b4b3bafc91a441e0e9d70f97',
+    contractPackageName: 'CSPR.market',
+  },
+  testnet: {
+    contractHash: 'a7b2de3119f20c32ec19a103359e7b2942159a3198bde29687b497c22a9d27bc',
+    contactName: 'CSPR.market',
+    contractPackageHash: '154ff59b5f9feec42d3a418058d66badcb2121dc3ffb2e3cf92596bf5aafbc88',
+    contractPackageName: 'CSPR.market',
+  },
+  devnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+  integration: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+};
+
+export const AssociatedKeysContractInfo: Record<CasperNetwork, IContractInfo> = {
+  mainnet: {
+    contractHash: 'b2ec4f982efa8643c979cb3ab42ad1a18851c2e6f91804cd3e65c079679bdc59',
+    contactName: 'Associated Key Manager',
+    contractPackageHash: '51f3812fde357ac73c6d89785155be59ddbcba97cf8f5b49362ebdbbd90290d2',
+    contractPackageName: 'Associated Key Manager',
+  },
+  testnet: {
+    contractHash: '676794cbbb35ff5642d0ae9c35302e244a7236a614d7e9ef58d0fb2cba6be3ed',
+    contactName: 'Associated Key Manager',
+    contractPackageHash: 'ff9c3c0c447d2e3a79c02e13d048c03f6fac8a911fdc04118cc754c84ef6259e',
+    contractPackageName: 'Associated Key Manager',
+  },
+  devnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+  integration: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+};
+
+export const casperChainNameToCasperNetwork: Record<CasperNetworkName, CasperNetwork> = {
+  [CasperNetworkName.Mainnet]: 'mainnet',
+  [CasperNetworkName.Testnet]: 'testnet',
+  [CasperNetworkName.DevNet]: 'devnet',
+  [CasperNetworkName.Integration]: 'integration',
 };

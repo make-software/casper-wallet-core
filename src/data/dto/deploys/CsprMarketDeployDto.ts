@@ -1,9 +1,7 @@
 import {
   derivePublicKeyFromNftActionResults,
   derivePublicKeyFromTransfersActionResults,
-  getAccountInfoFromMap,
   getCollectionHashFormDeploy,
-  getCsprFiatAmount,
   getDeployAmount,
   getEntryPoint,
   getNftTokenIdsFromArguments,
@@ -22,6 +20,7 @@ import {
 import { DeployDto } from './DeployDto';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
+import { getAccountInfoFromMap, getCsprFiatAmount } from '../common';
 
 export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeploy {
   constructor(

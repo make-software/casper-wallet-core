@@ -1,0 +1,66 @@
+import { Transaction } from 'casper-js-sdk';
+import { IAccountInfo, ITxSignatureRequestNFTAction } from '../../../../domain';
+import { Maybe } from '../../../../typings';
+import { IContractPackageCloudResponse } from '../../../repositories';
+import { getAccountInfoFromMap } from '../../common';
+import {
+  getAccountKeyDataFromCLValue,
+  getCollectionHashFormArgs,
+  getContractInfo,
+  getNftTokenIdsFromArguments,
+  getNftTokensQuantity,
+} from '../common';
+
+export function getTxSignatureRequestNFTAction(
+  tx: Transaction,
+  accountInfoMap: Record<string, IAccountInfo> = {},
+  contractPackage: Maybe<IContractPackageCloudResponse>,
+): ITxSignatureRequestNFTAction {
+  const { recipientKey, recipientKeyType } = getNftRecipientKeys(tx);
+  const recipientAccountInfo = getAccountInfoFromMap(
+    accountInfoMap,
+    recipientKey,
+    recipientKeyType,
+  );
+
+  return {
+    type: 'NFT',
+    entryPoint: tx.entryPoint.customEntryPoint ?? '',
+    amountOfNFTs: getNftTokensQuantity(tx, ['approve', 'update_token_meta']),
+    iconUrl: contractPackage?.icon_url ?? null,
+    nftTokenIds: getNftTokenIdsFromArguments(tx),
+    recipientAccountInfo,
+    recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+    recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
+    collectionHash: getCollectionHashFormArgs(tx),
+    ...getContractInfo(tx, contractPackage),
+  };
+}
+
+function getNftRecipientKeys(
+  tx: Transaction,
+): Pick<ITxSignatureRequestNFTAction, 'recipientKey' | 'recipientKeyType'> {
+  const tokenOwner = getAccountKeyDataFromCLValue(tx.args.getByName('token_owner'));
+  const owner = getAccountKeyDataFromCLValue(tx.args.getByName('owner'));
+  const sourceKey = getAccountKeyDataFromCLValue(tx.args.getByName('source_key'));
+  const targetKey = getAccountKeyDataFromCLValue(tx.args.getByName('target_key'));
+  const recipient = getAccountKeyDataFromCLValue(tx.args.getByName('recipient'));
+  const accountSpender = getAccountKeyDataFromCLValue(tx.args.getByName('spender'));
+  const contractSpender = getAccountKeyDataFromCLValue(tx.args.getByName('spender'));
+  const operator = getAccountKeyDataFromCLValue(tx.args.getByName('operator'));
+
+  const hashInfo =
+    recipient ??
+    tokenOwner ??
+    accountSpender ??
+    owner ??
+    targetKey ??
+    sourceKey ??
+    contractSpender ??
+    operator;
+
+  return {
+    recipientKey: hashInfo?.accountKey ?? '',
+    recipientKeyType: hashInfo?.keyType ?? 'accountHash',
+  };
+}

@@ -18,10 +18,13 @@ export const formatFiatBalance = (
     return defaultBalance;
   }
 
-  return `$${new Decimal(balance)
-    .toDecimalPlaces(decimals)
-    .toNumber()
-    .toLocaleString('en-US', { maximumFractionDigits: decimals })}`;
+  const amount = new Decimal(balance).toDecimalPlaces(decimals).toNumber();
+
+  if (amount < 0.01) {
+    return '<$0.01';
+  }
+
+  return `$${amount.toLocaleString('en-US', { maximumFractionDigits: decimals })}`;
 };
 
 export const getDecimalTokenBalance = (balance: string | number, decimals: number) => {

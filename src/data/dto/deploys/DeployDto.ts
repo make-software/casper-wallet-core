@@ -11,13 +11,8 @@ import {
   ITransferActionsResult,
   Network,
 } from '../../../domain';
-import {
-  deriveKeyType,
-  getAccountInfoFromMap,
-  getCsprFiatAmount,
-  getDeployType,
-  getEntryPoint,
-} from './common';
+import { getDeployType, getEntryPoint } from './common';
+import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import {
   getCep18ActionsResult,
   getNftActionsResult,
@@ -25,6 +20,7 @@ import {
 } from './ActionResults';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
+import { getCsprFiatAmount } from '../common';
 
 export class DeployDto implements IDeploy {
   constructor(

@@ -15,7 +15,8 @@ import {
   INftActionsResult,
   ITransferActionsResult,
 } from '../../../domain';
-import { getAccountInfoFromMap, getCsprFiatAmount } from './common';
+import { getAccountInfoFromMap } from '../common';
+import { getCsprFiatAmount } from '../common';
 import { Maybe } from '../../../typings';
 import { ICsprTransferResponse } from '../../repositories';
 

@@ -1,9 +1,4 @@
-import {
-  getAccountInfoFromMap,
-  getDeployAmount,
-  getEntryPoint,
-  guardedDeriveSplitDataFromArguments,
-} from './common';
+import { getDeployAmount, getEntryPoint, guardedDeriveSplitDataFromArguments } from './common';
 import {
   formatTokenBalance,
   getAccountHashFromPublicKey,
@@ -21,6 +16,7 @@ import {
   Network,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
+import { getAccountInfoFromMap } from '../common';
 
 export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   constructor(

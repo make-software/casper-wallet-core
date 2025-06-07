@@ -1,9 +1,5 @@
-import Decimal from 'decimal.js';
-
 import {
-  formatFiatBalance,
   getAccountHashFromPublicKey,
-  getDecimalTokenBalance,
   isAuctionDeploy,
   isCasperMarketDeploy,
   isCep18Deploy,
@@ -11,34 +7,20 @@ import {
   isNativeCsprDeploy,
   isNftDeploy,
   isNotEmpty,
-  isPublicKeyHash,
 } from '../../../utils';
 import {
   AccountKeyType,
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
-  CSPR_COIN,
   CSPRMarketContractHash,
   DeployType,
-  IAccountInfo,
   IDeploy,
   Network,
 } from '../../../domain';
 
 import { ExtendedCloudDeploy, ExtendedDeployArgsResult, IApiDeployArgs } from '../../repositories';
 import { Maybe } from '../../../typings';
-
-export enum ContractTypeId {
-  System = 1,
-  Cep18 = 2,
-  CustomCep18 = 3,
-  CEP47Nft = 4,
-  CustomCEP47Nft = 5,
-  DeFi = 6,
-  CEP78Nft = 7,
-  CustomCEP78Nft = 8,
-  CSPRMarket = 9,
-}
+import { ContractTypeId, getHashByType } from '../common';
 
 export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDeploy>): DeployType {
   const contractTypeId =
@@ -88,38 +70,6 @@ export function getDeployAmount(deployArgs?: Partial<IApiDeployArgs>) {
   }
 
   return '0';
-}
-
-export function getHashByType(hash: Maybe<string>, keyType?: Maybe<AccountKeyType>) {
-  try {
-    if (!hash) {
-      return null;
-    }
-
-    if (keyType === 'publicKey') {
-      return getAccountHashFromPublicKey(hash);
-    } else if (keyType === 'accountHash') {
-      return hash;
-    }
-
-    return null;
-  } catch (e) {
-    return null;
-  }
-}
-
-export const getAccountInfoFromMap = (
-  accountsInfoMap: Record<string, IAccountInfo>,
-  hash: Maybe<string>,
-  keyType?: Maybe<AccountKeyType>,
-) => {
-  const h = getHashByType(hash, keyType);
-
-  return h ? accountsInfoMap[h] : null;
-};
-
-export function deriveKeyType(key?: Maybe<string>) {
-  return isPublicKeyHash(key) ? 'publicKey' : 'accountHash';
 }
 
 export const getAccountHashesFromDeploy = (deploy: IDeploy): string[] => {
@@ -178,14 +128,6 @@ export const getAccountHashesFromDeployActionResults = (deploy: IDeploy): string
     ].filter(isNotEmpty<string>),
   ];
 };
-
-export function getCsprFiatAmount(amount: string | number, rate?: string | number) {
-  return formatFiatBalance(
-    new Decimal(getDecimalTokenBalance(amount, CSPR_COIN.decimals)).mul(rate ?? 0).toFixed(),
-    undefined,
-    2,
-  );
-}
 
 export const getNftTokensQuantity = (
   data?: Partial<ExtendedCloudDeploy>,
