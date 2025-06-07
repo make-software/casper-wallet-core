@@ -36,7 +36,8 @@ export const isUnknownDeploy = (deploy: IDeploy): deploy is IDeploy => {
   return deploy.type === 'UNKNOWN';
 };
 
-export const isWasmDeployExecutionType = (deploy: IDeploy) => Number(deploy.executionTypeId) === 1;
+export const isWasmDeployExecutionType = (deploy: IDeploy) =>
+  Number(deploy.executionTypeId) === 1 || Number(deploy.executionTypeId) === 7;
 export const isContractCallExecutionType = (deploy: IDeploy) =>
   Number(deploy.executionTypeId) > 1 && Number(deploy.executionTypeId) < 6;
 export const isTransferExecutionType = (deploy: IDeploy) => Number(deploy.executionTypeId) === 6;
