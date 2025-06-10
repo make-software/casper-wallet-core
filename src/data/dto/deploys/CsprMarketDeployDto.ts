@@ -20,7 +20,7 @@ import {
 import { DeployDto } from './DeployDto';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { Maybe } from '../../../typings';
-import { getAccountInfoFromMap, getCsprFiatAmount } from '../common';
+import { getAccountInfoFromMap, getCsprFiatAmount, getNftTokenUrlsMap } from '../common';
 
 export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeploy {
   constructor(
@@ -41,6 +41,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
 
     this.collectionHash = getCollectionHashFormDeploy(data);
     this.nftTokenIds = data?.args ? getNftTokenIdsFromArguments(data?.args) : [];
+    this.nftTokenUrlsMap = getNftTokenUrlsMap(this.nftTokenIds, network, this.contractHash);
     this.amount = getDeployAmount(data?.args);
     this.decimalAmount = getDecimalTokenBalance(this.amount, CSPR_COIN.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, CSPR_COIN.decimals);
@@ -59,6 +60,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
   readonly offererAccountInfo: Maybe<IAccountInfo>;
   readonly collectionHash: string;
   readonly nftTokenIds: string[];
+  readonly nftTokenUrlsMap: Record<string, Maybe<string>>;
   readonly amount: string;
   readonly decimalAmount: string;
   readonly formattedDecimalAmount: string;

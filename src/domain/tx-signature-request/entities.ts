@@ -111,6 +111,7 @@ export interface ITxSignatureRequestNFTAction
       | 'recipientAccountInfo'
       | 'amountOfNFTs'
       | 'nftTokenIds'
+      | 'nftTokenUrlsMap'
       | 'collectionHash'
       | 'iconUrl'
     > {
@@ -132,6 +133,7 @@ export interface ITxSignatureRequestCasperMarketAction
       | 'offererAccountInfo'
       | 'collectionHash'
       | 'nftTokenIds'
+      | 'nftTokenUrlsMap'
       | 'iconUrl'
       | 'amount'
       | 'decimalAmount'

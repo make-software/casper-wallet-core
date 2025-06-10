@@ -17,7 +17,7 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
-import { getAccountInfoFromMap } from '../common';
+import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
 
 export class NftDeployDto extends DeployDto implements INftDeploy {
   constructor(
@@ -41,6 +41,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
 
     this.amountOfNFTs = getNftTokensQuantity(data, ['approve', 'update_token_meta']);
     this.nftTokenIds = data?.args ? getNftTokenIdsFromArguments(data?.args) : [];
+    this.nftTokenUrlsMap = getNftTokenUrlsMap(this.nftTokenIds, network, this.contractHash);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
     this.collectionHash = getCollectionHashFormDeploy(data);
@@ -50,6 +51,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
   readonly contractName: string;
   readonly amountOfNFTs: Maybe<number>;
   readonly nftTokenIds: string[];
+  readonly nftTokenUrlsMap: Record<string, Maybe<string>>;
   readonly iconUrl: Maybe<string>;
   readonly recipientKey: string;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;

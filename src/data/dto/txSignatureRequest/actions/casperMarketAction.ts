@@ -7,7 +7,7 @@ import {
 } from '../../../../domain';
 import { Maybe } from '../../../../typings';
 import { IContractPackageCloudResponse } from '../../../repositories';
-import { getAccountInfoFromMap, getCsprFiatAmount } from '../../common';
+import { getAccountInfoFromMap, getCsprFiatAmount, getNftTokenUrlsMap } from '../../common';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../../utils';
 import {
   getAccountKeyDataFromCLValue,
@@ -28,6 +28,10 @@ export function getTxSignatureRequestCasperMarketAction(
   const { offererHash, offererHashType } = getOffererFormTx(tx);
   const offererAccountInfo = getAccountInfoFromMap(accountInfoMap, offererHash, offererHashType);
 
+  const { contractHash, ...restContractInfo } = getContractInfo(tx, contractPackage);
+  const nftTokenIds = getNftTokenIdsFromArguments(tx);
+  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, contractHash);
+
   return {
     type: 'CSPR_MARKET',
     amount,
@@ -38,11 +42,13 @@ export function getTxSignatureRequestCasperMarketAction(
     entryPoint: tx.entryPoint.customEntryPoint ?? '',
     iconUrl: contractPackage?.icon_url ?? null,
     amountOfNFTs: getNftTokensQuantity(tx, ['list_token', 'delist_token']),
-    nftTokenIds: getNftTokenIdsFromArguments(tx),
+    nftTokenIds,
+    nftTokenUrlsMap,
     offererAccountInfo,
     offererHash: offererAccountInfo?.publicKey ?? offererHash,
     offererHashType: offererAccountInfo?.publicKey ? 'publicKey' : offererHashType,
-    ...getContractInfo(tx, contractPackage),
+    contractHash,
+    ...restContractInfo,
   };
 }
 

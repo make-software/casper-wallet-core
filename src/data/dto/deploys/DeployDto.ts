@@ -61,7 +61,13 @@ export class DeployDto implements IDeploy {
 
     this.transfersActionsResult = getTransferActionsResult(activePublicKey, data, accountInfoMap);
     this.cep18ActionsResult = getCep18ActionsResult(activePublicKey, data, accountInfoMap);
-    this.nftActionsResult = getNftActionsResult(activePublicKey, data, accountInfoMap);
+    this.nftActionsResult = getNftActionsResult(
+      activePublicKey,
+      network,
+      this.contractHash,
+      data,
+      accountInfoMap,
+    );
   }
 
   readonly deployHash: string;

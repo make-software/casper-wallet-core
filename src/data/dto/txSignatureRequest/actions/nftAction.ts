@@ -2,7 +2,7 @@ import { Transaction } from 'casper-js-sdk';
 import { IAccountInfo, ITxSignatureRequestNFTAction } from '../../../../domain';
 import { Maybe } from '../../../../typings';
 import { IContractPackageCloudResponse } from '../../../repositories';
-import { getAccountInfoFromMap } from '../../common';
+import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../../common';
 import {
   getAccountKeyDataFromCLValue,
   getCollectionHashFormArgs,
@@ -23,17 +23,23 @@ export function getTxSignatureRequestNFTAction(
     recipientKeyType,
   );
 
+  const { contractHash, ...restContractInfo } = getContractInfo(tx, contractPackage);
+  const nftTokenIds = getNftTokenIdsFromArguments(tx);
+  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, contractHash);
+
   return {
     type: 'NFT',
     entryPoint: tx.entryPoint.customEntryPoint ?? '',
     amountOfNFTs: getNftTokensQuantity(tx, ['approve', 'update_token_meta']),
     iconUrl: contractPackage?.icon_url ?? null,
-    nftTokenIds: getNftTokenIdsFromArguments(tx),
+    nftTokenIds,
+    nftTokenUrlsMap,
     recipientAccountInfo,
     recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
     collectionHash: getCollectionHashFormArgs(tx),
-    ...getContractInfo(tx, contractPackage),
+    contractHash,
+    ...restContractInfo,
   };
 }
 

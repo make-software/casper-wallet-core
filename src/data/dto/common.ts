@@ -1,6 +1,7 @@
 import {
   formatFiatBalance,
   getAccountHashFromPublicKey,
+  getContractNftUrl,
   getDecimalTokenBalance,
   isPublicKeyHash,
 } from '../../utils';
@@ -64,4 +65,18 @@ export function getHashByType(hash: Maybe<string>, keyType?: Maybe<AccountKeyTyp
   } catch (e) {
     return null;
   }
+}
+
+export function getNftTokenUrlsMap(
+  tokenIds: string[],
+  chainName: string,
+  contractHash: Maybe<string>,
+) {
+  return tokenIds.reduce<Record<string, Maybe<string>>>(
+    (acc, id) => ({
+      ...acc,
+      [id]: contractHash ? getContractNftUrl(chainName, contractHash, id) : null,
+    }),
+    {},
+  );
 }

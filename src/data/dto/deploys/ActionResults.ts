@@ -12,9 +12,10 @@ import {
   ICep18ActionsResult,
   INftActionsResult,
   ITransferActionsResult,
+  Network,
   NFTEntryPointType,
 } from '../../../domain';
-import { getAccountInfoFromMap } from '../common';
+import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
 import { ExtendedCloudDeploy } from '../../repositories';
 import { getCsprFiatAmount } from '../common';
 
@@ -90,6 +91,8 @@ export function getCep18ActionsResult(
 
 export function getNftActionsResult(
   activePublicKey: string,
+  network: Network,
+  contractHash: string,
   deploy?: Partial<ExtendedCloudDeploy>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
@@ -113,6 +116,9 @@ export function getNftActionsResult(
         callerPublicKeyType,
       );
 
+      const nftTokenIds = action?.token_id ? [action?.token_id] : [];
+      const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, network, contractHash);
+
       return {
         recipientAccountInfo,
         recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
@@ -126,7 +132,8 @@ export function getNftActionsResult(
         entryPoint: mapNftentryPointIdToName[action.nft_action_id],
         timestamp: action?.timestamp,
         id: getUniqueId(),
-        nftTokenIds: action?.token_id ? [action?.token_id] : [],
+        nftTokenIds,
+        nftTokenUrlsMap,
       };
     }) ?? []
   );

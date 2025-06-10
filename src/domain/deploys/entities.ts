@@ -84,6 +84,7 @@ export interface ICasperMarketDeploy extends IDeploy {
   readonly offererAccountInfo: Maybe<IAccountInfo>;
   readonly collectionHash: string;
   readonly nftTokenIds: string[];
+  readonly nftTokenUrlsMap: Record<string, Maybe<string>>;
   readonly iconUrl: Maybe<string>;
 
   readonly amount: string;
@@ -101,6 +102,7 @@ export interface INftDeploy extends IDeploy {
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
   readonly amountOfNFTs: Maybe<number>;
   readonly nftTokenIds: string[];
+  readonly nftTokenUrlsMap: Record<string, Maybe<string>>;
   readonly iconUrl: Maybe<string>;
   readonly collectionHash: string;
 }
@@ -150,6 +152,7 @@ export type ICep18ActionsResult = Pick<
 export type INftActionsResult = Pick<
   INftDeploy,
   | 'nftTokenIds'
+  | 'nftTokenUrlsMap'
   | 'recipientKey'
   | 'recipientKeyType'
   | 'recipientAccountInfo'
