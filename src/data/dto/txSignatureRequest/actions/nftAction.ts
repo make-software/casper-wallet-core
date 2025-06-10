@@ -23,9 +23,9 @@ export function getTxSignatureRequestNFTAction(
     recipientKeyType,
   );
 
-  const { contractHash, ...restContractInfo } = getContractInfo(tx, contractPackage);
+  const collectionHash = getCollectionHashFormArgs(tx);
   const nftTokenIds = getNftTokenIdsFromArguments(tx);
-  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, contractHash);
+  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, collectionHash);
 
   return {
     type: 'NFT',
@@ -37,9 +37,8 @@ export function getTxSignatureRequestNFTAction(
     recipientAccountInfo,
     recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
-    collectionHash: getCollectionHashFormArgs(tx),
-    contractHash,
-    ...restContractInfo,
+    collectionHash,
+    ...getContractInfo(tx, contractPackage),
   };
 }
 

@@ -39,12 +39,12 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
     this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
 
+    this.collectionHash = getCollectionHashFormDeploy(data);
     this.amountOfNFTs = getNftTokensQuantity(data, ['approve', 'update_token_meta']);
     this.nftTokenIds = data?.args ? getNftTokenIdsFromArguments(data?.args) : [];
-    this.nftTokenUrlsMap = getNftTokenUrlsMap(this.nftTokenIds, network, this.contractHash);
+    this.nftTokenUrlsMap = getNftTokenUrlsMap(this.nftTokenIds, network, this.collectionHash);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
-    this.collectionHash = getCollectionHashFormDeploy(data);
   }
 
   readonly entryPoint: NFTEntryPointType;

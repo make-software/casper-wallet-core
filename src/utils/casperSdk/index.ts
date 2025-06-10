@@ -69,12 +69,16 @@ export const getBlockExplorerHashUrl = (chainName: string, hash: string): Maybe<
   return `${CasperLiveUrl[network]}/search/${hash}`;
 };
 
-export const getContractNftUrl = (chainName: string, contractHash: string, tokenId: string) => {
+export const getContractNftUrl = (
+  chainName: string,
+  collectionHash: Maybe<string>,
+  tokenId: string,
+) => {
   const network = getCasperNetworkByChainName(chainName);
 
-  if (!(network && contractHash && tokenId)) {
+  if (!(network && collectionHash && tokenId)) {
     return null;
   }
 
-  return `${CasperLiveUrl[network]}/contracts/${contractHash}/nfts/${tokenId}`;
+  return `${CasperLiveUrl[network]}/contracts/${collectionHash}/nfts/${tokenId}`;
 };

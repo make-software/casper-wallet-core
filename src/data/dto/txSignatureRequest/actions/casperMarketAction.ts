@@ -28,9 +28,9 @@ export function getTxSignatureRequestCasperMarketAction(
   const { offererHash, offererHashType } = getOffererFormTx(tx);
   const offererAccountInfo = getAccountInfoFromMap(accountInfoMap, offererHash, offererHashType);
 
-  const { contractHash, ...restContractInfo } = getContractInfo(tx, contractPackage);
+  const collectionHash = getCollectionHashFormArgs(tx);
   const nftTokenIds = getNftTokenIdsFromArguments(tx);
-  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, contractHash);
+  const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, tx.chainName, collectionHash);
 
   return {
     type: 'CSPR_MARKET',
@@ -38,7 +38,7 @@ export function getTxSignatureRequestCasperMarketAction(
     decimalAmount: getDecimalTokenBalance(amount, CSPR_COIN.decimals),
     formattedDecimalAmount: formatTokenBalance(amount, CSPR_COIN.decimals),
     fiatAmount: getCsprFiatAmount(amount, csprFiatRate),
-    collectionHash: getCollectionHashFormArgs(tx),
+    collectionHash,
     entryPoint: tx.entryPoint.customEntryPoint ?? '',
     iconUrl: contractPackage?.icon_url ?? null,
     amountOfNFTs: getNftTokensQuantity(tx, ['list_token', 'delist_token']),
@@ -47,8 +47,7 @@ export function getTxSignatureRequestCasperMarketAction(
     offererAccountInfo,
     offererHash: offererAccountInfo?.publicKey ?? offererHash,
     offererHashType: offererAccountInfo?.publicKey ? 'publicKey' : offererHashType,
-    contractHash,
-    ...restContractInfo,
+    ...getContractInfo(tx, contractPackage),
   };
 }
 

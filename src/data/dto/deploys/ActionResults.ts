@@ -92,7 +92,7 @@ export function getCep18ActionsResult(
 export function getNftActionsResult(
   activePublicKey: string,
   network: Network,
-  contractHash: string,
+  collectionHash: string,
   deploy?: Partial<ExtendedCloudDeploy>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
@@ -117,7 +117,7 @@ export function getNftActionsResult(
       );
 
       const nftTokenIds = action?.token_id ? [action?.token_id] : [];
-      const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, network, contractHash);
+      const nftTokenUrlsMap = getNftTokenUrlsMap(nftTokenIds, network, collectionHash);
 
       return {
         recipientAccountInfo,

@@ -11,7 +11,7 @@ import {
   ITransferActionsResult,
   Network,
 } from '../../../domain';
-import { getDeployType, getEntryPoint } from './common';
+import { getCollectionHashFormDeploy, getDeployType, getEntryPoint } from './common';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import {
   getCep18ActionsResult,
@@ -64,7 +64,7 @@ export class DeployDto implements IDeploy {
     this.nftActionsResult = getNftActionsResult(
       activePublicKey,
       network,
-      this.contractHash,
+      getCollectionHashFormDeploy(data),
       data,
       accountInfoMap,
     );
