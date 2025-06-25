@@ -1,5 +1,4 @@
-import { Args, CLValue, Conversions, Transaction, TypeID } from 'casper-js-sdk';
-import { blake2s } from '@noble/hashes/blake2';
+import { Args, CLValue, Transaction, TypeID } from 'casper-js-sdk';
 import { Maybe } from '../../../typings';
 import { IContractPackageCloudResponse } from '../../repositories';
 import {
@@ -114,34 +113,13 @@ export function getCollectionHashFormArgs(tx: Transaction) {
   return collection?.keyType === 'contractHash' ? collection.accountKey : '';
 }
 
-export function checkIsWasmProxyTx(tx: Transaction): boolean {
+export function checkIsWasmProxyTx(tx: Transaction, isWasmProxyOnApi: boolean): boolean {
   const wasmProxyArgs = tx.args;
-
-  const KNOWN_WASM_PROXY_CONTRACT_HASHES = [
-    'd983214a144f4e1b17764c90962eaa16b73b22e7eff31586bd0678d9dca2483e',
-    'c96517071826eef0d4378ee3bee8c5e14900acc5286a2d86e59f8879125f35bd',
-    'e17e391a80accbe5eddf90ee6ebfbc48218b5d18e85e2c5912db1bb54f69c70e',
-    '3c0103725a73eb7a1b26bf942bb3ba6bd0f8a864173072f25dd3e4b9fcc62065',
-    '46045ce0805c2265f2a5a1c611867b8fdb1621b4fdc800d8ff9fd7b9bb51ce9c',
-    'be3bd714d945e52c8debae6086df9bc2e72658cba9d34cd25f0c9ba1cb90d37d',
-    'e17e391a80accbe5eddf90ee6ebfbc48218b5d18e85e2c5912db1bb54f69c70e',
-    'afc9afe63dbf71d3db926ac0b72e9f43c952977e45d4c4e172f116b67799ae9c',
-  ]; // TODO probably temp
-
-  if (!(wasmProxyArgs && tx.target.session?.moduleBytes)) {
-    return false;
-  }
-
-  const modulesBytesHash = Conversions.encodeBase16(blake2s(tx.target.session.moduleBytes));
-
-  if (!KNOWN_WASM_PROXY_CONTRACT_HASHES.includes(modulesBytesHash)) {
-    return false;
-  }
 
   const contract_package_hash = getWasmProxyContractPackageHash(wasmProxyArgs);
   const entry_point = wasmProxyArgs.getByName('entry_point');
 
-  return Boolean(contract_package_hash && entry_point);
+  return Boolean(isWasmProxyOnApi && contract_package_hash && entry_point);
 }
 
 export function getWasmProxyContractPackageHash(args: Args): Maybe<CLValue> {

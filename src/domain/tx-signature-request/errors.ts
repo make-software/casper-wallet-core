@@ -3,6 +3,7 @@ import { IDomainError, isDomainError, isError } from '../common';
 export type TxSignatureRequestErrorType =
   | 'invalidSignatureRequest'
   | 'processContractPackage'
+  | 'checkWasmProxyRequest'
   | 'getContractPackageRequest';
 export type ITxSignatureRequestError = IDomainError<TxSignatureRequestErrorType>;
 

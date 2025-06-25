@@ -14,7 +14,7 @@ import {
   ITxSignatureRequestActionUnion,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
-import { formatTokenBalance } from '../../../utils';
+import { formatTokenBalance, isKeysEqual } from '../../../utils';
 import { ContractTypeId, deriveKeyType, getAccountInfoFromMap, getCsprFiatAmount } from '../common';
 import { IContractPackageCloudResponse } from '../../repositories';
 import {
@@ -30,16 +30,28 @@ import {
 } from './actions';
 import { checkIsWasmProxyTx } from './common';
 
+export interface TxSignatureRequestDtoProps {
+  tx: Transaction;
+  network: Maybe<CasperNetwork>;
+  signingPublicKeyHex: string;
+  csprFiatRate: string;
+  accountInfoMap: Record<string, IAccountInfo>;
+  contractPackage: Maybe<IContractPackageCloudResponse>;
+  rpcAccountInfo: Maybe<StateGetAccountInfo>;
+  isWasmProxyOnApi: Maybe<boolean>;
+}
+
 export class TxSignatureRequestDto implements ITxSignatureRequest {
-  constructor(
-    tx: Transaction,
-    network: Maybe<CasperNetwork>,
-    signingPublicKeyHex: string,
-    csprFiatRate: string,
-    accountInfoMap: Record<string, IAccountInfo> = {},
-    contractPackage: Maybe<IContractPackageCloudResponse>,
-    rpcAccountsInfo: Maybe<Record<string, StateGetAccountInfo>>,
-  ) {
+  constructor({
+    tx,
+    network,
+    signingPublicKeyHex,
+    csprFiatRate,
+    accountInfoMap = {},
+    contractPackage,
+    rpcAccountInfo,
+    isWasmProxyOnApi,
+  }: TxSignatureRequestDtoProps) {
     this.txHash = tx.hash.toHex();
     this.id = this.txHash;
     this.chainName = tx.chainName;
@@ -67,7 +79,7 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, csprFiatRate);
 
     this.memo = getTxMemo(tx);
-    this.signaturesCollected = getSignaturesCollected(tx, accountInfoMap, rpcAccountsInfo);
+    this.signaturesCollected = getSignaturesCollected(tx, accountInfoMap, rpcAccountInfo);
 
     this.action = getTxSignatureRequestAction(
       tx,
@@ -76,6 +88,7 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
       signingPublicKeyHex,
       accountInfoMap,
       contractPackage,
+      isWasmProxyOnApi ?? false,
     );
   }
 
@@ -110,6 +123,7 @@ export function getTxSignatureRequestAction(
   signingPublicKeyHex: string,
   accountInfoMap: Record<string, IAccountInfo> = {},
   contractPackage: Maybe<IContractPackageCloudResponse>,
+  isWasmProxyOnApi: boolean,
 ): ITxSignatureRequestActionUnion {
   const entryPointType: TransactionEntryPointEnum = tx.entryPoint.type;
   const contractTypeId = contractPackage?.latest_version_contract_type_id;
@@ -136,7 +150,7 @@ export function getTxSignatureRequestAction(
       );
 
     case TransactionEntryPointEnum.Call: {
-      const isWasmProxyTx = checkIsWasmProxyTx(tx);
+      const isWasmProxyTx = checkIsWasmProxyTx(tx, isWasmProxyOnApi);
 
       if (isWasmProxyTx) {
         return (
@@ -201,7 +215,7 @@ function getTxMemo(tx: Transaction): Maybe<string> {
 function getSignaturesCollected(
   tx: Transaction,
   accountInfoMap: Record<string, IAccountInfo> = {},
-  accountInfo: Maybe<Record<string, StateGetAccountInfo>> = {},
+  rpcAccountInfo: Maybe<StateGetAccountInfo>,
 ): ISignaturesCollectedInfo[] {
   return tx.approvals
     .map(ap => ap.signer)
@@ -209,8 +223,8 @@ function getSignaturesCollected(
       publicKey: pk.toHex(),
       accountInfo: getAccountInfoFromMap(accountInfoMap, pk.accountHash().toHex(), 'accountHash'),
       weight:
-        accountInfo?.[pk.toHex()]?.account?.associatedKeys?.find(
-          k => k.accountHash.toHex() === pk.accountHash().toHex(),
+        rpcAccountInfo?.account?.associatedKeys?.find(k =>
+          isKeysEqual(k.accountHash.toHex(), pk.accountHash().toHex()),
         )?.weight ?? null,
     }));
 }

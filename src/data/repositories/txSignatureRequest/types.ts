@@ -29,3 +29,9 @@ export interface IContractPackageCloudResponse {
   website_url: Maybe<string>;
   deploys_number: number;
 }
+
+export interface IOdraWasmProxyCloud {
+  blake2b_hash: string;
+  git_commit: string;
+  version: string;
+}

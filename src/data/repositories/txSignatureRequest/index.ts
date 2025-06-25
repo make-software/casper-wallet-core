@@ -25,8 +25,9 @@ import {
   CasperNetworkName,
   AccountIdentifier,
   StateGetAccountInfo,
+  Conversions,
 } from 'casper-js-sdk';
-import { IContractPackageCloudResponse } from './types';
+import { IContractPackageCloudResponse, IOdraWasmProxyCloud } from './types';
 import { getCasperNetworkByChainName } from '../../../utils';
 import {
   checkIsWasmProxyTx,
@@ -34,6 +35,7 @@ import {
   getWasmProxyContractPackageHash,
   TxSignatureRequestDto,
 } from '../../dto';
+import { blake2b } from '@noble/hashes/blake2';
 
 export * from './types';
 
@@ -55,34 +57,54 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       const network = getCasperNetworkByChainName(tx.chainName as CasperNetworkName);
 
       if (!network) {
-        return new TxSignatureRequestDto(tx, network, signingPublicKeyHex, '0', {}, null, {});
+        return new TxSignatureRequestDto({
+          tx,
+          network,
+          signingPublicKeyHex,
+          csprFiatRate: '0',
+          accountInfoMap: {},
+          contractPackage: null,
+          isWasmProxyOnApi: null,
+          rpcAccountInfo: null,
+        });
       }
 
-      let csprRate = '0';
+      let csprFiatRate = '0';
       let contractPackage: IContractPackageCloudResponse | null = null;
-      let rpcAccountsInfo: Record<string, StateGetAccountInfo> | null = null;
+      let rpcSenderAccountInfo: StateGetAccountInfo | null = null;
+      let isWasmProxyOnApi = false;
 
       try {
         const rateResp = await this._tokensRepository.getCsprFiatCurrencyRate({
           network,
           withProxyHeader,
         });
-        csprRate = rateResp.rate.toString();
+        csprFiatRate = rateResp.rate.toString();
       } catch (e) {}
 
       try {
-        contractPackage = await this._processContractPackage(tx, network, withProxyHeader);
+        isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, network, withProxyHeader);
       } catch (e) {}
 
-      const rawSignatureRequest = new TxSignatureRequestDto(
+      try {
+        contractPackage = await this._processContractPackage(
+          tx,
+          network,
+          isWasmProxyOnApi,
+          withProxyHeader,
+        );
+      } catch (e) {}
+
+      const rawSignatureRequest = new TxSignatureRequestDto({
         tx,
         network,
+        csprFiatRate,
         signingPublicKeyHex,
-        csprRate,
-        {},
+        accountInfoMap: {},
         contractPackage,
-        {},
-      );
+        isWasmProxyOnApi,
+        rpcAccountInfo: null,
+      });
 
       try {
         const accountHashes = getAccountHashesFromTxSignatureRequest(rawSignatureRequest);
@@ -102,26 +124,22 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
 
         const rpcClient = new RpcClient(handler);
 
-        const entries = await Promise.all(
-          tx.approvals
-            .map(a => a.signer)
-            .map<
-              Promise<[string, StateGetAccountInfo]>
-            >(async pk => [pk.toHex(), await rpcClient.getAccountInfo(null, new AccountIdentifier(undefined, pk))]),
+        rpcSenderAccountInfo = await rpcClient.getAccountInfo(
+          null,
+          new AccountIdentifier(undefined, tx.initiatorAddr.publicKey),
         );
-
-        rpcAccountsInfo = Object.fromEntries<StateGetAccountInfo>(entries);
       } catch (e) {}
 
-      return new TxSignatureRequestDto(
+      return new TxSignatureRequestDto({
         tx,
         network,
         signingPublicKeyHex,
-        csprRate,
-        this._accountInfoRepository.accountsInfoMapCache,
+        csprFiatRate,
+        accountInfoMap: this._accountInfoRepository.accountsInfoMapCache,
         contractPackage,
-        rpcAccountsInfo,
-      );
+        rpcAccountInfo: rpcSenderAccountInfo,
+        isWasmProxyOnApi,
+      });
     } catch (e) {
       if (isError(e)) {
         if (e.message.includes('Serialization error') || e instanceof TransactionError) {
@@ -136,13 +154,19 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
   private async _processContractPackage(
     tx: Transaction,
     network: CasperNetwork,
+    isWasmProxyOnApi: boolean,
     withProxyHeader = true,
   ) {
     try {
       if (tx.entryPoint.type === TransactionEntryPointEnum.Custom) {
         return this._processContractPackageFromStoredTarget(tx, network, withProxyHeader);
       } else if (tx.entryPoint.type === TransactionEntryPointEnum.Call) {
-        return this._processContractPackageFromWasmProxy(tx, network, withProxyHeader);
+        return this._processContractPackageFromWasmProxy(
+          tx,
+          network,
+          isWasmProxyOnApi,
+          withProxyHeader,
+        );
       }
 
       return null;
@@ -154,10 +178,11 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
   private async _processContractPackageFromWasmProxy(
     tx: Transaction,
     network: CasperNetwork,
+    isWasmProxyOnApi: boolean,
     withProxyHeader = true,
   ) {
     try {
-      if (!checkIsWasmProxyTx(tx)) {
+      if (!checkIsWasmProxyTx(tx, isWasmProxyOnApi)) {
         return null;
       }
 
@@ -227,6 +252,34 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     });
 
     return resp?.data ?? null;
+  }
+
+  private async _checkIsWasmProxyTx(
+    tx: Transaction,
+    network: CasperNetwork,
+    withProxyHeader = true,
+  ): Promise<boolean> {
+    try {
+      if (!tx.target.session?.moduleBytes) {
+        return false;
+      }
+
+      const blake2bHash = Conversions.encodeBase16(
+        blake2b(tx.target.session.moduleBytes, { dkLen: 32 }),
+      );
+
+      await this._httpProvider.get<DataResponse<IOdraWasmProxyCloud>>({
+        url: `https://cspr-wallet-api.dev.make.services:443/odra-wasm-proxies/${blake2bHash}`, // TODO
+        // url: `${CasperWalletApiUrl[network]}/odra-wasm-proxies/${blake2bHash}`,
+        baseURL: '',
+        errorType: 'checkWasmProxyRequest',
+        ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   private _processError(e: unknown, type: TxSignatureRequestErrorType): never {
