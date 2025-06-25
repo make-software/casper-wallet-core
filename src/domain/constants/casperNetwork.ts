@@ -15,7 +15,7 @@ export const CasperLiveUrl: Record<CasperNetwork, string> = {
 export const CasperWalletApiUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://api.mainnet.casperwallet.io',
   testnet: 'https://api.testnet.casperwallet.io',
-  devnet: 'https://cspr-wallet-api-condor.dev.make.services',
+  devnet: 'https://cspr-wallet-api.dev.make.services',
   integration: 'https://api.integration.casperwallet.io',
 };
 
