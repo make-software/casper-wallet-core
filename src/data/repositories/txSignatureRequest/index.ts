@@ -1,5 +1,6 @@
 import {
   CasperNetwork,
+  CasperWalletApiEndpoints,
   CasperWalletApiUrl,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
@@ -83,7 +84,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       } catch (e) {}
 
       try {
-        isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, network, withProxyHeader);
+        isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, withProxyHeader);
       } catch (e) {}
 
       try {
@@ -254,11 +255,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     return resp?.data ?? null;
   }
 
-  private async _checkIsWasmProxyTx(
-    tx: Transaction,
-    network: CasperNetwork,
-    withProxyHeader = true,
-  ): Promise<boolean> {
+  private async _checkIsWasmProxyTx(tx: Transaction, withProxyHeader = true): Promise<boolean> {
     try {
       if (!tx.target.session?.moduleBytes) {
         return false;
@@ -269,7 +266,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       );
 
       await this._httpProvider.get<DataResponse<IOdraWasmProxyCloud>>({
-        url: `${CasperWalletApiUrl[network]}/odra-wasm-proxies/${blake2bHash}`,
+        url: `${CasperWalletApiEndpoints.PRODUCTION}/odra-wasm-proxies/${blake2bHash}`,
         baseURL: '',
         errorType: 'checkWasmProxyRequest',
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
