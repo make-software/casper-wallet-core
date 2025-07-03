@@ -11,6 +11,7 @@ import {
   HttpClientNotFoundError,
   ICsprBalance,
   IGetAccountsBalancesParams,
+  CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
 import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto, CsprBalanceDto } from '../../dto';
@@ -113,11 +114,12 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
   async resolveAccountFromCsprName(
     csprName: string,
+    network: CasperNetwork,
     withProxyHeader = true,
   ): Promise<Maybe<IAccountInfo>> {
     try {
       const resp = await this._httpProvider.get<DataResponse<ICloudResolveFromCsprNameResponse>>({
-        url: `https://cspr-wallet-api.dev.make.services:443/cspr-name-resolutions/${csprName}`, // TODO replace with prod version
+        url: `${CasperWalletApiUrl[network]}/cspr-name-resolutions/${csprName}`,
         params: {
           includes: 'resolved_public_key,account_info,centralized_account_info',
         },
@@ -127,7 +129,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
       return isExpired(resp?.data?.expires_at)
         ? null
-        : new AccountsInfoResolutionFromCsprNameDto('testnet', resp?.data); // TODO
+        : new AccountsInfoResolutionFromCsprNameDto(network, resp?.data);
     } catch (e) {
       if (e instanceof HttpClientNotFoundError) {
         return null;

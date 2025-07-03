@@ -15,6 +15,7 @@ export interface IAccountInfoRepository {
   getAccountsInfo(params: IGetAccountsInfoParams): Promise<Record<string, IAccountInfo>>;
   resolveAccountFromCsprName(
     csprName: string,
+    network: Network,
     withProxyHeader?: boolean,
   ): Promise<Maybe<IAccountInfo>>;
   getAccountsBalances(params: IGetAccountsBalancesParams): Promise<Record<string, ICsprBalance>>;
