@@ -269,8 +269,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       );
 
       await this._httpProvider.get<DataResponse<IOdraWasmProxyCloud>>({
-        url: `https://cspr-wallet-api.dev.make.services:443/odra-wasm-proxies/${blake2bHash}`, // TODO
-        // url: `${CasperWalletApiUrl[network]}/odra-wasm-proxies/${blake2bHash}`,
+        url: `${CasperWalletApiUrl[network]}/odra-wasm-proxies/${blake2bHash}`,
         baseURL: '',
         errorType: 'checkWasmProxyRequest',
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
