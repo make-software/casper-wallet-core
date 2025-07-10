@@ -123,8 +123,9 @@ export const CSPR_DELEGATION_MIN_AMOUNT = '500';
 export const CSPR_TRANSFER_MIN_AMOUNT = '2.5';
 export const CEP18_DEFAULT_TRANSFER_PAYMENT_AMOUNT = '1.5';
 export const NFT_DEFAULT_TRANSFER_PAYMENT_AMOUNT: Record<NftStandard, string> = {
-  CEP47: '1',
-  CEP78: '3',
+  CEP47: '4',
+  CEP78: '15',
+  CEP95: '4',
 };
 
 export const AuctionManagerContractInfo: Record<CasperNetwork, IContractInfo> = {
