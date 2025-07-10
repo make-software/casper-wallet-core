@@ -5,6 +5,7 @@ import { IContractPackageCloudResponse } from '../../../repositories';
 import { getBlockExplorerContractPackageUrl } from '../../../../utils';
 import { getTxSignatureRequestArgs } from './argumentsParser';
 import { getWasmProxyContractPackageHash } from '../common';
+import { blake2b } from '@noble/hashes/blake2';
 
 export function getTxSignatureRequestWasmProxyAction(
   tx: Transaction,
@@ -30,6 +31,7 @@ export function getTxSignatureRequestWasmProxyAction(
   const argsToParse = new Map(wasmProxyArgs.args);
 
   if (args && args.type.getTypeID() === TypeID.List) {
+    // TODO consider get rid of double conversion
     embeddedArgs = Args.fromBytes(
       Conversions.decodeBase16(
         Conversions.encodeBase16(args?.list?.bytes() ?? new Uint8Array()).substring(8),
@@ -58,6 +60,9 @@ export function getTxSignatureRequestWasmProxyAction(
       tx.chainName,
       contractPackageHash || null,
       null,
+    ),
+    washHash: Conversions.encodeBase16(
+      blake2b(tx.target.session?.moduleBytes ?? new Uint8Array(), { dkLen: 32 }),
     ),
     args: {
       ...getTxSignatureRequestArgs(

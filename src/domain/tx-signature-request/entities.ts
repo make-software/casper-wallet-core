@@ -216,6 +216,7 @@ export type ITxSignatureRequestArgType =
 export interface ITxSignatureRequestWasmAction extends ITxSignatureRequestAction {
   readonly type: 'WASM';
   readonly args: Record<string, ITxSignatureRequestArg>;
+  readonly washHash: string;
 }
 
 export interface ITxSignatureRequestWasmProxyAction extends ITxSignatureRequestAction {
@@ -227,4 +228,5 @@ export interface ITxSignatureRequestWasmProxyAction extends ITxSignatureRequestA
   readonly entryPoint: string;
   readonly iconUrl: Maybe<string>;
   readonly args: Record<string, ITxSignatureRequestArg>;
+  readonly washHash: string;
 }
