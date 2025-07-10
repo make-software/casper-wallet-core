@@ -20,7 +20,7 @@ export interface INft extends IEntity {
   readonly timestamp: string;
 }
 
-export type NftStandard = 'CEP47' | 'CEP78';
+export type NftStandard = 'CEP47' | 'CEP78' | 'CEP95';
 /** audio/*, video/*, image/*, unknown */
 export type NftContentType = string | 'unknown';
 export type NftTokenIdType = 'uint' | 'hash';

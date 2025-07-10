@@ -131,9 +131,11 @@ const getPreviewUrl = (nftTokenMetadataWithLinks?: NFtMetadataEntry[]) =>
 export const NFTTokenStandards = {
   CEP47: 1,
   CEP78: 2,
+  CEP95: 3,
 };
 
 export const mapNftStandard: Record<number, NftStandard> = {
   [NFTTokenStandards.CEP47]: 'CEP47',
   [NFTTokenStandards.CEP78]: 'CEP78',
+  [NFTTokenStandards.CEP95]: 'CEP95',
 };
