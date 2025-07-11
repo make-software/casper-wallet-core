@@ -199,7 +199,11 @@ export type CSPRMarketEntryPointType =
 
 export type CEP18EntryPointType = 'approve' | 'mint' | 'burn' | 'transfer';
 
-export type NFTEntryPointType = CEP18EntryPointType | 'update_token_meta' | 'set_approval_for_all';
+export type NFTEntryPointType =
+  | CEP18EntryPointType
+  | 'update_token_meta'
+  | 'set_approval_for_all'
+  | 'safe_transfer_from';
 
 export type AuctionEntryPointType =
   | 'add_bid'
