@@ -47,6 +47,7 @@ export enum ContractTypeId {
   CEP78Nft = 7,
   CustomCEP78Nft = 8,
   CSPRMarket = 9,
+  CEP95NFT = 10,
 }
 
 export function getHashByType(hash: Maybe<string>, keyType?: Maybe<AccountKeyType>) {

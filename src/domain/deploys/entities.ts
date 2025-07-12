@@ -203,7 +203,8 @@ export type NFTEntryPointType =
   | CEP18EntryPointType
   | 'update_token_meta'
   | 'set_approval_for_all'
-  | 'safe_transfer_from';
+  | 'safe_transfer_from'
+  | 'transfer_from';
 
 export type AuctionEntryPointType =
   | 'add_bid'
