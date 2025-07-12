@@ -8,6 +8,7 @@ import {
   ValidatorsErrorType,
   AppEventsErrorType,
   TxSignatureRequestErrorType,
+  ContractPackageErrorType,
 } from '../../../domain';
 
 export interface IHttpDataProvider {
@@ -33,7 +34,8 @@ export type IHttpErrorType =
   | OnRampErrorType
   | AccountInfoErrorType
   | AppEventsErrorType
-  | TxSignatureRequestErrorType;
+  | TxSignatureRequestErrorType
+  | ContractPackageErrorType;
 
 export interface IHttpMethodBaseParams {
   url: string;

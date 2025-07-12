@@ -1,7 +1,6 @@
 import { Transaction } from 'casper-js-sdk';
-import { IAccountInfo, ITxSignatureRequestNFTAction } from '../../../../domain';
+import { IAccountInfo, IContractPackage, ITxSignatureRequestNFTAction } from '../../../../domain';
 import { Maybe } from '../../../../typings';
-import { IContractPackageCloudResponse } from '../../../repositories';
 import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../../common';
 import {
   getAccountKeyDataFromCLValue,
@@ -14,7 +13,8 @@ import {
 export function getTxSignatureRequestNFTAction(
   tx: Transaction,
   accountInfoMap: Record<string, IAccountInfo> = {},
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
+  collectionContractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestNFTAction {
   const { recipientKey, recipientKeyType } = getNftRecipientKeys(tx);
   const recipientAccountInfo = getAccountInfoFromMap(
@@ -31,13 +31,14 @@ export function getTxSignatureRequestNFTAction(
     type: 'NFT',
     entryPoint: tx.entryPoint.customEntryPoint ?? '',
     amountOfNFTs: getNftTokensQuantity(tx, ['approve', 'update_token_meta']),
-    iconUrl: contractPackage?.icon_url ?? null,
+    iconUrl: contractPackage?.iconUrl ?? null,
     nftTokenIds,
     nftTokenUrlsMap,
     recipientAccountInfo,
     recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
     collectionHash,
+    collectionName: collectionContractPackage?.name ?? null,
     ...getContractInfo(tx, contractPackage),
   };
 }

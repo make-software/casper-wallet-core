@@ -1,7 +1,10 @@
 import { Args, Conversions, Transaction, TypeID } from 'casper-js-sdk';
-import { IAccountInfo, ITxSignatureRequestWasmProxyAction } from '../../../../domain';
+import {
+  IAccountInfo,
+  IContractPackage,
+  ITxSignatureRequestWasmProxyAction,
+} from '../../../../domain';
 import { Maybe } from '../../../../typings';
-import { IContractPackageCloudResponse } from '../../../repositories';
 import { getBlockExplorerContractPackageUrl } from '../../../../utils';
 import { getTxSignatureRequestArgs } from './argumentsParser';
 import { getWasmProxyContractPackageHash } from '../common';
@@ -10,7 +13,7 @@ import { blake2b } from '@noble/hashes/blake2';
 export function getTxSignatureRequestWasmProxyAction(
   tx: Transaction,
   accountInfoMap: Record<string, IAccountInfo> = {},
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
 ): Maybe<ITxSignatureRequestWasmProxyAction> {
   const wasmProxyArgs = tx.args;
 
@@ -47,14 +50,14 @@ export function getTxSignatureRequestWasmProxyAction(
   argsToParse.delete('attached_value');
 
   const contractPackageHash =
-    contract_package_hash.toString() ?? contractPackage?.contract_package_hash ?? '';
+    contract_package_hash.toString() ?? contractPackage?.contractPackageHash ?? '';
 
   return {
     type: 'WASM_PROXY',
     entryPoint: entry_point.toString(),
     contractPackageHash,
     contractHash: null,
-    iconUrl: contractPackage?.icon_url ?? null,
+    iconUrl: contractPackage?.iconUrl ?? null,
     contractName: contractPackage?.name ?? '',
     contractLink: getBlockExplorerContractPackageUrl(
       tx.chainName,

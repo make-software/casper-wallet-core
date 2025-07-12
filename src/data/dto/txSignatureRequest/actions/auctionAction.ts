@@ -1,7 +1,11 @@
 import { Transaction, TypeID } from 'casper-js-sdk';
-import { CSPR_COIN, IAccountInfo, ITxSignatureRequestAuctionAction } from '../../../../domain';
+import {
+  CSPR_COIN,
+  IAccountInfo,
+  IContractPackage,
+  ITxSignatureRequestAuctionAction,
+} from '../../../../domain';
 import { Maybe } from '../../../../typings';
-import { IContractPackageCloudResponse } from '../../../repositories';
 import { deriveKeyType, getAccountInfoFromMap, getCsprFiatAmount } from '../../common';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../../utils';
 import { getContractInfo } from '../common';
@@ -11,7 +15,7 @@ export function getTxSignatureRequestAuctionAction(
   accountInfoMap: Record<string, IAccountInfo> = {},
   csprFiatRate: string,
   signingPublicKeyHex: string,
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestAuctionAction {
   const amount = tx.args.getByName('amount')?.toString() ?? '0';
   const entryPoint = getAuctionEntryPoint(tx);

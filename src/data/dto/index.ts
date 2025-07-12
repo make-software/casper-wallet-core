@@ -6,3 +6,4 @@ export * from './onRamp';
 export * from './accountInfo';
 export * from './appEvents';
 export * from './txSignatureRequest';
+export * from './contractPackage';

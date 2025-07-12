@@ -9,6 +9,7 @@ import {
   CSPRMarketContractInfo,
   IAccountInfo,
   IContractInfo,
+  IContractPackage,
   ISignaturesCollectedInfo,
   ITxSignatureRequest,
   ITxSignatureRequestActionUnion,
@@ -16,7 +17,6 @@ import {
 import { Maybe } from '../../../typings';
 import { formatTokenBalance, isKeysEqual } from '../../../utils';
 import { ContractTypeId, deriveKeyType, getAccountInfoFromMap, getCsprFiatAmount } from '../common';
-import { IContractPackageCloudResponse } from '../../repositories';
 import {
   getTxSignatureRequestAssociatedKeysAction,
   getTxSignatureRequestAuctionAction,
@@ -36,7 +36,8 @@ export interface TxSignatureRequestDtoProps {
   signingPublicKeyHex: string;
   csprFiatRate: string;
   accountInfoMap: Record<string, IAccountInfo>;
-  contractPackage: Maybe<IContractPackageCloudResponse>;
+  contractPackage: Maybe<IContractPackage>;
+  collectionContractPackage: Maybe<IContractPackage>;
   rpcAccountInfo: Maybe<StateGetAccountInfo>;
   isWasmProxyOnApi: Maybe<boolean>;
 }
@@ -49,6 +50,7 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
     csprFiatRate,
     accountInfoMap = {},
     contractPackage,
+    collectionContractPackage,
     rpcAccountInfo,
     isWasmProxyOnApi,
   }: TxSignatureRequestDtoProps) {
@@ -88,6 +90,7 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
       signingPublicKeyHex,
       accountInfoMap,
       contractPackage,
+      collectionContractPackage,
       isWasmProxyOnApi ?? false,
     );
   }
@@ -122,11 +125,12 @@ export function getTxSignatureRequestAction(
   network: Maybe<CasperNetwork>,
   signingPublicKeyHex: string,
   accountInfoMap: Record<string, IAccountInfo> = {},
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
+  collectionContractPackage: Maybe<IContractPackage>,
   isWasmProxyOnApi: boolean,
 ): ITxSignatureRequestActionUnion {
   const entryPointType: TransactionEntryPointEnum = tx.entryPoint.type;
-  const contractTypeId = contractPackage?.latest_version_contract_type_id;
+  const contractTypeId = contractPackage?.latestVersionContractTypeId;
 
   switch (entryPointType) {
     case TransactionEntryPointEnum.Transfer:
@@ -182,6 +186,7 @@ export function getTxSignatureRequestAction(
           accountInfoMap,
           csprFiatRate,
           contractPackage,
+          collectionContractPackage,
         );
       } else if (
         contractTypeId === ContractTypeId.CustomCep18 ||
@@ -194,7 +199,12 @@ export function getTxSignatureRequestAction(
         contractTypeId === ContractTypeId.CustomCEP78Nft ||
         contractTypeId === ContractTypeId.CustomCEP47Nft
       ) {
-        return getTxSignatureRequestNFTAction(tx, accountInfoMap, contractPackage);
+        return getTxSignatureRequestNFTAction(
+          tx,
+          accountInfoMap,
+          contractPackage,
+          collectionContractPackage,
+        );
       }
 
       return getTxSignatureRequestUnknownContractAction(tx, accountInfoMap, contractPackage);

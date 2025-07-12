@@ -8,6 +8,7 @@ import {
   AccountInfoRepository,
   AppEventsRepository,
   TxSignatureRequestRepository,
+  ContractPackageRepository,
 } from './data/repositories';
 import { Logger } from './utils';
 import { ILogger } from './domain';
@@ -28,10 +29,12 @@ export const setupRepositories = ({ logger, debug }: ISetupRepositoriesParams = 
   const validatorsRepository = new ValidatorsRepository(httpDataProvider);
   const deploysRepository = new DeploysRepository(httpDataProvider, accountInfoRepository);
   const appEventsRepository = new AppEventsRepository(httpDataProvider);
+  const contractPackageRepository = new ContractPackageRepository(httpDataProvider);
   const txSignatureRequestRepository = new TxSignatureRequestRepository(
     httpDataProvider,
     accountInfoRepository,
     tokensRepository,
+    contractPackageRepository,
   );
 
   return {
@@ -43,5 +46,6 @@ export const setupRepositories = ({ logger, debug }: ISetupRepositoriesParams = 
     deploysRepository,
     appEventsRepository,
     txSignatureRequestRepository,
+    contractPackageRepository,
   };
 };

@@ -1,12 +1,11 @@
 import { Transaction } from 'casper-js-sdk';
 import { Maybe } from '../../../../typings';
-import { IContractPackageCloudResponse } from '../../../repositories';
-import { ITxSignatureRequestAssociatedKeysAction } from '../../../../domain';
+import { IContractPackage, ITxSignatureRequestAssociatedKeysAction } from '../../../../domain';
 import { getContractInfo } from '../common';
 
 export function getTxSignatureRequestAssociatedKeysAction(
   tx: Transaction,
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestAssociatedKeysAction {
   return { type: 'ASSOCIATED_KEYS', ...getContractInfo(tx, contractPackage) };
 }

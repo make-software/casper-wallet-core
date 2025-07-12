@@ -1,7 +1,11 @@
 import { Transaction } from 'casper-js-sdk';
-import { IAccountInfo, ICep18Deploy, ITxSignatureRequestCep18Action } from '../../../../domain';
+import {
+  IAccountInfo,
+  ICep18Deploy,
+  IContractPackage,
+  ITxSignatureRequestCep18Action,
+} from '../../../../domain';
 import { Maybe } from '../../../../typings';
-import { IContractPackageCloudResponse } from '../../../repositories';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../../utils';
 import { getAccountKeyDataFromCLValue, getContractInfo } from '../common';
 import { getAccountInfoFromMap } from '../../common';
@@ -9,10 +13,10 @@ import { getAccountInfoFromMap } from '../../common';
 export function getTxSignatureRequestCep18Action(
   tx: Transaction,
   accountInfoMap: Record<string, IAccountInfo> = {},
-  contractPackage: Maybe<IContractPackageCloudResponse>,
+  contractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestCep18Action {
-  const decimals = contractPackage?.metadata?.decimals ?? 18;
-  const symbol = contractPackage?.metadata?.symbol ?? '';
+  const decimals = contractPackage?.decimals ?? 18;
+  const symbol = contractPackage?.symbol ?? '';
 
   const amount = tx.args.getByName('amount')?.toString() ?? '0';
 
@@ -36,7 +40,7 @@ export function getTxSignatureRequestCep18Action(
     symbol,
     type: 'CEP18',
     entryPoint: tx.entryPoint.customEntryPoint ?? '',
-    iconUrl: contractPackage?.icon_url ?? null,
+    iconUrl: contractPackage?.iconUrl ?? null,
     ...getContractInfo(tx, contractPackage),
   };
 }

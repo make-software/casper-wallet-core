@@ -1,6 +1,5 @@
 import { Args, CLValue, Transaction, TypeID } from 'casper-js-sdk';
 import { Maybe } from '../../../typings';
-import { IContractPackageCloudResponse } from '../../repositories';
 import {
   getBlockExplorerContractPackageUrl,
   isNotEmpty,
@@ -13,25 +12,22 @@ import {
   isTxSignatureRequestWasmProxyAction,
 } from '../../../utils';
 import { AccountKeyData } from './types';
-import { ITxSignatureRequest, ITxSignatureRequestArg } from '../../../domain';
+import { IContractPackage, ITxSignatureRequest, ITxSignatureRequestArg } from '../../../domain';
 import { getHashByType } from '../common';
 
-export function getContractInfo(
-  tx: Transaction,
-  contractPackage: Maybe<IContractPackageCloudResponse>,
-) {
+export function getContractInfo(tx: Transaction, contractPackage: Maybe<IContractPackage>) {
   const contractPackageHash = tx.target.stored?.id?.byPackageHash?.addr?.toHex?.() ?? null;
   const contractPackageName = tx.target.stored?.id?.byPackageName?.name ?? null;
   const contractHash = tx.target.stored?.id?.byHash?.toHex?.() ?? null;
   const contractName = tx.target.stored?.id?.byName ?? null;
   const contractLink = getBlockExplorerContractPackageUrl(
     tx.chainName,
-    contractPackage?.contract_package_hash ?? contractPackageHash,
+    contractPackage?.contractPackageHash ?? contractPackageHash,
     contractHash,
   );
 
   return {
-    contractPackageHash: contractPackage?.contract_package_hash ?? contractPackageHash ?? null,
+    contractPackageHash: contractPackage?.contractPackageHash ?? contractPackageHash ?? null,
     contractHash,
     contractName: contractPackage?.name ?? contractPackageName ?? contractName ?? '',
     contractLink,
