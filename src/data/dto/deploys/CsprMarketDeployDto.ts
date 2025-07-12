@@ -39,7 +39,12 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
     this.offererHash = this.offererAccountInfo?.publicKey ?? offererHash;
     this.offererHashType = this.offererAccountInfo?.publicKey ? 'publicKey' : offererHashType;
 
-    this.collectionHash = getCollectionHashFormDeploy(data);
+    this.collectionHash = getCollectionHashFormDeploy(
+      network,
+      this.contractHash,
+      this.contractPackageHash,
+      data,
+    );
     this.nftTokenIds = data?.args ? getNftTokenIdsFromArguments(data?.args) : [];
     this.nftTokenUrlsMap = getNftTokenUrlsMap(this.nftTokenIds, network, this.collectionHash);
     this.amount = getDeployAmount(data?.args);

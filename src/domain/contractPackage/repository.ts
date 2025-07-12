@@ -1,5 +1,5 @@
 import { Network } from '../common';
-import { IContractPackage } from './entities.ts';
+import { IContractPackage } from './entities';
 import { Maybe } from '../../typings';
 
 export interface IContractPackageRepository {

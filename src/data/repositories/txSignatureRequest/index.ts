@@ -1,11 +1,12 @@
 import {
   CasperNetwork,
   CasperWalletApiEndpoints,
-  CasperWalletApiUrl,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
   GrpcUrl,
   IAccountInfoRepository,
+  IContractPackage,
+  IContractPackageRepository,
   IHttpDataProvider,
   InvalidTransactionJsonError,
   IPrepareSignatureRequestParams,
@@ -28,7 +29,7 @@ import {
   StateGetAccountInfo,
   Conversions,
 } from 'casper-js-sdk';
-import { IContractPackageCloudResponse, IOdraWasmProxyCloud } from './types';
+import { IOdraWasmProxyCloud } from './types';
 import { getCasperNetworkByChainName } from '../../../utils';
 import {
   checkIsWasmProxyTx,
@@ -45,6 +46,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     private _httpProvider: IHttpDataProvider,
     private _accountInfoRepository: IAccountInfoRepository,
     private _tokensRepository: ITokensRepository,
+    private _contractPackageRepository: IContractPackageRepository,
   ) {}
 
   async prepareSignatureRequest({
@@ -65,13 +67,15 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           csprFiatRate: '0',
           accountInfoMap: {},
           contractPackage: null,
+          collectionContractPackage: null,
           isWasmProxyOnApi: null,
           rpcAccountInfo: null,
         });
       }
 
       let csprFiatRate = '0';
-      let contractPackage: IContractPackageCloudResponse | null = null;
+      let contractPackage: IContractPackage | null = null;
+      let collectionContractPackage: IContractPackage | null = null;
       let rpcSenderAccountInfo: StateGetAccountInfo | null = null;
       let isWasmProxyOnApi = false;
 
@@ -103,9 +107,18 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
         signingPublicKeyHex,
         accountInfoMap: {},
         contractPackage,
+        collectionContractPackage: null,
         isWasmProxyOnApi,
         rpcAccountInfo: null,
       });
+
+      try {
+        collectionContractPackage = await this._processCollectionContractPackage(
+          rawSignatureRequest,
+          network,
+          withProxyHeader,
+        );
+      } catch (e) {}
 
       try {
         const accountHashes = getAccountHashesFromTxSignatureRequest(rawSignatureRequest);
@@ -138,6 +151,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
         csprFiatRate,
         accountInfoMap: this._accountInfoRepository.accountsInfoMapCache,
         contractPackage,
+        collectionContractPackage,
         rpcAccountInfo: rpcSenderAccountInfo,
         isWasmProxyOnApi,
       });
@@ -176,6 +190,30 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     }
   }
 
+  private async _processCollectionContractPackage(
+    signatureRequest: ITxSignatureRequest,
+    network: CasperNetwork,
+    withProxyHeader = true,
+  ) {
+    try {
+      if (
+        (signatureRequest.action.type === 'NFT' ||
+          signatureRequest.action.type === 'CSPR_MARKET') &&
+        signatureRequest.action.collectionHash
+      ) {
+        return this._contractPackageRepository.getContractPackage({
+          contractPackageHash: signatureRequest.action.collectionHash,
+          network,
+          withProxyHeader,
+        });
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   private async _processContractPackageFromWasmProxy(
     tx: Transaction,
     network: CasperNetwork,
@@ -193,7 +231,11 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
         return null;
       }
 
-      return this._getContractPackage(contractPackageHash, network, withProxyHeader);
+      return this._contractPackageRepository.getContractPackage({
+        contractPackageHash,
+        network,
+        withProxyHeader,
+      });
     } catch {
       return null;
     }
@@ -208,7 +250,11 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       const contractPackageHash = tx.target.stored?.id?.byPackageHash?.addr?.toHex?.() ?? null;
 
       if (contractPackageHash) {
-        return this._getContractPackage(contractPackageHash, network, withProxyHeader);
+        return this._contractPackageRepository.getContractPackage({
+          contractPackageHash,
+          network,
+          withProxyHeader,
+        });
       }
 
       const contractHash = tx.target.stored?.id?.byHash?.toHex?.() ?? null;
@@ -231,28 +277,17 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       const recoveredContractPackageHash = contract?.contractPackageHash?.hash?.toHex?.() ?? null;
 
       if (recoveredContractPackageHash) {
-        return this._getContractPackage(recoveredContractPackageHash, network, withProxyHeader);
+        return this._contractPackageRepository.getContractPackage({
+          contractPackageHash: recoveredContractPackageHash,
+          network,
+          withProxyHeader,
+        });
       }
 
       return null;
     } catch {
       return null;
     }
-  }
-
-  private async _getContractPackage(
-    contractPackageHash: string,
-    network: CasperNetwork,
-    withProxyHeader: boolean,
-  ) {
-    const resp = await this._httpProvider.get<DataResponse<IContractPackageCloudResponse>>({
-      url: `${CasperWalletApiUrl[network]}/contract-packages/${contractPackageHash}`,
-      baseURL: '',
-      errorType: 'getContractPackageRequest',
-      ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
-    });
-
-    return resp?.data ?? null;
   }
 
   private async _checkIsWasmProxyTx(tx: Transaction, withProxyHeader = true): Promise<boolean> {

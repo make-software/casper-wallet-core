@@ -13,6 +13,7 @@ import {
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
   CSPRMarketContractHash,
+  CSPRStudioCep47ContractHash,
   DeployType,
   IDeploy,
   Network,
@@ -48,7 +49,8 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
     contractTypeId === ContractTypeId.CEP78Nft ||
     contractTypeId === ContractTypeId.CEP47Nft ||
     contractTypeId === ContractTypeId.CustomCEP78Nft ||
-    contractTypeId === ContractTypeId.CustomCEP47Nft
+    contractTypeId === ContractTypeId.CustomCEP47Nft ||
+    contractTypeId === ContractTypeId.CEP95NFT
   ) {
     return 'NFT';
   } else if (deploy?.contract_package?.name === 'Mint' || deploy?.execution_type_id === 6) {
@@ -268,14 +270,27 @@ export const deriveSplitDataFromNamedKeyValue = (namedKeyValue: string): SplitDa
   };
 };
 
-export function getCollectionHashFormDeploy(deploy?: Partial<ExtendedCloudDeploy>) {
+export function getCollectionHashFormDeploy(
+  network: Network,
+  contractHash: string,
+  contractPackageHash: string,
+  deploy?: Partial<ExtendedCloudDeploy>,
+) {
   const collection = deploy?.args?.collection;
 
-  if (collection?.cl_type !== 'Key') {
+  if (collection?.cl_type === 'Key') {
+    if (typeof collection.parsed === 'string') {
+      return deriveSplitDataFromNamedKeyValue(collection.parsed).hash;
+    } else if (typeof collection.parsed === 'object' && collection.parsed) {
+      if ('Hash' in collection.parsed) {
+        return deriveSplitDataFromNamedKeyValue(collection.parsed.Hash || '').hash;
+      }
+    }
+
     return '';
   }
 
-  return collection?.parsed && typeof collection.parsed === 'object' && 'Hash' in collection.parsed
-    ? deriveSplitDataFromNamedKeyValue(collection.parsed.Hash || '').hash
-    : '';
+  return isKeysEqual(CSPRStudioCep47ContractHash[network], contractHash)
+    ? contractHash
+    : contractPackageHash;
 }

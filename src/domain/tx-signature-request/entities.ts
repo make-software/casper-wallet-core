@@ -120,6 +120,7 @@ export interface ITxSignatureRequestNFTAction
   readonly contractPackageHash: Maybe<string>;
   readonly contractHash: Maybe<string>;
   readonly contractLink: Maybe<string>;
+  readonly collectionName: Maybe<string>;
 }
 
 export interface ITxSignatureRequestCasperMarketAction
@@ -145,6 +146,7 @@ export interface ITxSignatureRequestCasperMarketAction
   readonly contractPackageHash: Maybe<string>;
   readonly contractHash: Maybe<string>;
   readonly contractLink: Maybe<string>;
+  readonly collectionName: Maybe<string>;
 }
 
 export interface ITxSignatureRequestAssociatedKeysAction

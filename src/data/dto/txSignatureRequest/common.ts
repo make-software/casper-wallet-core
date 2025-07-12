@@ -97,6 +97,7 @@ export function getNftTokenIdsFromArguments(tx: Transaction) {
   const ids = [
     ...(token_ids?.list?.toJSON?.() ?? []),
     ...(tokens?.list?.toJSON?.() ?? []),
+    ...Object.keys(tokens?.map?.getMap() ?? {}),
     token_id?.ui64?.toString(),
   ].filter(isNotEmpty<string>);
 

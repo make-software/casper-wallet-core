@@ -64,7 +64,7 @@ export class DeployDto implements IDeploy {
     this.nftActionsResult = getNftActionsResult(
       activePublicKey,
       network,
-      getCollectionHashFormDeploy(data),
+      getCollectionHashFormDeploy(network, this.contractHash, this.contractPackageHash, data),
       data,
       accountInfoMap,
     );
