@@ -38,14 +38,34 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
     this.executionTypeId = 6;
     this.status = 'success'; // CSPR transfer cannot have another status
 
-    const callerPublicKey =
+    let callerPublicKey =
       data?.initiator_public_key ??
       data?.from_purse_public_key ??
-      data?.from_purse ??
       data?.initiator_account_hash ??
+      data?.from_purse ??
       '';
-    const callerKeyType: AccountKeyType =
-      data?.initiator_public_key || data?.from_purse_public_key ? 'publicKey' : 'accountHash';
+
+    let callerKeyType: AccountKeyType =
+      data?.initiator_public_key || data?.from_purse_public_key
+        ? 'publicKey'
+        : data?.initiator_account_hash
+          ? 'accountHash'
+          : data?.from_purse
+            ? 'purse'
+            : 'purse';
+
+    if (
+      isKeysEqual(data?.initiator_account_hash, data?.to_account_hash) ||
+      isKeysEqual(data?.initiator_public_key, data?.to_public_key)
+    ) {
+      callerPublicKey = data?.from_purse ?? data?.from_purse_public_key ?? '';
+      callerKeyType = data?.from_purse
+        ? 'purse'
+        : data?.from_purse_public_key
+          ? 'publicKey'
+          : 'purse';
+    }
+
     this.callerAccountInfo = getAccountInfoFromMap(accountInfoMap, callerPublicKey, callerKeyType);
     this.callerPublicKey = this.callerAccountInfo?.publicKey ?? callerPublicKey;
     this.callerKeyType = this.callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType;
