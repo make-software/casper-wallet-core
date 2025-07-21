@@ -41,8 +41,8 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
     const callerPublicKey =
       data?.initiator_public_key ??
       data?.from_purse_public_key ??
-      data?.initiator_account_hash ??
       data?.from_purse ??
+      data?.initiator_account_hash ??
       '';
     const callerKeyType: AccountKeyType =
       data?.initiator_public_key || data?.from_purse_public_key ? 'publicKey' : 'accountHash';
