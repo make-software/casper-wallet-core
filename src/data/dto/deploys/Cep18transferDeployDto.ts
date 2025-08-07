@@ -1,5 +1,6 @@
 import {
   formatTokenBalance,
+  getCep18FiatAmount,
   getDecimalTokenBalance,
   getUniqueId,
   isKeysEqual,
@@ -15,9 +16,11 @@ import {
   ICep18Deploy,
   INftActionsResult,
   ITransferActionsResult,
+  SupportedFiatCurrencies,
+  SupportedMarketDataProviders,
 } from '../../../domain';
 
-import { getAccountInfoFromMap } from '../common';
+import { getAccountInfoFromMap, getMarketDataProviderUrl } from '../common';
 import { getCsprFiatAmount } from '../common';
 import { Maybe } from '../../../typings';
 import { IErc20TokensTransferResponse } from '../../repositories';
@@ -73,8 +76,33 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.paymentAmount = data?.deploy?.payment_amount ?? '0';
     this.formattedPaymentAmount = formatTokenBalance(this.paymentAmount, CSPR_COIN.decimals);
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.deploy?.rate);
-    this.fiatAmount = '';
     this.nftActionsResult = [];
+
+    this.fiatAmount = getCep18FiatAmount(
+      this.decimalAmount,
+      data?.contract_package?.coingecko_data?.price ??
+        data?.contract_package?.friendlymarket_data?.price ??
+        0,
+      false,
+    );
+    this.formattedFiatAmount = getCep18FiatAmount(
+      this.decimalAmount,
+      data?.contract_package?.coingecko_data?.price ??
+        data?.contract_package?.friendlymarket_data?.price ??
+        0,
+      true,
+    );
+    this.fiatCurrency = 'USD';
+    this.marketDataProvider = data?.contract_package?.coingecko_data?.price
+      ? 'CoinGecko'
+      : data?.contract_package?.friendlymarket_data?.price
+        ? 'FriendlyMarket'
+        : null;
+    this.marketDataProviderUrl = getMarketDataProviderUrl(
+      this.marketDataProvider,
+      data?.contract_package?.coingecko_id,
+      data?.contract_package?.latest_version_contract_hash,
+    );
   }
 
   readonly entryPoint: CEP18EntryPointType;
@@ -91,7 +119,6 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
   readonly amount: string;
   readonly decimalAmount: string;
   readonly formattedDecimalAmount: string;
-  readonly fiatAmount: string;
   readonly deployHash: string;
   readonly type: DeployType;
   readonly executionTypeId: number;
@@ -111,6 +138,12 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
   readonly errorMessage: Maybe<string>;
   readonly transfersActionsResult: ITransferActionsResult[];
   readonly id: string;
+
+  readonly fiatAmount: string;
+  readonly formattedFiatAmount: string;
+  readonly fiatCurrency: SupportedFiatCurrencies;
+  readonly marketDataProvider: Maybe<SupportedMarketDataProviders>;
+  readonly marketDataProviderUrl: Maybe<string>;
 }
 
 export const FTActionType: Record<number, CEP18EntryPointType> = {

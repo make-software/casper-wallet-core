@@ -1,4 +1,5 @@
 import { Maybe } from '../../../typings';
+import { CoingeckoApiData, FriendlymarketApiData } from '../tokens';
 
 export interface IContractPackageCloudResponse {
   contract_package_hash: string;
@@ -28,4 +29,6 @@ export interface IContractPackageCloudResponse {
   icon_url: Maybe<string>;
   website_url: Maybe<string>;
   deploys_number: number;
+  coingecko_data?: Maybe<CoingeckoApiData>;
+  friendlymarket_data?: Maybe<FriendlymarketApiData>;
 }

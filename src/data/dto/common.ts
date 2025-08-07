@@ -6,7 +6,12 @@ import {
   isPublicKeyHash,
 } from '../../utils';
 import Decimal from 'decimal.js';
-import { AccountKeyType, CSPR_COIN, IAccountInfo } from '../../domain';
+import {
+  AccountKeyType,
+  CSPR_COIN,
+  IAccountInfo,
+  SupportedMarketDataProviders,
+} from '../../domain';
 import { Maybe } from '../../typings';
 
 export function getCsprFiatAmount(amount: string | number, rate?: string | number) {
@@ -80,4 +85,21 @@ export function getNftTokenUrlsMap(
     }),
     {},
   );
+}
+
+export function getMarketDataProviderUrl(
+  marketDataProvider: Maybe<SupportedMarketDataProviders>,
+  coingeckoId?: string | null,
+  latestVersionContractHash?: string | null,
+) {
+  switch (marketDataProvider) {
+    case 'CoinGecko':
+      return coingeckoId ? `https://www.coingecko.com/en/coins/${coingeckoId}` : null;
+    case 'FriendlyMarket':
+      return latestVersionContractHash
+        ? `https://www.friendly.market/swap/CSPR/${latestVersionContractHash}`
+        : null;
+    default:
+      return null;
+  }
 }

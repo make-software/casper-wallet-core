@@ -1,6 +1,7 @@
-import { IEntity } from '../common';
+import { IEntity, SupportedFiatCurrencies } from '../common';
 import { IAccountInfo } from '../accountInfo';
 import { Maybe } from '../../typings';
+import { SupportedMarketDataProviders } from '../tokens';
 
 export type DeployStatus =
   | 'success'
@@ -125,6 +126,11 @@ export interface ICep18Deploy extends INativeCsprDeploy {
   readonly entryPoint: CEP18EntryPointType;
   readonly contractName: string;
   readonly iconUrl: Maybe<string>;
+  readonly fiatAmount: string;
+  readonly formattedFiatAmount: string;
+  readonly fiatCurrency: SupportedFiatCurrencies;
+  readonly marketDataProvider: Maybe<SupportedMarketDataProviders>;
+  readonly marketDataProviderUrl: Maybe<string>;
 }
 
 export type ICep18ActionsResult = Pick<

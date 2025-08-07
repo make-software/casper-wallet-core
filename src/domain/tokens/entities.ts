@@ -20,9 +20,15 @@ export interface IToken extends IEntity {
 }
 
 export interface ITokenWithFiatBalance extends IToken {
-  fiatBalance: string;
-  formattedFiatBalance: string;
+  readonly fiatBalance: string;
+  readonly formattedFiatBalance: string;
+  readonly currency: SupportedFiatCurrencies;
+  readonly fiatPrice: number;
+  readonly marketDataProvider: Maybe<SupportedMarketDataProviders>;
+  readonly marketDataProviderUrl: Maybe<string>;
 }
+
+export type SupportedMarketDataProviders = 'CoinGecko' | 'FriendlyMarket';
 
 export interface ICsprBalance {
   readonly publicKey: string;

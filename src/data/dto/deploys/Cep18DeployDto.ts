@@ -2,6 +2,7 @@ import { getDeployAmount, getEntryPoint, guardedDeriveSplitDataFromArguments } f
 import {
   formatTokenBalance,
   getAccountHashFromPublicKey,
+  getCep18FiatAmount,
   getDecimalTokenBalance,
   isKeysEqual,
   isNotEmpty,
@@ -14,9 +15,10 @@ import {
   IAccountInfo,
   ICep18Deploy,
   Network,
+  SupportedMarketDataProviders,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
-import { getAccountInfoFromMap } from '../common';
+import { getAccountInfoFromMap, getMarketDataProviderUrl } from '../common';
 
 export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   constructor(
@@ -34,7 +36,6 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
     this.decimalAmount = getDecimalTokenBalance(this.amount, this.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, this.decimals);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
-    this.fiatAmount = '';
     const { recipientKey, recipientKeyType } = getCep18RecipientKeyAndType(data);
     this.recipientAccountInfo = getAccountInfoFromMap(
       accountInfoMap,
@@ -44,6 +45,32 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
     this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
+
+    this.fiatAmount = getCep18FiatAmount(
+      this.decimalAmount,
+      data?.contract_package?.coingecko_data?.price ??
+        data?.contract_package?.friendlymarket_data?.price ??
+        0,
+      false,
+    );
+    this.formattedFiatAmount = getCep18FiatAmount(
+      this.decimalAmount,
+      data?.contract_package?.coingecko_data?.price ??
+        data?.contract_package?.friendlymarket_data?.price ??
+        0,
+      true,
+    );
+    this.fiatCurrency = 'USD';
+    this.marketDataProvider = data?.contract_package?.coingecko_data?.price
+      ? 'CoinGecko'
+      : data?.contract_package?.friendlymarket_data?.price
+        ? 'FriendlyMarket'
+        : null;
+    this.marketDataProviderUrl = getMarketDataProviderUrl(
+      this.marketDataProvider,
+      data?.contract_package?.coingecko_id,
+      data?.contract_package?.latest_version_contract_hash,
+    );
   }
 
   readonly entryPoint: CEP18EntryPointType;
@@ -56,9 +83,14 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   readonly decimals: number;
   readonly contractName: string;
   readonly iconUrl: Maybe<string>;
-  readonly fiatAmount: string;
   readonly recipientKeyType: AccountKeyType;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
+
+  readonly fiatAmount: string;
+  readonly formattedFiatAmount: string;
+  readonly fiatCurrency: 'USD';
+  readonly marketDataProvider: Maybe<SupportedMarketDataProviders>;
+  readonly marketDataProviderUrl: Maybe<string>;
 }
 
 export function getCep18RecipientKeyAndType(

@@ -1,5 +1,5 @@
 import { IContractPackage } from '../../domain';
-import { IContractPackageCloudResponse } from '../repositories/contractPackage';
+import { IContractPackageCloudResponse } from '../repositories';
 import { Maybe } from '../../typings';
 
 export class ContractPackageDto implements IContractPackage {

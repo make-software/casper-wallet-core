@@ -1,18 +1,20 @@
 import Decimal from 'decimal.js';
 
-import { formatTokenBalance, getDecimalTokenBalance } from '../../utils';
+import { formatTokenBalance, getCep18FiatAmount, getDecimalTokenBalance } from '../../utils';
 import {
   CSPR_DECIMALS,
   ICsprBalance,
-  IToken,
   ITokenFiatRate,
+  ITokenWithFiatBalance,
   Network,
   SupportedFiatCurrencies,
+  SupportedMarketDataProviders,
 } from '../../domain';
 import { ApiToken, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from '../repositories';
 import { Maybe } from '../../typings';
+import { getMarketDataProviderUrl } from './common';
 
-export class TokenDto implements IToken {
+export class TokenDto implements ITokenWithFiatBalance {
   constructor(network: Network, apiToken?: Partial<ApiToken>) {
     this.contractHash = apiToken?.contractHash;
     this.contractPackageHash = apiToken?.contract_package_hash ?? '';
@@ -26,6 +28,28 @@ export class TokenDto implements IToken {
     this.decimalBalance = getDecimalTokenBalance(this.balance, this.decimals);
     this.formattedDecimalBalance = formatTokenBalance(this.balance, this.decimals);
     this.isNative = this.symbol === 'CSPR';
+    this.fiatBalance = getCep18FiatAmount(
+      this.decimalBalance,
+      apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0,
+      false,
+    );
+    this.formattedFiatBalance = getCep18FiatAmount(
+      this.decimalBalance,
+      apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0,
+      true,
+    );
+    this.fiatPrice = apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0;
+    this.currency = 'USD';
+    this.marketDataProvider = apiToken?.coingecko_data?.price
+      ? 'CoinGecko'
+      : apiToken?.friendlymarket_data?.price
+        ? 'FriendlyMarket'
+        : null;
+    this.marketDataProviderUrl = getMarketDataProviderUrl(
+      this.marketDataProvider,
+      apiToken?.coingecko_id,
+      apiToken?.latest_version_contract_hash,
+    );
   }
 
   readonly balance: string;
@@ -40,6 +64,13 @@ export class TokenDto implements IToken {
   readonly decimalBalance: string;
   readonly formattedDecimalBalance: string;
   readonly isNative: boolean;
+
+  readonly fiatBalance: string;
+  readonly formattedFiatBalance: string;
+  readonly fiatPrice: number;
+  readonly currency: SupportedFiatCurrencies;
+  readonly marketDataProvider: Maybe<SupportedMarketDataProviders>;
+  readonly marketDataProviderUrl: Maybe<string>;
 }
 
 export class CsprBalanceDto implements ICsprBalance {

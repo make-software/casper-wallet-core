@@ -46,7 +46,7 @@ export class DeploysRepository implements IDeploysRepository {
           public_key: activePublicKey,
           page,
           page_size: limit,
-          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info',
+          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info', // ,friendlymarket_data(1),coingecko_data(1)
           ...(contractPackageHash ? { contract_package_hash: contractPackageHash } : {}),
         },
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
@@ -196,7 +196,7 @@ export class DeploysRepository implements IDeploysRepository {
           account_identifier: accountHash,
           page,
           page_size: limit,
-          includes: 'contract_package,deploy',
+          includes: 'contract_package,deploy', // ,friendlymarket_data(1),coingecko_data(1)
         },
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
         errorType: 'getCep18TransferDeploys',

@@ -154,3 +154,19 @@ export function getFiatAmount(decimalTokenAmount: string | number, rate: string 
 }
 
 export const isNotEmpty = <T extends any>(value?: Maybe<T>): value is T => Boolean(value);
+
+export function getCep18FiatAmount(
+  decimalAmount: string | number,
+  rate?: string | number,
+  formatted = false,
+) {
+  const isZeroRate = Number(rate ?? 0) === 0;
+
+  if (isZeroRate) {
+    return '';
+  }
+
+  return formatted
+    ? formatFiatBalance(new Decimal(decimalAmount).mul(rate ?? 0).toFixed())
+    : new Decimal(decimalAmount).mul(rate ?? 0).toFixed();
+}

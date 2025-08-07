@@ -1,4 +1,5 @@
 import { DataResponse, Network } from '../../../domain';
+import { Maybe } from '../../../typings';
 
 export interface IGetCsprBalanceResponse {
   balance: number;
@@ -21,7 +22,20 @@ export interface Erc20Token {
   contract_package_hash: string;
   owner_hash: string;
   owner_type: number;
+  coingecko_data?: Maybe<CoingeckoApiData>;
+  friendlymarket_data?: Maybe<FriendlymarketApiData>;
   contract_package: ContractPackage;
+}
+
+export interface CoingeckoApiData {
+  price: number;
+  change_24h: number;
+  volume_24h: number;
+}
+
+export interface FriendlymarketApiData {
+  price: number;
+  volume_24h: number;
 }
 
 export interface ContractPackage {
@@ -40,10 +54,17 @@ export interface ContractPackage {
   owner_public_key: string;
   timestamp: string;
   contractHash?: string;
+  coingecko_id?: string | null;
+  friendlymarket_id?: string | null;
+  coingecko_data?: Maybe<CoingeckoApiData>;
+  friendlymarket_data?: Maybe<FriendlymarketApiData>;
+  latest_version_contract_hash?: string | null;
 }
 
 export interface ApiToken extends ContractPackage {
   balance: string;
   network: Network;
   contractHash?: string;
+  coingecko_data?: Maybe<CoingeckoApiData>;
+  friendlymarket_data?: Maybe<FriendlymarketApiData>;
 }
