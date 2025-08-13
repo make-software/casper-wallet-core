@@ -32,7 +32,7 @@ export class TokensRepository implements ITokensRepository {
       const accountHash = getAccountHashFromPublicKey(publicKey);
 
       const tokensList = await this._httpProvider.get<DataResponse<Erc20Token[]>>({
-        url: `${network === 'mainnet' ? 'https://cspr-wallet-api.stg.make.services' : CasperWalletApiUrl.devnet}/accounts/${accountHash}/ft-token-ownership`, // TODO: remove when API is ready
+        url: `${CasperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-ownership`,
         params: {
           page_size: 100, // TODO pagination?
           includes: 'contract_package,friendlymarket_data(1),coingecko_data(1)',
