@@ -14,4 +14,5 @@ export interface IAppMarketingEvent {
   readonly endAt: Maybe<string>;
   readonly startAt: string;
   readonly url: string;
+  readonly image_url: string;
 }
