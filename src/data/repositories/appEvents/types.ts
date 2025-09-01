@@ -7,6 +7,7 @@ export interface IMarketingEventApiResponse {
   name: string;
   start_at: string;
   url: string;
+  image_url: Maybe<string>;
 }
 
 export interface IReleaseEventApiResponse {

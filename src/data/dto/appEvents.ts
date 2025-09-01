@@ -23,6 +23,7 @@ export class AppMarketingEventDto implements IAppMarketingEvent {
     this.endAt = apiEvent?.end_at ?? null;
     this.startAt = apiEvent?.start_at ?? '';
     this.url = apiEvent?.url ?? '';
+    this.image_url = apiEvent?.image_url ?? null;
   }
 
   readonly id: number;
@@ -31,4 +32,5 @@ export class AppMarketingEventDto implements IAppMarketingEvent {
   readonly endAt: string | null;
   readonly startAt: string;
   readonly url: string;
+  readonly image_url: string | null;
 }
