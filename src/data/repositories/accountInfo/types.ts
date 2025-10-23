@@ -2,7 +2,7 @@ import { Maybe } from '../../../typings';
 
 export interface IGetAccountsInfoResponse {
   account_hash: string;
-  balance: number;
+  balance: string;
   main_purse_uref: string;
   public_key: string;
   account_info?: ICloudAccountInfoResult;
