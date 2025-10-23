@@ -2,7 +2,7 @@ import { DataResponse, Network } from '../../../domain';
 import { Maybe } from '../../../typings';
 
 export interface IGetCsprBalanceResponse {
-  balance: number;
+  balance: string;
   delegated_balance?: number;
   undelegating_balance?: number;
 

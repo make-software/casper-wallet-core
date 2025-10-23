@@ -66,7 +66,7 @@ export class TokensRepository implements ITokensRepository {
       return new CsprBalanceDto(resp?.data);
     } catch (e) {
       if (e instanceof HttpClientNotFoundError) {
-        return new CsprBalanceDto({ balance: 0 });
+        return new CsprBalanceDto({ balance: '0' });
       } else {
         this._processError(e, 'getCsprBalance');
       }
