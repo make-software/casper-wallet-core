@@ -1,5 +1,4 @@
 import {
-  CasperWalletApiUrl,
   DEFAULT_PAGE_LIMIT,
   EMPTY_PAGINATED_RESPONSE,
   CSPR_API_PROXY_HEADERS,
@@ -11,6 +10,7 @@ import {
   INft,
   NftContentType,
   PaginatedResponse,
+  CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
 import { getAccountHashFromPublicKey } from '../../../utils';
@@ -20,7 +20,10 @@ import { IApiNft } from './types';
 export * from './types';
 
 export class NftsRepository implements INftsRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
+  ) {}
 
   async getNfts({
     network,
@@ -33,7 +36,7 @@ export class NftsRepository implements INftsRepository {
       const accountHash = getAccountHashFromPublicKey(publicKey);
 
       const resp = await this._httpProvider.get<CloudPaginatedResponse<IApiNft>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${accountHash}/nft-tokens`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${accountHash}/nft-tokens`,
         params: {
           page,
           page_size: limit,

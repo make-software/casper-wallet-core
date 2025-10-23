@@ -1,9 +1,7 @@
 import {
   CasperNetwork,
-  CasperWalletApiEndpoints,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
-  GrpcUrl,
   IAccountInfoRepository,
   IContractPackage,
   IContractPackageRepository,
@@ -38,6 +36,7 @@ import {
   TxSignatureRequestDto,
 } from '../../dto';
 import { blake2b } from '@noble/hashes/blake2';
+import { IEnv } from '../../../domain/env';
 
 export * from './types';
 
@@ -47,12 +46,15 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     private _accountInfoRepository: IAccountInfoRepository,
     private _tokensRepository: ITokensRepository,
     private _contractPackageRepository: IContractPackageRepository,
+    private _casperWalletApiByEnvUrl: Record<IEnv, string>,
+    private _grpcUrl: Record<CasperNetwork, string>,
   ) {}
 
   async prepareSignatureRequest({
     transactionJson,
     signingPublicKeyHex,
     withProxyHeader = true,
+    env = 'PRODUCTION',
   }: IPrepareSignatureRequestParams): Promise<ITxSignatureRequest> {
     try {
       const tx = Transaction.fromJSON(transactionJson);
@@ -88,7 +90,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       } catch (e) {}
 
       try {
-        isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, withProxyHeader);
+        isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, withProxyHeader, env);
       } catch (e) {}
 
       try {
@@ -130,7 +132,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       } catch (e) {}
 
       try {
-        const handler = new HttpHandler(GrpcUrl[network], 'fetch');
+        const handler = new HttpHandler(this._grpcUrl[network], 'fetch');
 
         if (withProxyHeader) {
           handler.setReferrer(CSPR_API_PROXY_HEADERS.Referer);
@@ -263,7 +265,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
         return null;
       }
 
-      const handler = new HttpHandler(GrpcUrl[network], 'fetch');
+      const handler = new HttpHandler(this._grpcUrl[network], 'fetch');
 
       if (withProxyHeader) {
         handler.setReferrer(CSPR_API_PROXY_HEADERS.Referer);
@@ -290,7 +292,11 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
     }
   }
 
-  private async _checkIsWasmProxyTx(tx: Transaction, withProxyHeader = true): Promise<boolean> {
+  private async _checkIsWasmProxyTx(
+    tx: Transaction,
+    withProxyHeader = true,
+    env: IEnv = 'PRODUCTION',
+  ): Promise<boolean> {
     try {
       if (!tx.target.session?.moduleBytes) {
         return false;
@@ -301,7 +307,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       );
 
       await this._httpProvider.get<DataResponse<IOdraWasmProxyCloud>>({
-        url: `${CasperWalletApiEndpoints.PRODUCTION}/odra-wasm-proxies/${blake2bHash}`,
+        url: `${this._casperWalletApiByEnvUrl[env]}/odra-wasm-proxies/${blake2bHash}`,
         baseURL: '',
         errorType: 'checkWasmProxyRequest',
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),

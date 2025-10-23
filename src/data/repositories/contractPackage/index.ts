@@ -1,5 +1,5 @@
 import {
-  CasperWalletApiUrl,
+  CasperNetwork,
   ContractPackageError,
   ContractPackageErrorType,
   CSPR_API_PROXY_HEADERS,
@@ -15,7 +15,10 @@ import { ContractPackageDto } from '../../dto';
 export * from './types';
 
 export class ContractPackageRepository implements IContractPackageRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
+  ) {}
 
   async getContractPackage({
     contractPackageHash,
@@ -24,7 +27,7 @@ export class ContractPackageRepository implements IContractPackageRepository {
   }: IGetContractPackageParams) {
     try {
       const resp = await this._httpProvider.get<DataResponse<IContractPackageCloudResponse>>({
-        url: `${CasperWalletApiUrl[network]}/contract-packages/${contractPackageHash}`,
+        url: `${this._casperWalletApiUrl[network]}/contract-packages/${contractPackageHash}`,
         baseURL: '',
         errorType: 'getContractPackageRequest',
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),

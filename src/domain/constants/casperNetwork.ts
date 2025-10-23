@@ -12,14 +12,15 @@ export const CasperLiveUrl: Record<CasperNetwork, string> = {
   integration: 'https://integration.cspr.live',
 };
 
-export const CasperWalletApiUrl: Record<CasperNetwork, string> = {
+export const CasperWalletApiByNetworkUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://api.mainnet.casperwallet.io',
   testnet: 'https://api.testnet.casperwallet.io',
   devnet: 'https://cspr-wallet-api.dev.make.services',
   integration: 'https://api.integration.casperwallet.io',
 };
 
-export const CasperWalletApiEndpoints: Record<IEnv, string> = {
+/** Environment-based url for Casper Wallet Api. Some API network agnostic and do not belong to any {@link CasperWalletApiByNetworkUrl}. Default env is PRODUCTION (in all places where it is used) */
+export const CasperWalletApiByEnvUrl: Record<IEnv, string> = {
   PRODUCTION: 'https://api.casperwallet.io',
   STAGING: 'https://cspr-wallet-api.stg.make.services',
 };
