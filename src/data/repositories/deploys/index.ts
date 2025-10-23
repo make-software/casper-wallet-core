@@ -5,7 +5,6 @@ import {
   HttpClientNotFoundError,
   CSPR_API_PROXY_HEADERS,
   EMPTY_PAGINATED_RESPONSE,
-  CasperWalletApiUrl,
   IDeploysRepository,
   IGetDeploysParams,
   CloudPaginatedResponse,
@@ -13,6 +12,7 @@ import {
   DataResponse,
   IDeploy,
   PaginatedResponse,
+  CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider, IAccountInfoRepository } from '../../../domain';
 import { getAccountHashFromPublicKey } from '../../../utils';
@@ -29,6 +29,7 @@ export class DeploysRepository implements IDeploysRepository {
   constructor(
     private _httpProvider: IHttpDataProvider,
     private _accountInfoRepository: IAccountInfoRepository,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
   ) {}
 
   async getDeploys({
@@ -41,7 +42,7 @@ export class DeploysRepository implements IDeploysRepository {
   }: IGetDeploysParams) {
     try {
       const resp = await this._httpProvider.get<CloudPaginatedResponse<ExtendedCloudDeploy>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${activePublicKey}/deploys`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${activePublicKey}/deploys`,
         params: {
           public_key: activePublicKey,
           page,
@@ -94,7 +95,7 @@ export class DeploysRepository implements IDeploysRepository {
       const accountHash = getAccountHashFromPublicKey(activePublicKey);
 
       const resp = await this._httpProvider.get<CloudPaginatedResponse<ICsprTransferResponse>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${accountHash}/transfers`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${accountHash}/transfers`,
         params: {
           page,
           page_size: limit,
@@ -142,7 +143,7 @@ export class DeploysRepository implements IDeploysRepository {
   }: IGetSingleDeployParams) {
     try {
       const resp = await this._httpProvider.get<DataResponse<ExtendedCloudDeploy>>({
-        url: `${CasperWalletApiUrl[network]}/deploys/${deployHash}`,
+        url: `${this._casperWalletApiUrl[network]}/deploys/${deployHash}`,
         params: {
           includes:
             'rate(1),contract,contract_package,contract_entrypoint,account_info,transfers,nft_token_actions,ft_token_actions',
@@ -190,7 +191,7 @@ export class DeploysRepository implements IDeploysRepository {
       const resp = await this._httpProvider.get<
         CloudPaginatedResponse<IErc20TokensTransferResponse>
       >({
-        url: `${CasperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-actions`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-actions`,
         params: {
           contract_package_hash: contractPackageHash, // TODO do not worked
           account_identifier: accountHash,

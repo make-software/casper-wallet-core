@@ -1,7 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import {
   CSPR_API_PROXY_HEADERS,
-  CasperWalletApiUrl,
   isAccountInfoError,
   AccountInfoError,
   IAccountInfoRepository,
@@ -23,7 +22,10 @@ import { IGetCsprBalanceResponse } from '../tokens';
 export * from './types';
 
 export class AccountInfoRepository implements IAccountInfoRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
+  ) {}
 
   private _accountsInfoMapCache = new LRUCache<string, IAccountInfo>({
     max: 100,
@@ -45,7 +47,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
       );
 
       const resp = await this._httpProvider.post<DataResponse<IGetAccountsInfoResponse[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts?includes=account_info,centralized_account_info,cspr_name`,
+        url: `${this._casperWalletApiUrl[network]}/accounts?includes=account_info,centralized_account_info,cspr_name`,
         data: {
           account_hashes: accountsHashesForFetch,
         },
@@ -88,7 +90,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
   }: IGetAccountsBalancesParams): Promise<Record<string, ICsprBalance>> {
     try {
       const resp = await this._httpProvider.post<DataResponse<IGetCsprBalanceResponse[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts${withDelegationBalances ? '?includes=delegated_balance,undelegating_balance' : ''}`,
+        url: `${this._casperWalletApiUrl[network]}/accounts${withDelegationBalances ? '?includes=delegated_balance,undelegating_balance' : ''}`,
         data: {
           account_hashes: accountHashes,
         },
@@ -119,7 +121,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
   ): Promise<Maybe<IAccountInfo>> {
     try {
       const resp = await this._httpProvider.get<DataResponse<ICloudResolveFromCsprNameResponse>>({
-        url: `${CasperWalletApiUrl[network]}/cspr-name-resolutions/${csprName}`,
+        url: `${this._casperWalletApiUrl[network]}/cspr-name-resolutions/${csprName}`,
         params: {
           includes: 'resolved_public_key,account_info,centralized_account_info',
         },
