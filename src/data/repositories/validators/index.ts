@@ -1,5 +1,5 @@
 import {
-  CasperWalletApiUrl,
+  CasperNetwork,
   CloudPaginatedResponse,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
@@ -20,7 +20,10 @@ import { IApiValidator, IApiValidatorWithStake, IAuctionMetricsResponse } from '
 export * from './types';
 
 export class ValidatorsRepository implements IValidatorsRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
+  ) {}
 
   async getValidators({
     network,
@@ -32,7 +35,7 @@ export class ValidatorsRepository implements IValidatorsRepository {
       const eraId = await this.getCurrentEraId({ network, withProxyHeader });
 
       const resp = await this._httpProvider.get<CloudPaginatedResponse<IApiValidator>>({
-        url: `${CasperWalletApiUrl[network]}/validators`,
+        url: `${this._casperWalletApiUrl[network]}/validators`,
         params: {
           page,
           page_size: limit,
@@ -68,7 +71,7 @@ export class ValidatorsRepository implements IValidatorsRepository {
       const eraId = await this.getCurrentEraId({ network, withProxyHeader });
 
       const validatorsList = await this._httpProvider.get<DataResponse<IApiValidatorWithStake[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${publicKey}/delegations`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${publicKey}/delegations`,
         params: {
           page: 1,
           page_size: 100, // TODO Pagination?
@@ -90,7 +93,7 @@ export class ValidatorsRepository implements IValidatorsRepository {
   async getCurrentEraId({ withProxyHeader, network }: IGetGetCurrentEraIdParams): Promise<number> {
     try {
       const resp = await this._httpProvider.get<DataResponse<IAuctionMetricsResponse>>({
-        url: `${CasperWalletApiUrl[network]}/auction-metrics`,
+        url: `${this._casperWalletApiUrl[network]}/auction-metrics`,
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
         errorType: 'getCurrentEraId',
       });

@@ -4,7 +4,6 @@ import {
   TokensError,
   HttpClientNotFoundError,
   CSPR_API_PROXY_HEADERS,
-  CasperWalletApiUrl,
   ITokensRepository,
   DataResponse,
   IGetTokensParams,
@@ -12,6 +11,7 @@ import {
   IToken,
   IGetCsprFiatCurrencyRateParams,
   ITokenWithFiatBalance,
+  CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
 import { CsprBalanceDto, TokenDto, TokenFiatRateDto } from '../../dto';
@@ -21,7 +21,10 @@ import { Erc20Token, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from '.
 export * from './types';
 
 export class TokensRepository implements ITokensRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiUrl: Record<CasperNetwork, string>,
+  ) {}
 
   async getTokens({
     network,
@@ -32,7 +35,7 @@ export class TokensRepository implements ITokensRepository {
       const accountHash = getAccountHashFromPublicKey(publicKey);
 
       const tokensList = await this._httpProvider.get<DataResponse<Erc20Token[]>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-ownership`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-ownership`,
         params: {
           page_size: 100, // TODO pagination?
           includes: 'contract_package,friendlymarket_data(1),coingecko_data(1)',
@@ -55,7 +58,7 @@ export class TokensRepository implements ITokensRepository {
   async getCsprBalance({ publicKey, network, withProxyHeader = true }: IGetCsprBalanceParams) {
     try {
       const resp = await this._httpProvider.get<DataResponse<IGetCsprBalanceResponse>>({
-        url: `${CasperWalletApiUrl[network]}/accounts/${publicKey}`,
+        url: `${this._casperWalletApiUrl[network]}/accounts/${publicKey}`,
         errorType: 'getCsprBalance',
         params: {
           includes: 'delegated_balance,undelegating_balance',
@@ -100,7 +103,7 @@ export class TokensRepository implements ITokensRepository {
   }: IGetCsprFiatCurrencyRateParams) {
     try {
       const resp = await this._httpProvider.get<IGetCurrencyRateResponse>({
-        url: `${CasperWalletApiUrl[network]}/rates/1/amount`,
+        url: `${this._casperWalletApiUrl[network]}/rates/1/amount`,
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
         errorType: 'getCsprFiatCurrencyRate',
       });

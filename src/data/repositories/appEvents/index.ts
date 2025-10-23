@@ -1,7 +1,6 @@
 import {
   AppEventsError,
   AppEventsErrorType,
-  CasperWalletApiEndpoints,
   CSPR_API_PROXY_HEADERS,
   DataResponse,
   IAppEventsRepository,
@@ -17,11 +16,15 @@ import { IMarketingEventApiResponse, IReleaseEventApiResponse } from './types';
 import { AppMarketingEventDto, AppReleaseEventDto } from '../../dto';
 import { Maybe } from '../../../typings';
 import { isAppEventActive } from '../../../utils';
+import { IEnv } from '../../../domain/env';
 
 export * from './types';
 
 export class AppEventsRepository implements IAppEventsRepository {
-  constructor(private _httpProvider: IHttpDataProvider) {}
+  constructor(
+    private _httpProvider: IHttpDataProvider,
+    private _casperWalletApiByEnvUrl: Record<IEnv, string>,
+  ) {}
 
   async getReleaseEvents({
     currentVersion,
@@ -30,7 +33,7 @@ export class AppEventsRepository implements IAppEventsRepository {
   }: IGetReleaseUpdatesParams): Promise<IAppReleaseEvent[]> {
     try {
       const response = await this._httpProvider.get<DataResponse<IReleaseEventApiResponse[]>>({
-        url: `${CasperWalletApiEndpoints[env]}/mobile-client-versions`,
+        url: `${this._casperWalletApiByEnvUrl[env]}/mobile-client-versions`,
         params: {
           after: `v${currentVersion}`,
         },
@@ -50,7 +53,7 @@ export class AppEventsRepository implements IAppEventsRepository {
   }: IGetMarketingEventsParams = {}): Promise<IAppMarketingEvent[]> {
     try {
       const response = await this._httpProvider.get<DataResponse<IMarketingEventApiResponse[]>>({
-        url: `${CasperWalletApiEndpoints[env]}/marketing-events`,
+        url: `${this._casperWalletApiByEnvUrl[env]}/marketing-events`,
         errorType: 'getMarketingEvents',
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
       });
