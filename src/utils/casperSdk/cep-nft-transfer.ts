@@ -16,6 +16,7 @@ import {
   StoredVersionedContractByHash,
   Timestamp,
   Transaction,
+  CLTypeUInt8,
 } from 'casper-js-sdk';
 
 export enum NFTTokenStandard {
@@ -304,6 +305,6 @@ export function getRuntimeArgsForCep95Transfer({
       ),
     ),
     token_id: CLValue.newCLUInt256(tokenId),
-    data: CLValue.newCLOption(null),
+    data: CLValue.newCLOption(null, CLTypeUInt8),
   });
 }
