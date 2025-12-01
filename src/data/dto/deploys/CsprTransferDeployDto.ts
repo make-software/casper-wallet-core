@@ -108,6 +108,7 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
     this.cep18ActionsResult = [];
     this.deployHash = data?.deploy_hash ?? '';
     this.id = getUniqueId();
+    this.iconUrl = null;
   }
 
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
@@ -144,4 +145,5 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
   readonly cep18ActionsResult: ICep18ActionsResult[];
   readonly id: string;
   readonly deployHash: string;
+  readonly iconUrl: Maybe<string>;
 }

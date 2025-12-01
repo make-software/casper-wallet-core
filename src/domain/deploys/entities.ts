@@ -30,6 +30,7 @@ export interface IDeploy extends IEntity {
   readonly executionTypeId: number;
   readonly contractHash: string;
   readonly contractPackageHash: string;
+  readonly iconUrl: Maybe<string>;
 
   readonly status: DeployStatus;
   readonly callerPublicKey: string;

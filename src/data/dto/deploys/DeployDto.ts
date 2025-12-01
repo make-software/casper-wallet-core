@@ -50,6 +50,7 @@ export class DeployDto implements IDeploy {
     );
     this.contractHash = data?.contract_hash ?? '';
     this.contractPackageHash = data?.contract_package_hash ?? '';
+    this.iconUrl = data?.contract_package?.icon_url ?? null;
     this.entryPoint = getEntryPoint(data) ?? null;
     this.contractName = data?.contract_package?.name ?? null;
 
@@ -75,6 +76,7 @@ export class DeployDto implements IDeploy {
   readonly executionTypeId: number;
   readonly contractHash: string;
   readonly contractPackageHash: string;
+  readonly iconUrl: Maybe<string>;
   readonly entryPoint: Maybe<string>;
   readonly status: DeployStatus;
   readonly cost: string;

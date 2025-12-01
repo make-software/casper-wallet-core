@@ -12,6 +12,7 @@ import {
   AccountKeyType,
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
+  CEP_18_ACTION_ENTRY_POINTS,
   CSPRMarketContractHash,
   CSPRStudioCep47ContractHash,
   DeployType,
@@ -41,8 +42,8 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
   ) {
     return 'CSPR_MARKET';
   } else if (
-    contractTypeId === ContractTypeId.CustomCep18 ||
-    contractTypeId === ContractTypeId.Cep18
+    (contractTypeId === ContractTypeId.CustomCep18 || contractTypeId === ContractTypeId.Cep18) &&
+    CEP_18_ACTION_ENTRY_POINTS.includes(getEntryPoint(deploy) ?? '')
   ) {
     return 'CEP18';
   } else if (
