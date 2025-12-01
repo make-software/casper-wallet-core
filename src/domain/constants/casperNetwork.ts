@@ -219,3 +219,14 @@ export const casperChainNameToCasperNetwork: Record<CasperNetworkName, CasperNet
   [CasperNetworkName.DevNet]: 'devnet',
   [CasperNetworkName.Integration]: 'integration',
 };
+
+export const CEP_18_ACTION_ENTRY_POINTS = [
+  'transfer',
+  'approve',
+  'transfer_from',
+  'init',
+  'increase_allowance',
+  'decrease_allowance',
+  'mint',
+  'burn',
+];
