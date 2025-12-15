@@ -230,3 +230,13 @@ export const CEP_18_ACTION_ENTRY_POINTS = [
   'mint',
   'burn',
 ];
+
+export const NFT_ACTION_ENTRY_POINTS = [
+  'approve',
+  'burn',
+  'mint',
+  'transfer',
+  'transfer_from',
+  'update_token_meta',
+  'set_approval_for_all',
+];

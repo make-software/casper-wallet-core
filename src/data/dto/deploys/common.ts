@@ -12,7 +12,6 @@ import {
   AccountKeyType,
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
-  CEP_18_ACTION_ENTRY_POINTS,
   CSPRMarketContractHash,
   CSPRStudioCep47ContractHash,
   DeployType,
@@ -22,7 +21,7 @@ import {
 
 import { ExtendedCloudDeploy, ExtendedDeployArgsResult, IApiDeployArgs } from '../../repositories';
 import { Maybe } from '../../../typings';
-import { ContractTypeId, getHashByType } from '../common';
+import { getHashByType, isCep18Action, isNftAction } from '../common';
 
 export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDeploy>): DeployType {
   const contractTypeId =
@@ -41,18 +40,9 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
     deploy?.contract_package?.contract_package_hash === CSPRMarketContractHash[network]
   ) {
     return 'CSPR_MARKET';
-  } else if (
-    (contractTypeId === ContractTypeId.CustomCep18 || contractTypeId === ContractTypeId.Cep18) &&
-    CEP_18_ACTION_ENTRY_POINTS.includes(getEntryPoint(deploy) ?? '')
-  ) {
+  } else if (isCep18Action(getEntryPoint(deploy) ?? '', contractTypeId)) {
     return 'CEP18';
-  } else if (
-    contractTypeId === ContractTypeId.CEP78Nft ||
-    contractTypeId === ContractTypeId.CEP47Nft ||
-    contractTypeId === ContractTypeId.CustomCEP78Nft ||
-    contractTypeId === ContractTypeId.CustomCEP47Nft ||
-    contractTypeId === ContractTypeId.CEP95NFT
-  ) {
+  } else if (isNftAction(getEntryPoint(deploy) ?? '', contractTypeId)) {
     return 'NFT';
   } else if (deploy?.contract_package?.name === 'Mint' || deploy?.execution_type_id === 6) {
     return 'CSPR_NATIVE';

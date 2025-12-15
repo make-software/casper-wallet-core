@@ -5,7 +5,6 @@ import {
   AssociatedKeysContractInfo,
   AuctionManagerContractInfo,
   CasperNetwork,
-  CEP_18_ACTION_ENTRY_POINTS,
   CSPR_COIN,
   CSPRMarketContractInfo,
   IAccountInfo,
@@ -17,7 +16,13 @@ import {
 } from '../../../domain';
 import { Maybe } from '../../../typings';
 import { formatTokenBalance, isKeysEqual } from '../../../utils';
-import { ContractTypeId, deriveKeyType, getAccountInfoFromMap, getCsprFiatAmount } from '../common';
+import {
+  deriveKeyType,
+  getAccountInfoFromMap,
+  getCsprFiatAmount,
+  isCep18Action,
+  isNftAction,
+} from '../common';
 import {
   getTxSignatureRequestAssociatedKeysAction,
   getTxSignatureRequestAuctionAction,
@@ -189,14 +194,9 @@ export function getTxSignatureRequestAction(
           contractPackage,
           collectionContractPackage,
         );
-      } else if (isCep18Action(tx, contractTypeId)) {
+      } else if (isCep18Action(tx.entryPoint.customEntryPoint ?? '', contractTypeId)) {
         return getTxSignatureRequestCep18Action(tx, accountInfoMap, contractPackage);
-      } else if (
-        contractTypeId === ContractTypeId.CEP78Nft ||
-        contractTypeId === ContractTypeId.CEP47Nft ||
-        contractTypeId === ContractTypeId.CustomCEP78Nft ||
-        contractTypeId === ContractTypeId.CustomCEP47Nft
-      ) {
+      } else if (isNftAction(tx.entryPoint.customEntryPoint ?? '', contractTypeId)) {
         return getTxSignatureRequestNFTAction(
           tx,
           accountInfoMap,
@@ -259,14 +259,5 @@ function isContractSpecificContractCall(tx: Transaction, contractInfo: IContract
     storedTargetId?.byPackageHash?.addr?.toHex() === contractInfo.contractPackageHash ||
     storedTargetId?.byName === contractInfo.contactName ||
     storedTargetId?.byPackageName?.name === contractInfo.contractPackageName
-  );
-}
-
-function isCep18Action(tx: Transaction, contractTypeId?: number): boolean {
-  const entryPoint = tx.entryPoint.customEntryPoint ?? '';
-
-  return (
-    (contractTypeId === ContractTypeId.CustomCep18 || contractTypeId === ContractTypeId.Cep18) &&
-    CEP_18_ACTION_ENTRY_POINTS.includes(entryPoint.toLowerCase())
   );
 }
