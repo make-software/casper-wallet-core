@@ -262,12 +262,3 @@ function isContractSpecificContractCall(tx: Transaction, contractInfo: IContract
     storedTargetId?.byPackageName?.name === contractInfo.contractPackageName
   );
 }
-
-function isCep18Action(tx: Transaction, contractTypeId?: number): boolean {
-  const entryPoint = tx.entryPoint.customEntryPoint ?? '';
-
-  return (
-    (contractTypeId === ContractTypeId.CustomCep18 || contractTypeId === ContractTypeId.Cep18) &&
-    CEP_18_ACTION_ENTRY_POINTS.includes(entryPoint.toLowerCase())
-  );
-}
