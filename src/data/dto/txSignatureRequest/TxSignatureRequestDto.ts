@@ -88,7 +88,7 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
       tx,
       csprFiatRate,
       network,
-      signingPublicKeyHex,
+      this.senderKey,
       accountInfoMap,
       contractPackage,
       collectionContractPackage,
@@ -124,7 +124,7 @@ export function getTxSignatureRequestAction(
   tx: Transaction,
   csprFiatRate: string,
   network: Maybe<CasperNetwork>,
-  signingPublicKeyHex: string,
+  senderPublicKeyHex: string,
   accountInfoMap: Record<string, IAccountInfo> = {},
   contractPackage: Maybe<IContractPackage>,
   collectionContractPackage: Maybe<IContractPackage>,
@@ -150,7 +150,7 @@ export function getTxSignatureRequestAction(
         tx,
         accountInfoMap,
         csprFiatRate,
-        signingPublicKeyHex,
+        senderPublicKeyHex,
         contractPackage,
       );
 
@@ -173,7 +173,7 @@ export function getTxSignatureRequestAction(
           tx,
           accountInfoMap,
           csprFiatRate,
-          signingPublicKeyHex,
+          senderPublicKeyHex,
           contractPackage,
         );
       } else if (
