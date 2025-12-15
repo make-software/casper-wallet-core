@@ -12,6 +12,7 @@ import {
   AccountKeyType,
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
+  CEP_18_ACTION_ENTRY_POINTS,
   CSPRMarketContractHash,
   CSPRStudioCep47ContractHash,
   DeployType,
