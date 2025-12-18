@@ -12,7 +12,6 @@ import {
   AccountKeyType,
   AssociatedKeysContractHash,
   AuctionManagerContractHash,
-  CEP_18_ACTION_ENTRY_POINTS,
   CSPRMarketContractHash,
   CSPRStudioCep47ContractHash,
   DeployType,
@@ -47,6 +46,10 @@ export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDe
     return 'NFT';
   } else if (deploy?.contract_package?.name === 'Mint' || deploy?.execution_type_id === 6) {
     return 'CSPR_NATIVE';
+  } else if (deploy?.execution_type_id === 1) {
+    return 'WASM';
+  } else if (deploy?.execution_type_id === 7) {
+    return 'WASM_PROXY';
   }
 
   return 'UNKNOWN';
