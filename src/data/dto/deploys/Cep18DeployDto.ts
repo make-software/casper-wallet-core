@@ -1,4 +1,9 @@
-import { getDeployAmount, getEntryPoint, guardedDeriveSplitDataFromArguments } from './common';
+import {
+  deriveSplitDataFromNamedKeyValue,
+  getDeployAmount,
+  getEntryPoint,
+  guardedDeriveSplitDataFromArguments,
+} from './common';
 import {
   formatTokenBalance,
   getAccountHashFromPublicKey,
@@ -101,7 +106,15 @@ export function getCep18RecipientKeyAndType(
   const owner = guardedDeriveSplitDataFromArguments(data?.args?.owner, 'Account');
   const spender = guardedDeriveSplitDataFromArguments(data?.args?.spender, 'Hash');
 
-  const info = recipientAccount ?? owner ?? recipient ?? spender;
+  const recipientAccountHash =
+    typeof data?.args?.recipient?.parsed === 'string'
+      ? {
+          ...deriveSplitDataFromNamedKeyValue(data?.args?.recipient?.parsed),
+          keyType: 'accountHash' as const,
+        }
+      : null;
+
+  const info = recipientAccount ?? owner ?? recipient ?? spender ?? recipientAccountHash;
 
   if (info?.keyType === 'accountHash' && info?.hash) {
     const publicKey = derivePublicKeyFromCep18ActionResults(info.hash, data);
