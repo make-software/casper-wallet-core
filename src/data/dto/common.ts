@@ -8,8 +8,10 @@ import {
 import Decimal from 'decimal.js';
 import {
   AccountKeyType,
+  CEP_18_ACTION_ENTRY_POINTS,
   CSPR_COIN,
   IAccountInfo,
+  NFT_ACTION_ENTRY_POINTS,
   SupportedMarketDataProviders,
 } from '../../domain';
 import { Maybe } from '../../typings';
@@ -102,4 +104,21 @@ export function getMarketDataProviderUrl(
     default:
       return null;
   }
+}
+
+export function isCep18Action(entryPointName: string, contractTypeId?: Maybe<number>): boolean {
+  return (
+    (contractTypeId === ContractTypeId.CustomCep18 || contractTypeId === ContractTypeId.Cep18) &&
+    CEP_18_ACTION_ENTRY_POINTS.includes(entryPointName.toLowerCase())
+  );
+}
+
+export function isNftAction(entryPointName: string, contractTypeId?: Maybe<number>): boolean {
+  return (
+    (contractTypeId === ContractTypeId.CEP78Nft ||
+      contractTypeId === ContractTypeId.CEP47Nft ||
+      contractTypeId === ContractTypeId.CustomCEP78Nft ||
+      contractTypeId === ContractTypeId.CustomCEP47Nft) &&
+    NFT_ACTION_ENTRY_POINTS.includes(entryPointName.toLowerCase())
+  );
 }

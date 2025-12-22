@@ -19,6 +19,8 @@ export type DeployType =
   | 'AUCTION'
   | 'CSPR_MARKET'
   | 'ASSOCIATED_KEYS'
+  | 'WASM'
+  | 'WASM_PROXY'
   | 'UNKNOWN';
 
 export interface IDeploy extends IEntity {

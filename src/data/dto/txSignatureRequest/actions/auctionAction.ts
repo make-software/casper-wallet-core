@@ -14,7 +14,7 @@ export function getTxSignatureRequestAuctionAction(
   tx: Transaction,
   accountInfoMap: Record<string, IAccountInfo> = {},
   csprFiatRate: string,
-  signingPublicKeyHex: string,
+  senderPublicKeyHex: string,
   contractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestAuctionAction {
   const amount = tx.args.getByName('amount')?.toString() ?? '0';
@@ -28,7 +28,7 @@ export function getTxSignatureRequestAuctionAction(
     fromValidatorKeyType,
   );
 
-  const toValidator = getToValidator(tx, entryPoint, signingPublicKeyHex);
+  const toValidator = getToValidator(tx, entryPoint, senderPublicKeyHex);
   const toValidatorKeyType = deriveKeyType(toValidator);
   const toValidatorAccountInfo = getAccountInfoFromMap(
     accountInfoMap,
@@ -75,7 +75,7 @@ function getFromValidator(tx: Transaction, entryPoint: string): string | null {
   return null;
 }
 
-function getToValidator(tx: Transaction, entryPoint: string, signingPublicKeyHex: string) {
+function getToValidator(tx: Transaction, entryPoint: string, senderPublicKeyHex: string) {
   const new_validator = tx.args.getByName('new_validator');
 
   if (new_validator) {
@@ -85,7 +85,7 @@ function getToValidator(tx: Transaction, entryPoint: string, signingPublicKeyHex
 
     return validator?.type.getTypeID() === TypeID.PublicKey ? validator.toString() : '';
   } else if (entryPoint.toLowerCase() === 'undelegate') {
-    return signingPublicKeyHex;
+    return senderPublicKeyHex;
   }
 
   return null;
