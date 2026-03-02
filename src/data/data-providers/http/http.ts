@@ -177,8 +177,8 @@ export class HttpDataProvider implements IHttpDataProvider {
     });
   }
 
-  setAuthHeader(token: string) {
-    this.instance.setHeader(HttpDataProvider.AUTH_HEADER_KEY, `Bearer ${token}`);
+  setAuthHeader(value: string) {
+    this.instance.setHeader(HttpDataProvider.AUTH_HEADER_KEY, value);
   }
 
   removeAuthHeader() {
