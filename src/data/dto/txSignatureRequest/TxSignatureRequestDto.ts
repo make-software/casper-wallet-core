@@ -5,7 +5,6 @@ import {
   AssociatedKeysContractInfo,
   AuctionManagerContractInfo,
   CasperNetwork,
-  CEP_18_ACTION_ENTRY_POINTS,
   CSPR_COIN,
   CSPRMarketContractInfo,
   IAccountInfo,
