@@ -1,5 +1,6 @@
 import { Maybe } from '../../../typings';
-import { CoingeckoApiData, ContractPackage, FriendlymarketApiData } from '../tokens';
+import { ContractPackage } from '../tokens';
+import { ITokenMarketData } from '../contractPackage';
 
 export enum TransactorHashType {
   'account' = 0,
@@ -147,8 +148,7 @@ export interface ExtendedCloudDeploy {
   transfers?: DeployTransferResult[];
   ft_token_actions?: FTActionsResult[];
   nft_token_actions?: NftCloudActionsResult[];
-  coingecko_data?: Maybe<CoingeckoApiData>;
-  friendlymarket_data?: Maybe<FriendlymarketApiData>;
+  token_market_data?: ITokenMarketData[] | null;
 }
 
 export enum CasperMarketEntryPoint {
@@ -291,8 +291,6 @@ export interface IErc20TokensTransferResponse {
   transform_idx: number;
   deploy?: ExtendedCloudDeploy;
   contract_package?: ContractPackage;
-  coingecko_data?: Maybe<CoingeckoApiData>;
-  friendlymarket_data?: Maybe<FriendlymarketApiData>;
 }
 
 export interface IApiDeployArgs {
@@ -374,9 +372,9 @@ export interface ExtendedDeployContractPackageResult {
 
   coingecko_id?: string | null;
   friendlymarket_id?: string | null;
-  coingecko_data?: Maybe<CoingeckoApiData>;
-  friendlymarket_data?: Maybe<FriendlymarketApiData>;
   latest_version_contract_hash?: string | null;
+
+  token_market_data?: ITokenMarketData[] | null;
 }
 
 export interface ExtendedDeployEntryPointResult {

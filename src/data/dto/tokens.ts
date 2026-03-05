@@ -12,7 +12,11 @@ import {
 } from '../../domain';
 import { ApiToken, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from '../repositories';
 import { Maybe } from '../../typings';
-import { getMarketDataProviderUrl } from './common';
+import {
+  dexIdToMarketDataProviderMap,
+  getMarketDataProviderUrl,
+  getPreferredTokenMarketData,
+} from './common';
 
 export class TokenDto implements ITokenWithFiatBalance {
   constructor(network: Network, apiToken?: Partial<ApiToken>) {
@@ -28,23 +32,16 @@ export class TokenDto implements ITokenWithFiatBalance {
     this.decimalBalance = getDecimalTokenBalance(this.balance, this.decimals);
     this.formattedDecimalBalance = formatTokenBalance(this.balance, this.decimals);
     this.isNative = this.symbol === 'CSPR';
-    this.fiatBalance = getCep18FiatAmount(
-      this.decimalBalance,
-      apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0,
-      false,
-    );
-    this.formattedFiatBalance = getCep18FiatAmount(
-      this.decimalBalance,
-      apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0,
-      true,
-    );
-    this.fiatPrice = apiToken?.coingecko_data?.price ?? apiToken?.friendlymarket_data?.price ?? 0;
+
+    const tokenMarketData = getPreferredTokenMarketData(apiToken?.token_market_data);
+
+    this.fiatPrice = tokenMarketData?.latest_rate ?? 0;
+    this.fiatBalance = getCep18FiatAmount(this.decimalBalance, this.fiatPrice, false);
+    this.formattedFiatBalance = getCep18FiatAmount(this.decimalBalance, this.fiatPrice, true);
     this.currency = 'USD';
-    this.marketDataProvider = apiToken?.coingecko_data?.price
-      ? 'CoinGecko'
-      : apiToken?.friendlymarket_data?.price
-        ? 'FriendlyMarket'
-        : null;
+    this.marketDataProvider = tokenMarketData
+      ? dexIdToMarketDataProviderMap[tokenMarketData.dex_id]
+      : null;
     this.marketDataProviderUrl = getMarketDataProviderUrl(
       this.marketDataProvider,
       apiToken?.coingecko_id,

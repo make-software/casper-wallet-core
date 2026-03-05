@@ -28,7 +28,7 @@ export interface ITokenWithFiatBalance extends IToken {
   readonly marketDataProviderUrl: Maybe<string>;
 }
 
-export type SupportedMarketDataProviders = 'CoinGecko' | 'FriendlyMarket';
+export type SupportedMarketDataProviders = 'CsprTrade' | 'CoinGecko' | 'FriendlyMarket';
 
 export interface ICsprBalance {
   readonly publicKey: string;
