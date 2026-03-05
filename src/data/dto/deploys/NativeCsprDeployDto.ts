@@ -8,7 +8,7 @@ import {
 } from '../../../domain';
 import { derivePublicKeyFromTransfersActionResults, getDeployAmount } from './common';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getAccountInfoFromMap, getCsprFiatAmount } from '../common';
 
@@ -16,7 +16,7 @@ export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy 
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);
@@ -36,10 +36,7 @@ export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy 
     this.formattedDecimalAmount = formatTokenBalance(this.amount, this.decimals);
     this.entryPoint = null;
     this.contractName = null;
-    this.fiatAmount = getCsprFiatAmount(
-      this.amount,
-      data?.time_transaction_currency_rate ?? data?.rate,
-    );
+    this.fiatAmount = getCsprFiatAmount(this.amount, data?.rate);
   }
 
   readonly entryPoint: Maybe<string>;
@@ -57,7 +54,7 @@ export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy 
 }
 
 function getNativeTransferRecipientKey(
-  data?: Partial<ExtendedCloudDeploy>,
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ): Pick<INativeCsprDeploy, 'recipientKey' | 'recipientKeyType'> {
   const recipientKeyType: AccountKeyType =
     data?.args?.target?.cl_type === 'PublicKey' ? 'publicKey' : 'accountHash';

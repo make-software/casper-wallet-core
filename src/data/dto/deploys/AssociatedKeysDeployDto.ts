@@ -1,6 +1,6 @@
 import { DeployDto } from './DeployDto';
 import { getEntryPoint } from './common';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { IAccountInfo, IAssociatedKeysDeploy, Network } from '../../../domain';
 import { Maybe } from '../../../typings';
 
@@ -8,7 +8,7 @@ export class AssociatedKeysDeployDto extends DeployDto implements IAssociatedKey
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);

@@ -10,7 +10,7 @@ import { getDeployAmount, getEntryPoint } from './common';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../utils';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getCsprFiatAmount } from '../common';
 
@@ -18,7 +18,7 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);
@@ -29,10 +29,7 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
     this.amount = getDeployAmount(data?.args);
     this.decimalAmount = getDecimalTokenBalance(this.amount, this.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, this.decimals);
-    this.fiatAmount = getCsprFiatAmount(
-      this.amount,
-      data?.time_transaction_currency_rate ?? data?.rate,
-    );
+    this.fiatAmount = getCsprFiatAmount(this.amount, data?.rate);
 
     const fromValidator = getFromValidator(data);
     const fromValidatorKeyType = deriveKeyType(fromValidator);
@@ -76,7 +73,9 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
   readonly fiatAmount: string;
 }
 
-function getFromValidator(data?: Partial<ExtendedCloudDeploy>): string | null {
+function getFromValidator(
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
+): string | null {
   const entryPoint = getEntryPoint(data);
 
   if (entryPoint === 'undelegate' && data?.args?.validator?.cl_type === 'PublicKey') {
@@ -88,7 +87,7 @@ function getFromValidator(data?: Partial<ExtendedCloudDeploy>): string | null {
   return null;
 }
 
-function getToValidator(data?: Partial<ExtendedCloudDeploy>) {
+function getToValidator(data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>) {
   const entryPoint = getEntryPoint(data);
 
   if (data?.args?.new_validator) {

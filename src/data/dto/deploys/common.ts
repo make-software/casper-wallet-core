@@ -19,11 +19,19 @@ import {
   Network,
 } from '../../../domain';
 
-import { ExtendedCloudDeploy, ExtendedDeployArgsResult, IApiDeployArgs } from '../../repositories';
+import {
+  ExtendedCloudDeploy,
+  ExtendedDeployArgsResult,
+  IApiDeployArgs,
+  ICloudTransactionFeedItem,
+} from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getHashByType, isCep18Action, isNftAction } from '../common';
 
-export function getDeployType(network: Network, deploy?: Partial<ExtendedCloudDeploy>): DeployType {
+export function getDeployType(
+  network: Network,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
+): DeployType {
   const contractTypeId =
     deploy?.contract_package?.latest_version_contract_type_id ||
     deploy?.contract_package?.contract_type_id;
@@ -127,10 +135,13 @@ export const getAccountHashesFromDeployActionResults = (deploy: IDeploy): string
 };
 
 export const getNftTokensQuantity = (
-  data?: Partial<ExtendedCloudDeploy>,
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   excludedEntryPoints: string[] = [],
 ) => {
-  if (data?.entry_point?.name && excludedEntryPoints.includes(data?.entry_point?.name)) {
+  if (
+    data?.contract_entrypoint?.name &&
+    excludedEntryPoints.includes(data.contract_entrypoint.name)
+  ) {
     return null;
   }
 
@@ -147,13 +158,13 @@ export const getNftTokensQuantity = (
   return null;
 };
 
-export function getEntryPoint(data?: Partial<ExtendedCloudDeploy>) {
-  return data?.entry_point?.name ?? data?.contract_entrypoint?.name;
+export function getEntryPoint(data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>) {
+  return /*data?.entry_point?.name ??*/ data?.contract_entrypoint?.name;
 }
 
 export function derivePublicKeyFromTransfersActionResults(
   accountHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ) {
   return deploy?.transfers
     ?.reduce<string[]>((acc, cur) => {
@@ -167,7 +178,7 @@ export function derivePublicKeyFromTransfersActionResults(
 
 export function derivePublicKeyFromNftActionResults(
   accountHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ) {
   return deploy?.nft_token_actions
     ?.reduce<string[]>((acc, cur) => {
@@ -269,7 +280,7 @@ export function getCollectionHashFormDeploy(
   network: Network,
   contractHash: string,
   contractPackageHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ) {
   const collection = deploy?.args?.collection;
 

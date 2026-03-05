@@ -16,7 +16,7 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { getCsprFiatAmount } from '../common';
 
 const mapCep18EntryPointIdToName: Record<number, CEP18EntryPointType> = {
@@ -36,7 +36,7 @@ const mapNftentryPointIdToName: Record<number, NFTEntryPointType> = {
 
 export function getCep18ActionsResult(
   activePublicKey: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
@@ -93,7 +93,7 @@ export function getNftActionsResult(
   activePublicKey: string,
   network: Network,
   collectionHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
@@ -141,7 +141,7 @@ export function getNftActionsResult(
 
 export function getTransferActionsResult(
   activePublicKey: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
@@ -180,10 +180,7 @@ export function getTransferActionsResult(
         amount: action.amount,
         decimalAmount: getDecimalTokenBalance(action.amount, CSPR_COIN.decimals),
         formattedDecimalAmount: formatTokenBalance(action.amount, CSPR_COIN.decimals),
-        fiatAmount: getCsprFiatAmount(
-          action.amount,
-          deploy?.time_transaction_currency_rate ?? deploy?.rate,
-        ),
+        fiatAmount: getCsprFiatAmount(action.amount, deploy?.rate),
       };
     }) ?? []
   );

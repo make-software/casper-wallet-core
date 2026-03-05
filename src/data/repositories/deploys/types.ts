@@ -403,3 +403,36 @@ export interface ExtendedDeployContractPackageMetadata {
   whitelist_mode?: string;
   owner_reverse_lookup_mode?: string;
 }
+
+export interface ICloudTransactionFeedItem {
+  account_info: null;
+  args: ExtendedDeployArgsResult;
+  block_hash: string;
+  block_height: number;
+  caller_hash: string;
+  caller_public_key: string;
+  centralized_account_info: null;
+  consumed_gas: string;
+  contract_entrypoint: ExtendedDeployEntryPointResult;
+  contract_hash: string;
+  contract_package: ExtendedDeployContractPackageResult;
+  contract_package_hash: string;
+  cost: string;
+  deploy_hash: string;
+  entry_point_id: number;
+  error_message: null | string;
+  execution_type_id: number;
+  transfers?: DeployTransferResult[];
+  ft_token_actions?: FTActionsResult[];
+  nft_token_actions?: NftCloudActionsResult[];
+  gas_price_limit: number;
+  is_standard_payment: boolean;
+  payment_amount: string;
+  pricing_mode_id: number;
+  rate: number;
+  refund_amount: string;
+  runtime_type_id: number;
+  status: string;
+  timestamp: string;
+  version_id: 2;
+}

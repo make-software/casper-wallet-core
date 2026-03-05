@@ -18,7 +18,7 @@ import {
   getNftActionsResult,
   getTransferActionsResult,
 } from './ActionResults';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getCsprFiatAmount } from '../common';
 
@@ -26,7 +26,7 @@ export class DeployDto implements IDeploy {
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     this.deployHash = data?.deploy_hash ?? '';
@@ -38,16 +38,10 @@ export class DeployDto implements IDeploy {
     this.timestamp = data?.timestamp ?? '';
     this.cost = data?.consumed_gas ?? '0';
     this.formattedCost = formatTokenBalance(this.cost, CSPR_COIN.decimals);
-    this.fiatCost = getCsprFiatAmount(
-      this.cost,
-      data?.time_transaction_currency_rate ?? data?.rate,
-    );
+    this.fiatCost = getCsprFiatAmount(this.cost, data?.rate);
     this.paymentAmount = data?.payment_amount ?? '0';
     this.formattedPaymentAmount = formatTokenBalance(this.paymentAmount, CSPR_COIN.decimals);
-    this.fiatPaymentAmount = getCsprFiatAmount(
-      this.paymentAmount,
-      data?.time_transaction_currency_rate ?? data?.rate,
-    );
+    this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.rate);
     this.contractHash = data?.contract_hash ?? '';
     this.contractPackageHash = data?.contract_package_hash ?? '';
     this.iconUrl = data?.contract_package?.icon_url ?? null;
@@ -97,7 +91,9 @@ export class DeployDto implements IDeploy {
   readonly cep18ActionsResult: ICep18ActionsResult[];
 }
 
-export function getDeployStatus(deploy?: Partial<ExtendedCloudDeploy>): DeployStatus {
+export function getDeployStatus(
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
+): DeployStatus {
   const status = deploy?.status as DeployStatus | undefined;
 
   if (deploy?.error_message) {

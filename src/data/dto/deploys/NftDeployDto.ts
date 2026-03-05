@@ -7,7 +7,7 @@ import {
   guardedDeriveSplitDataFromArguments,
 } from './common';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { isKeysEqual } from '../../../utils';
 import {
   AccountKeyType,
@@ -23,7 +23,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);
@@ -66,7 +66,7 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
 }
 
 export function getNftRecipientKeys(
-  data?: Partial<ExtendedCloudDeploy>,
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ): Pick<INftDeploy, 'recipientKey' | 'recipientKeyType'> {
   const tokenOwner = guardedDeriveSplitDataFromArguments(data?.args?.token_owner, 'Account');
   const owner = guardedDeriveSplitDataFromArguments(data?.args?.owner, 'Account');
