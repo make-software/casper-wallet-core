@@ -21,6 +21,7 @@ import {
 import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getCsprFiatAmount } from '../common';
+import Decimal from 'decimal.js';
 
 export class DeployDto implements IDeploy {
   constructor(
@@ -39,7 +40,7 @@ export class DeployDto implements IDeploy {
     this.cost = data?.consumed_gas ?? '0';
     this.formattedCost = formatTokenBalance(this.cost, CSPR_COIN.decimals);
     this.fiatCost = getCsprFiatAmount(this.cost, data?.rate);
-    this.paymentAmount = data?.payment_amount ?? '0';
+    this.paymentAmount = getChargedAmount(data);
     this.formattedPaymentAmount = formatTokenBalance(this.paymentAmount, CSPR_COIN.decimals);
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.rate);
     this.contractHash = data?.contract_hash ?? '';
@@ -105,4 +106,14 @@ export function getDeployStatus(
   }
 
   return 'success';
+}
+
+function getChargedAmount(data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>) {
+  if (!data) {
+    return '0';
+  }
+
+  return Decimal(data?.payment_amount ?? 0)
+    .minus(data?.refund_amount ?? 0)
+    .toString();
 }

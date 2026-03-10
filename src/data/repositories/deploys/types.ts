@@ -149,6 +149,7 @@ export interface ExtendedCloudDeploy {
   ft_token_actions?: FTActionsResult[];
   nft_token_actions?: NftCloudActionsResult[];
   token_market_data?: ITokenMarketData[] | null;
+  refund_amount?: string | null;
 }
 
 export enum CasperMarketEntryPoint {
