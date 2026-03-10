@@ -37,10 +37,10 @@ export class DeployDto implements IDeploy {
     this.status = getDeployStatus(data);
     this.errorMessage = data?.error_message ?? null;
     this.timestamp = data?.timestamp ?? '';
-    this.cost = data?.consumed_gas ?? '0';
+    this.cost = getChargedAmount(data);
     this.formattedCost = formatTokenBalance(this.cost, CSPR_COIN.decimals);
     this.fiatCost = getCsprFiatAmount(this.cost, data?.rate);
-    this.paymentAmount = getChargedAmount(data);
+    this.paymentAmount = data?.payment_amount ?? '0';
     this.formattedPaymentAmount = formatTokenBalance(this.paymentAmount, CSPR_COIN.decimals);
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.rate);
     this.contractHash = data?.contract_hash ?? '';
