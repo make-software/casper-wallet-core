@@ -113,7 +113,5 @@ function getChargedAmount(data?: Partial<ExtendedCloudDeploy | ICloudTransaction
     return '0';
   }
 
-  return Decimal(data?.payment_amount ?? 0)
-    .minus(data?.refund_amount ?? 0)
-    .toString();
+  return new Decimal(data?.payment_amount ?? 0).minus(data?.refund_amount ?? 0).toString();
 }

@@ -729,7 +729,7 @@ __metadata:
     apisauce: "npm:^3.2.2"
     casper-js-sdk: "npm:5.0.10"
     date-fns: "npm:^2.30.0"
-    decimal.js: "npm:^10.4.3"
+    decimal.js: "npm:^10.6.0"
     eslint: "npm:8.22.0"
     eslint-plugin-prettier: "npm:5.0.0"
     eslint-plugin-simple-import-sort: "npm:^10.0.0"
@@ -1286,10 +1286,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"decimal.js@npm:^10.4.3":
-  version: 10.5.0
-  resolution: "decimal.js@npm:10.5.0"
-  checksum: 10c0/785c35279df32762143914668df35948920b6c1c259b933e0519a69b7003fc0a5ed2a766b1e1dda02574450c566b21738a45f15e274b47c2ac02072c0d1f3ac3
+"decimal.js@npm:^10.6.0":
+  version: 10.6.0
+  resolution: "decimal.js@npm:10.6.0"
+  checksum: 10c0/07d69fbcc54167a340d2d97de95f546f9ff1f69d2b45a02fd7a5292412df3cd9eb7e23065e532a318f5474a2e1bccf8392fdf0443ef467f97f3bf8cb0477e5aa
   languageName: node
   linkType: hard
 
