@@ -250,7 +250,6 @@ export class DeploysRepository implements IDeploysRepository {
       const resp = await this._httpProvider.get<CloudPaginatedResponse<ICloudTransactionFeedItem>>({
         url: `https://cspr-wallet-api.dev.make.services:443/accounts/${activePublicKey}/feed-transactions`, // TODO: Replace with production API endpoint
         params: {
-          account_identifier: activePublicKey,
           page,
           page_size: limit,
           includes:
@@ -272,6 +271,8 @@ export class DeploysRepository implements IDeploysRepository {
         network,
         accountHashes,
       });
+
+      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(resp, network);
 
       return {
         itemCount: resp.item_count,

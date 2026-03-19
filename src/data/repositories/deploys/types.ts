@@ -1,6 +1,7 @@
 import { Maybe } from '../../../typings';
 import { ContractPackage } from '../tokens';
 import { ITokenMarketData } from '../contractPackage';
+import { CloudCentralizedAccountInfo, ICloudAccountInfoResult } from '../accountInfo';
 
 export enum TransactorHashType {
   'account' = 0,
@@ -404,13 +405,13 @@ export interface ExtendedDeployContractPackageMetadata {
 }
 
 export interface ICloudTransactionFeedItem {
-  account_info: null;
+  account_info: Maybe<ICloudAccountInfoResult>;
   args: ExtendedDeployArgsResult;
   block_hash: string;
   block_height: number;
   caller_hash: string;
   caller_public_key: string;
-  centralized_account_info: null;
+  centralized_account_info: Maybe<CloudCentralizedAccountInfo>;
   consumed_gas: string;
   contract_entrypoint: ExtendedDeployEntryPointResult;
   contract_hash: string;

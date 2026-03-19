@@ -1,5 +1,9 @@
 import { CasperNetwork, IAccountInfo } from '../../domain';
-import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from '../repositories';
+import {
+  ICloudResolveFromCsprNameResponse,
+  ICloudTransactionFeedItem,
+  IGetAccountsInfoResponse,
+} from '../repositories';
 import { Maybe } from '../../typings';
 import { getBlockExplorerAccountUrl } from '../../utils';
 
@@ -45,6 +49,33 @@ export class AccountsInfoResolutionFromCsprNameDto implements IAccountInfo {
       result?.centralized_account_info?.avatar_url ??
       null;
     this.csprName = result?.name ?? null;
+    this.explorerLink = getBlockExplorerAccountUrl(network, this.publicKey || this.accountHash);
+  }
+
+  readonly publicKey: string;
+  readonly accountHash: string;
+  readonly name: string;
+  readonly brandingLogo: Maybe<string>;
+  readonly id: string;
+  readonly csprName: Maybe<string>;
+  readonly explorerLink: Maybe<string>;
+}
+
+export class AccountsInfoFromTransactionFeedDto implements IAccountInfo {
+  constructor(network: CasperNetwork, result?: ICloudTransactionFeedItem) {
+    this.publicKey = result?.caller_public_key ?? '';
+    this.id = this.publicKey;
+    this.accountHash = result?.caller_hash ?? '';
+    this.name =
+      result?.account_info?.info?.owner?.name ?? result?.centralized_account_info?.name ?? '';
+    const brandingLogoObj = result?.account_info?.info?.owner?.branding?.logo;
+    this.brandingLogo =
+      brandingLogoObj?.png_256 ??
+      brandingLogoObj?.svg ??
+      brandingLogoObj?.png_1024 ??
+      result?.centralized_account_info?.avatar_url ??
+      null;
+    this.csprName = null;
     this.explorerLink = getBlockExplorerAccountUrl(network, this.publicKey || this.accountHash);
   }
 

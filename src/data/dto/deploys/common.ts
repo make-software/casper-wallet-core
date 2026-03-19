@@ -80,20 +80,28 @@ export function getDeployAmount(deployArgs?: Partial<IApiDeployArgs>) {
 export const getAccountHashesFromDeploy = (deploy: IDeploy): string[] => {
   if (isNativeCsprDeploy(deploy) || isCep18Deploy(deploy) || isNftDeploy(deploy)) {
     return [
-      getHashByType(deploy.callerPublicKey),
+      getHashByType(deploy.callerPublicKey, deploy.callerKeyType),
       getHashByType(deploy.recipientKey, deploy.recipientKeyType),
     ].filter(isNotEmpty<string>);
   }
 
   if (isAuctionDeploy(deploy)) {
     return [
+      getHashByType(deploy.callerPublicKey, deploy.callerKeyType),
       getHashByType(deploy.fromValidator, 'publicKey'),
       getHashByType(deploy.toValidator, 'publicKey'),
     ].filter(isNotEmpty<string>);
   }
 
   if (isCasperMarketDeploy(deploy)) {
-    return [getHashByType(deploy.offererHash, deploy.offererHashType)].filter(isNotEmpty<string>);
+    return [
+      getHashByType(deploy.offererHash, deploy.offererHashType),
+      getHashByType(deploy.callerPublicKey, deploy.callerKeyType),
+    ].filter(isNotEmpty<string>);
+  }
+
+  if (deploy.callerPublicKey) {
+    [getHashByType(deploy.callerPublicKey, deploy.callerKeyType)].filter(isNotEmpty<string>);
   }
 
   return [];

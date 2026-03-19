@@ -11,13 +11,20 @@ import {
   ICsprBalance,
   IGetAccountsBalancesParams,
   CasperNetwork,
+  CloudPaginatedResponse,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { AccountsInfoDto, AccountsInfoResolutionFromCsprNameDto, CsprBalanceDto } from '../../dto';
+import {
+  AccountsInfoDto,
+  AccountsInfoFromTransactionFeedDto,
+  AccountsInfoResolutionFromCsprNameDto,
+  CsprBalanceDto,
+} from '../../dto';
 import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from './types';
 import { isExpired } from '../../../utils';
 import { Maybe } from '../../../typings';
 import { IGetCsprBalanceResponse } from '../tokens';
+import { ICloudTransactionFeedItem } from '../deploys';
 
 export * from './types';
 
@@ -140,6 +147,28 @@ export class AccountInfoRepository implements IAccountInfoRepository {
       this._processError(e, 'resolveAccountFromCsprName');
     }
   }
+
+  getAccountInfoFromTransactionsFeed = async (
+    resp: CloudPaginatedResponse<ICloudTransactionFeedItem>,
+    network: CasperNetwork,
+  ) => {
+    const remoteAccountsInfo =
+      resp?.data
+        .map(acc => new AccountsInfoFromTransactionFeedDto(network, acc))
+        .reduce<Record<string, IAccountInfo>>(
+          (acc, cur) => ({
+            ...acc,
+            [cur.accountHash]: cur,
+          }),
+          {},
+        ) ?? {};
+
+    Object.entries(remoteAccountsInfo).forEach(([key, accInfo]) => {
+      this._accountsInfoMapCache.set(key, accInfo);
+    });
+
+    return remoteAccountsInfo;
+  };
 
   private _processError(e: unknown, type: keyof IAccountInfoRepository): never {
     if (isAccountInfoError(e)) {
