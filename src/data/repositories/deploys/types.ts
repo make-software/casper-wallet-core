@@ -410,6 +410,7 @@ export interface ICloudTransactionFeedItem {
   block_hash: string;
   block_height: number;
   caller_hash: string;
+  caller_cspr_name: Maybe<string>;
   caller_public_key: string;
   centralized_account_info: Maybe<CloudCentralizedAccountInfo>;
   consumed_gas: string;

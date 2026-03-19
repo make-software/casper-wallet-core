@@ -75,7 +75,7 @@ export class AccountsInfoFromTransactionFeedDto implements IAccountInfo {
       brandingLogoObj?.png_1024 ??
       result?.centralized_account_info?.avatar_url ??
       null;
-    this.csprName = null;
+    this.csprName = result?.caller_cspr_name ?? null;
     this.explorerLink = getBlockExplorerAccountUrl(network, this.publicKey || this.accountHash);
   }
 
