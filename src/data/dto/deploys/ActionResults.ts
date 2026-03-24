@@ -134,6 +134,8 @@ export function getNftActionsResult(
         id: getUniqueId(),
         nftTokenIds,
         nftTokenUrlsMap,
+        collectionHash:
+          action.contract_package_hash ?? action.contract_package?.contract_package_hash ?? '',
       };
     }) ?? []
   );
