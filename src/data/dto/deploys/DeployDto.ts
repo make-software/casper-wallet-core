@@ -52,7 +52,7 @@ export class DeployDto implements IDeploy {
     const callerPublicKey = data?.caller_public_key ?? '';
     const callerKeyType = deriveKeyType(callerPublicKey);
     this.callerAccountInfo = getAccountInfoFromMap(accountInfoMap, callerPublicKey, callerKeyType);
-    this.callerPublicKey = this.callerAccountInfo?.publicKey ?? callerPublicKey;
+    this.callerPublicKey = this.callerAccountInfo?.publicKey || callerPublicKey;
     this.callerKeyType = this.callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType;
 
     this.transfersActionsResult = getTransferActionsResult(activePublicKey, data, accountInfoMap);

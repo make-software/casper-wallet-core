@@ -61,16 +61,16 @@ export function getCep18ActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         contractPackageHash: action?.contract_package_hash,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerPublicKeyType,
         symbol: action?.contract_package?.metadata?.symbol ?? '',
         contractName: action?.contract_package?.name ?? '',
         iconUrl: action?.contract_package?.icon_url ?? '',
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         decimals: action?.contract_package?.metadata?.decimals ?? 0,
         amount: action.amount,
         decimalAmount: getDecimalTokenBalance(
@@ -121,11 +121,11 @@ export function getNftActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerPublicKeyType,
         contractName: action?.contract_package?.name ?? '',
         iconUrl: action?.contract_package?.icon_url ?? '',
@@ -171,11 +171,11 @@ export function getTransferActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType,
         timestamp: action?.timestamp,
         id: getUniqueId(),

@@ -36,7 +36,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
 
     const { offererHash, offererHashType } = getOffererFormDeploy(data);
     this.offererAccountInfo = getAccountInfoFromMap(accountInfoMap, offererHash, offererHashType);
-    this.offererHash = this.offererAccountInfo?.publicKey ?? offererHash;
+    this.offererHash = this.offererAccountInfo?.publicKey || offererHash;
     this.offererHashType = this.offererAccountInfo?.publicKey ? 'publicKey' : offererHashType;
 
     this.collectionHash = getCollectionHashFormDeploy(

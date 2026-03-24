@@ -38,7 +38,7 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
       fromValidator,
       fromValidatorKeyType,
     );
-    this.fromValidator = this.fromValidatorAccountInfo?.publicKey ?? fromValidator;
+    this.fromValidator = this.fromValidatorAccountInfo?.publicKey || fromValidator;
     this.fromValidatorKeyType = this.fromValidatorAccountInfo?.publicKey
       ? 'publicKey'
       : fromValidatorKeyType;
@@ -50,7 +50,7 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
       toValidator,
       toValidatorKeyType,
     );
-    this.toValidator = this.toValidatorAccountInfo?.publicKey ?? toValidator;
+    this.toValidator = this.toValidatorAccountInfo?.publicKey || toValidator;
     this.toValidatorKeyType = this.toValidatorAccountInfo?.publicKey
       ? 'publicKey'
       : toValidatorKeyType;

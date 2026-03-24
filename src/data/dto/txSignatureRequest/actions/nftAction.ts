@@ -35,7 +35,7 @@ export function getTxSignatureRequestNFTAction(
     nftTokenIds,
     nftTokenUrlsMap,
     recipientAccountInfo,
-    recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+    recipientKey: recipientAccountInfo?.publicKey || recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
     collectionHash,
     collectionName: collectionContractPackage?.name ?? null,

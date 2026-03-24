@@ -26,7 +26,7 @@ export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy 
       recipientKey,
       recipientKeyType,
     );
-    this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
+    this.recipientKey = this.recipientAccountInfo?.publicKey || recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
     this.decimals = CSPR_COIN.decimals;

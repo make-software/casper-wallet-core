@@ -60,7 +60,7 @@ export function getTxSignatureRequestNativeCsprAction(
     fiatAmount: getCsprFiatAmount(amount, csprFiatRate),
     decimals: CSPR_COIN.decimals,
     recipientAccountInfo,
-    recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+    recipientKey: recipientAccountInfo?.publicKey || recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
     symbol: CSPR_COIN.symbol,
     type: 'CSPR_NATIVE',

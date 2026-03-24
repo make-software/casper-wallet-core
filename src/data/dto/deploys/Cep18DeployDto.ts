@@ -52,7 +52,7 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
       recipientKey,
       recipientKeyType,
     );
-    this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
+    this.recipientKey = this.recipientAccountInfo?.publicKey || recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
 
