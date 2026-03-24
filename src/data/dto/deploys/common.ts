@@ -293,3 +293,9 @@ export function getCollectionHashFormDeploy(
     ? contractHash
     : contractPackageHash;
 }
+
+export function getKeyTypeFromResult(result: any) {
+  if (result?.key_type) {
+    return result.key_type;
+  }
+}

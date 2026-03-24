@@ -16,7 +16,12 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import {
+  ExtendedCloudDeploy,
+  FTActionsResult,
+  ICloudTransactionFeedItem,
+  NftCloudActionsResult,
+} from '../../repositories';
 import { getCsprFiatAmount } from '../common';
 
 const mapCep18EntryPointIdToName: Record<number, CEP18EntryPointType> = {
@@ -42,7 +47,7 @@ export function getCep18ActionsResult(
   return (
     deploy?.ft_token_actions?.map<ICep18ActionsResult>(action => {
       const recipientKey = action?.to_public_key ?? action?.to_hash ?? '';
-      const recipientKeyType: AccountKeyType = action?.to_public_key ? 'publicKey' : 'accountHash';
+      const recipientKeyType: AccountKeyType = getActionRecipientKeyType(action);
       const recipientAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         recipientKey,
@@ -50,9 +55,7 @@ export function getCep18ActionsResult(
       );
 
       const callerPublicKey = action?.from_public_key ?? action?.from_hash ?? '';
-      const callerPublicKeyType: AccountKeyType = action?.from_public_key
-        ? 'publicKey'
-        : 'accountHash';
+      const callerPublicKeyType: AccountKeyType = getActionCallerKeyType(action);
       const callerAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         callerPublicKey,
@@ -99,7 +102,7 @@ export function getNftActionsResult(
   return (
     deploy?.nft_token_actions?.map<INftActionsResult>(action => {
       const recipientKey = action?.to_public_key ?? action?.to_hash ?? '';
-      const recipientKeyType: AccountKeyType = action?.to_public_key ? 'publicKey' : 'accountHash';
+      const recipientKeyType: AccountKeyType = getActionRecipientKeyType(action);
       const recipientAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         recipientKey,
@@ -107,9 +110,7 @@ export function getNftActionsResult(
       );
 
       const callerPublicKey = action?.from_public_key ?? action?.from_hash ?? '';
-      const callerPublicKeyType: AccountKeyType = action?.from_public_key
-        ? 'publicKey'
-        : 'accountHash';
+      const callerPublicKeyType: AccountKeyType = getActionCallerKeyType(action);
       const callerAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         callerPublicKey,
@@ -186,4 +187,28 @@ export function getTransferActionsResult(
       };
     }) ?? []
   );
+}
+
+function getActionRecipientKeyType(action: FTActionsResult | NftCloudActionsResult) {
+  if (action?.to_public_key) {
+    return 'publicKey';
+  }
+
+  if (action?.to_hash) {
+    return action.to_type === 0 ? 'accountHash' : 'contractHash';
+  }
+
+  return 'purse';
+}
+
+function getActionCallerKeyType(action: FTActionsResult | NftCloudActionsResult) {
+  if (action?.from_public_key) {
+    return 'publicKey';
+  }
+
+  if (action?.from_hash) {
+    return action.from_type === 0 ? 'accountHash' : 'contractHash';
+  }
+
+  return 'purse';
 }
