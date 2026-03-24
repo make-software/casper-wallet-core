@@ -18,6 +18,7 @@
     "casper-js-sdk": "5.0.10",
     "date-fns": "^2.30.0",
     "decimal.js": "^10.6.0",
+    "deepmerge": "^4.3.1",
     "lru-cache": "10.4.3",
     "uuid": "^9.0.0"
   },
