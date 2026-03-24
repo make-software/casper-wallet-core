@@ -108,34 +108,19 @@ export const getAccountHashesFromDeploy = (deploy: IDeploy): string[] => {
 };
 
 export const getAccountHashesFromDeployActionResults = (deploy: IDeploy): string[] => {
-  let hashes: string[] = [];
-
-  if (isCep18Deploy(deploy)) {
-    hashes = [
-      ...hashes,
-      ...[
-        ...deploy.cep18ActionsResult
-          .map(res => [getHashByType(res.callerPublicKey), getHashByType(res.recipientKey)])
-          .flat(),
-      ].filter(isNotEmpty<string>),
-    ];
-  }
-
-  if (isCasperMarketDeploy(deploy) || isNftDeploy(deploy)) {
-    hashes = [
-      ...hashes,
-      ...[
-        ...deploy.nftActionsResult
-          .map(res => [getHashByType(res.callerPublicKey), getHashByType(res.recipientKey)])
-          .flat(),
-      ].filter(isNotEmpty<string>),
-    ];
-  }
-
   return [
-    ...hashes,
     ...[
       ...deploy.transfersActionsResult
+        .map(res => [getHashByType(res.callerPublicKey), getHashByType(res.recipientKey)])
+        .flat(),
+    ].filter(isNotEmpty<string>),
+    ...[
+      ...deploy.cep18ActionsResult
+        .map(res => [getHashByType(res.callerPublicKey), getHashByType(res.recipientKey)])
+        .flat(),
+    ].filter(isNotEmpty<string>),
+    ...[
+      ...deploy.nftActionsResult
         .map(res => [getHashByType(res.callerPublicKey), getHashByType(res.recipientKey)])
         .flat(),
     ].filter(isNotEmpty<string>),

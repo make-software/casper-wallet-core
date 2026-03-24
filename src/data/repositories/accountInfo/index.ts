@@ -1,4 +1,5 @@
 import { LRUCache } from 'lru-cache';
+import deepmerge from 'deepmerge';
 import {
   CSPR_API_PROXY_HEADERS,
   isAccountInfoError,
@@ -11,16 +12,11 @@ import {
   ICsprBalance,
   IGetAccountsBalancesParams,
   CasperNetwork,
-  CloudPaginatedResponse,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import {
-  AccountsInfoDto,
-  AccountsInfoFromTransactionFeedDto,
-  AccountsInfoResolutionFromCsprNameDto,
-  CsprBalanceDto,
-} from '../../dto';
+import { AccountsInfoDto, CsprBalanceDto } from '../../dto';
 import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from './types';
+
 import { isExpired } from '../../../utils';
 import { Maybe } from '../../../typings';
 import { IGetCsprBalanceResponse } from '../tokens';
@@ -35,7 +31,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
   ) {}
 
   private _accountsInfoMapCache = new LRUCache<string, IAccountInfo>({
-    max: 100,
+    max: 1000,
     ttl: 1000 * 60 * 10,
   });
 
@@ -64,7 +60,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
       const remoteAccountsInfo =
         resp?.data
-          .map(acc => new AccountsInfoDto(network, acc))
+          .map(acc => AccountsInfoDto.fromGetAccountsInfoResponse(network, acc))
           .reduce<Record<string, IAccountInfo>>(
             (acc, cur) => ({
               ...acc,
@@ -74,7 +70,8 @@ export class AccountInfoRepository implements IAccountInfoRepository {
           ) ?? {};
 
       Object.entries(remoteAccountsInfo).forEach(([key, accInfo]) => {
-        this._accountsInfoMapCache.set(key, accInfo);
+        const existing = this._accountsInfoMapCache.get(key);
+        this._accountsInfoMapCache.set(key, existing ? deepmerge(existing, accInfo) : accInfo);
       });
 
       return accountHashes.reduce<Record<string, IAccountInfo>>(
@@ -138,7 +135,7 @@ export class AccountInfoRepository implements IAccountInfoRepository {
 
       return isExpired(resp?.data?.expires_at)
         ? null
-        : new AccountsInfoResolutionFromCsprNameDto(network, resp?.data);
+        : AccountsInfoDto.fromCsprNameResolution(network, resp?.data);
     } catch (e) {
       if (e instanceof HttpClientNotFoundError) {
         return null;
@@ -149,12 +146,12 @@ export class AccountInfoRepository implements IAccountInfoRepository {
   }
 
   getAccountInfoFromTransactionsFeed = async (
-    resp: CloudPaginatedResponse<ICloudTransactionFeedItem>,
+    resp: ICloudTransactionFeedItem[],
     network: CasperNetwork,
   ) => {
-    const remoteAccountsInfo =
-      resp?.data
-        .map(acc => new AccountsInfoFromTransactionFeedDto(network, acc))
+    const remoteCallerAccountsInfo =
+      resp
+        ?.map(acc => AccountsInfoDto.fromTransactionFeedCaller(network, acc))
         .reduce<Record<string, IAccountInfo>>(
           (acc, cur) => ({
             ...acc,
@@ -163,8 +160,38 @@ export class AccountInfoRepository implements IAccountInfoRepository {
           {},
         ) ?? {};
 
+    const remoteResultsAccountsInfo =
+      resp
+        ?.map(acc => {
+          const transfersInfo =
+            acc.transfers
+              ?.map(tr => AccountsInfoDto.fromTransactionTransferResult(network, tr))
+              .flat() ?? [];
+          const ftActionsInfo =
+            acc.ft_token_actions
+              ?.map(tr => AccountsInfoDto.fromTransactionActionResults(network, tr))
+              .flat() ?? [];
+          const nftActionsInfo =
+            acc.nft_token_actions
+              ?.map(tr => AccountsInfoDto.fromTransactionActionResults(network, tr))
+              .flat() ?? [];
+
+          return [...transfersInfo, ...ftActionsInfo, ...nftActionsInfo];
+        })
+        .flat()
+        .reduce<Record<string, IAccountInfo>>(
+          (acc, cur) => ({
+            ...acc,
+            [cur.accountHash]: cur,
+          }),
+          {},
+        ) ?? {};
+
+    const remoteAccountsInfo = { ...remoteCallerAccountsInfo, ...remoteResultsAccountsInfo };
+
     Object.entries(remoteAccountsInfo).forEach(([key, accInfo]) => {
-      this._accountsInfoMapCache.set(key, accInfo);
+      const existing = this._accountsInfoMapCache.get(key);
+      this._accountsInfoMapCache.set(key, existing ? deepmerge(existing, accInfo) : accInfo);
     });
 
     return remoteAccountsInfo;

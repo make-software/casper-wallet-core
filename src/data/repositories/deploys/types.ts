@@ -90,6 +90,14 @@ export type DeployTransferResult = {
   to_purse: string;
   transform_key: string;
   to_purse_public_key: string | null;
+
+  transfer_index: number;
+  from_purse_account_info: ICloudAccountInfoResult | null;
+  to_purse_account_info: ICloudAccountInfoResult | null;
+  from_purse_centralized_account_info: CloudCentralizedAccountInfo | null;
+  to_purse_centralized_account_info: CloudCentralizedAccountInfo | null;
+  from_purse_cspr_name: null | string;
+  to_purse_cspr_name: null | string;
 };
 
 export type NftCloudActionsResult = {
@@ -107,6 +115,17 @@ export type NftCloudActionsResult = {
   to_type: number;
   token_id: string;
   token_tracking_id: number;
+
+  rate: null;
+  from_account_info: ICloudAccountInfoResult | null;
+  caller_account_info: ICloudAccountInfoResult | null;
+  to_account_info: ICloudAccountInfoResult | null;
+  from_centralized_account_info: CloudCentralizedAccountInfo | null;
+  caller_centralized_account_info: CloudCentralizedAccountInfo | null;
+  to_centralized_account_info: CloudCentralizedAccountInfo | null;
+  deploy: null;
+  from_cspr_name: null | string;
+  to_cspr_name: null | string;
 };
 
 export type FTActionsResult = {
@@ -122,6 +141,19 @@ export type FTActionsResult = {
   to_hash: string;
   to_public_key: string | null;
   to_type: TransactorHashType;
+
+  block_height: number;
+  transform_idx: number;
+  rate: null;
+  from_account_info: ICloudAccountInfoResult | null;
+  to_account_info: ICloudAccountInfoResult | null;
+  caller_account_info: ICloudAccountInfoResult | null;
+  from_centralized_account_info: CloudCentralizedAccountInfo | null;
+  to_centralized_account_info: CloudCentralizedAccountInfo | null;
+  caller_centralized_account_info: CloudCentralizedAccountInfo | null;
+  deploy: null;
+  from_cspr_name: string | null;
+  to_cspr_name: string | null;
 };
 
 export interface ExtendedCloudDeploy {

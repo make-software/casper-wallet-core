@@ -37,6 +37,7 @@ export class DeploysRepository implements IDeploysRepository {
     private _casperWalletApiUrl: Record<CasperNetwork, string>,
   ) {}
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getDeploys({
     network,
     activePublicKey,
@@ -52,7 +53,7 @@ export class DeploysRepository implements IDeploysRepository {
           public_key: activePublicKey,
           page,
           page_size: limit,
-          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info', // ,friendlymarket_data(1),coingecko_data(1)
+          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info',
           ...(contractPackageHash ? { contract_package_hash: contractPackageHash } : {}),
         },
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
@@ -89,6 +90,7 @@ export class DeploysRepository implements IDeploysRepository {
     }
   }
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getCsprTransferDeploys({
     network,
     activePublicKey,
@@ -166,6 +168,10 @@ export class DeploysRepository implements IDeploysRepository {
         accountHashes: [...deployHashes, ...resultsHashes],
       });
 
+      if (resp?.data) {
+        await this._accountInfoRepository.getAccountInfoFromTransactionsFeed([resp.data], network);
+      }
+
       return processDeploy(
         activePublicKey,
         network,
@@ -182,6 +188,7 @@ export class DeploysRepository implements IDeploysRepository {
     }
   }
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getCep18TransferDeploys({
     network,
     page,
@@ -272,7 +279,7 @@ export class DeploysRepository implements IDeploysRepository {
         accountHashes,
       });
 
-      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(resp, network);
+      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(resp.data, network);
 
       return {
         itemCount: resp.item_count,
