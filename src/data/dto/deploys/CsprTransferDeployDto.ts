@@ -67,7 +67,7 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
     }
 
     this.callerAccountInfo = getAccountInfoFromMap(accountInfoMap, callerPublicKey, callerKeyType);
-    this.callerPublicKey = this.callerAccountInfo?.publicKey ?? callerPublicKey;
+    this.callerPublicKey = this.callerAccountInfo?.publicKey || callerPublicKey;
     this.callerKeyType = this.callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType;
 
     const recipientKey =
@@ -89,7 +89,7 @@ export class CsprTransferDeployDto implements INativeCsprDeploy {
       recipientKey,
       recipientKeyType,
     );
-    this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
+    this.recipientKey = this.recipientAccountInfo?.publicKey || recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
 
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);

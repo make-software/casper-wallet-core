@@ -159,6 +159,33 @@ export const AuctionManagerContractInfo: Record<CasperNetwork, IContractInfo> = 
   },
 };
 
+export const SystemMintContractInfo: Record<CasperNetwork, IContractInfo> = {
+  mainnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '4475016098705466254edd18d267a9dad43e341d4dafadb507d0fe3cf2d4a74b',
+    contractPackageName: 'Mint',
+  },
+  testnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '9824d60dc3a5c44a20b9fd260a412437933835b52fc683d8ae36e4ec2114843e',
+    contractPackageName: 'Mint',
+  },
+  devnet: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+  integration: {
+    contractHash: '',
+    contactName: '',
+    contractPackageHash: '',
+    contractPackageName: '',
+  },
+};
+
 export const CSPRMarketContractInfo: Record<CasperNetwork, IContractInfo> = {
   mainnet: {
     contractHash: '5adb720d529964437caf75f3df974edffd204fe511b9e359e7dff28f79d12337',

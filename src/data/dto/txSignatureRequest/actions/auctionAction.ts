@@ -47,11 +47,11 @@ export function getTxSignatureRequestAuctionAction(
     symbol: CSPR_COIN.symbol,
 
     fromValidatorAccountInfo,
-    fromValidator: fromValidatorAccountInfo?.publicKey ?? fromValidator,
+    fromValidator: fromValidatorAccountInfo?.publicKey || fromValidator,
     fromValidatorKeyType: fromValidatorAccountInfo?.publicKey ? 'publicKey' : fromValidatorKeyType,
 
     toValidatorAccountInfo,
-    toValidator: toValidatorAccountInfo?.publicKey ?? toValidator,
+    toValidator: toValidatorAccountInfo?.publicKey || toValidator,
     toValidatorKeyType: toValidatorAccountInfo?.publicKey ? 'publicKey' : toValidatorKeyType,
 
     ...getContractInfo(tx, contractPackage),

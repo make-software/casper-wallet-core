@@ -27,6 +27,7 @@ export interface ISetupRepositoriesParams {
   /** Environment-based url for Casper Wallet Api. Some API network agnostic and do not belong to any {@link CasperWalletApiByNetworkUrl}. Default env is PRODUCTION (in all places where it is used) */
   casperWalletApiByEnvUrl?: Record<IEnv, string>;
   grpcUrl?: Record<CasperNetwork, string>;
+  httpAuthorizationHeader?: string;
 }
 
 export const setupRepositories = ({
@@ -35,9 +36,14 @@ export const setupRepositories = ({
   casperWalletApiByNetworkUrl = CasperWalletApiByNetworkUrl,
   casperWalletApiByEnvUrl = CasperWalletApiByEnvUrl,
   grpcUrl = GrpcUrl,
+  httpAuthorizationHeader,
 }: ISetupRepositoriesParams = {}) => {
   const log = logger ?? new Logger();
   const httpDataProvider = new HttpDataProvider(debug ? log : null);
+
+  if (httpAuthorizationHeader) {
+    httpDataProvider.setAuthHeader(httpAuthorizationHeader);
+  }
 
   const accountInfoRepository = new AccountInfoRepository(
     httpDataProvider,
@@ -67,6 +73,7 @@ export const setupRepositories = ({
     contractPackageRepository,
     casperWalletApiByEnvUrl,
     grpcUrl,
+    httpAuthorizationHeader,
   );
 
   return {

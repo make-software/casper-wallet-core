@@ -13,7 +13,7 @@ import {
   isNotEmpty,
 } from '../../../utils';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import {
   AccountKeyType,
   CEP18EntryPointType,
@@ -23,13 +23,18 @@ import {
   SupportedMarketDataProviders,
 } from '../../../domain';
 import { Maybe } from '../../../typings';
-import { getAccountInfoFromMap, getMarketDataProviderUrl } from '../common';
+import {
+  dexIdToMarketDataProviderMap,
+  getAccountInfoFromMap,
+  getMarketDataProviderUrl,
+  getPreferredTokenMarketData,
+} from '../common';
 
 export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);
@@ -47,30 +52,19 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
       recipientKey,
       recipientKeyType,
     );
-    this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
+    this.recipientKey = this.recipientAccountInfo?.publicKey || recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
 
-    this.fiatAmount = getCep18FiatAmount(
-      this.decimalAmount,
-      data?.contract_package?.coingecko_data?.price ??
-        data?.contract_package?.friendlymarket_data?.price ??
-        0,
-      false,
-    );
-    this.formattedFiatAmount = getCep18FiatAmount(
-      this.decimalAmount,
-      data?.contract_package?.coingecko_data?.price ??
-        data?.contract_package?.friendlymarket_data?.price ??
-        0,
-      true,
-    );
+    const tokenMarketData = getPreferredTokenMarketData(data?.contract_package?.token_market_data);
+    const fiatRate = tokenMarketData?.latest_rate ?? 0;
+
+    this.fiatAmount = getCep18FiatAmount(this.decimalAmount, fiatRate, false);
+    this.formattedFiatAmount = getCep18FiatAmount(this.decimalAmount, fiatRate, true);
     this.fiatCurrency = 'USD';
-    this.marketDataProvider = data?.contract_package?.coingecko_data?.price
-      ? 'CoinGecko'
-      : data?.contract_package?.friendlymarket_data?.price
-        ? 'FriendlyMarket'
-        : null;
+    this.marketDataProvider = tokenMarketData
+      ? dexIdToMarketDataProviderMap[tokenMarketData.dex_id]
+      : null;
     this.marketDataProviderUrl = getMarketDataProviderUrl(
       this.marketDataProvider,
       data?.contract_package?.coingecko_id,
@@ -99,7 +93,7 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
 }
 
 export function getCep18RecipientKeyAndType(
-  data?: Partial<ExtendedCloudDeploy>,
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ): Pick<ICep18Deploy, 'recipientKey' | 'recipientKeyType'> {
   const recipient = guardedDeriveSplitDataFromArguments(data?.args?.recipient, 'Hash');
   const recipientAccount = guardedDeriveSplitDataFromArguments(data?.args?.recipient, 'Account');
@@ -135,7 +129,7 @@ export function getCep18RecipientKeyAndType(
 
 export function derivePublicKeyFromCep18ActionResults(
   accountHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ) {
   return deploy?.ft_token_actions
     ?.reduce<string[]>((acc, cur) => {

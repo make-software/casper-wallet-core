@@ -21,7 +21,7 @@ export interface IHttpDataProvider {
   head: (params: HttpMethodParamsType) => Promise<Record<string, string> | undefined>;
 
   setUpBaseUrl: (url: string) => void;
-  setAuthHeader: (token: string) => void;
+  setAuthHeader: (value: string) => void;
   removeAuthHeader: () => void;
 }
 

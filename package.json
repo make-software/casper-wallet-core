@@ -1,6 +1,6 @@
 {
   "name": "CasperWalletCore",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "main": "index.ts",
   "repository": {
     "type": "git",
@@ -14,11 +14,11 @@
   "dependencies": {
     "@noble/hashes": "^1.8.0",
     "@react-native/typescript-config": "0.74.83",
-    "@types/uuid": "^10.0.0",
-    "apisauce": "^3.1.1",
-    "casper-js-sdk": "5.0.6",
+    "apisauce": "^3.2.2",
+    "casper-js-sdk": "5.0.10",
     "date-fns": "^2.30.0",
-    "decimal.js": "^10.4.3",
+    "decimal.js": "^10.6.0",
+    "deepmerge": "^4.3.1",
     "lru-cache": "10.4.3",
     "uuid": "^9.0.0"
   },
@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@react-native/eslint-config": "0.74.83",
+    "@types/uuid": "^10.0.0",
     "eslint": "8.22.0",
     "eslint-plugin-prettier": "5.0.0",
     "eslint-plugin-simple-import-sort": "^10.0.0",

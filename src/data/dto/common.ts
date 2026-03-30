@@ -15,6 +15,7 @@ import {
   SupportedMarketDataProviders,
 } from '../../domain';
 import { Maybe } from '../../typings';
+import { ITokenMarketData } from '../repositories';
 
 export function getCsprFiatAmount(amount: string | number, rate?: string | number) {
   const isZeroRate = Number(rate ?? 0) === 0;
@@ -95,6 +96,8 @@ export function getMarketDataProviderUrl(
   latestVersionContractHash?: string | null,
 ) {
   switch (marketDataProvider) {
+    case 'CsprTrade':
+      return 'https://cspr.trade/'; // TODO link to token page
     case 'CoinGecko':
       return coingeckoId ? `https://www.coingecko.com/en/coins/${coingeckoId}` : null;
     case 'FriendlyMarket':
@@ -122,3 +125,17 @@ export function isNftAction(entryPointName: string, contractTypeId?: Maybe<numbe
     NFT_ACTION_ENTRY_POINTS.includes(entryPointName.toLowerCase())
   );
 }
+
+export function getPreferredTokenMarketData(tokenMarketData?: ITokenMarketData[] | null) {
+  if (!tokenMarketData || !tokenMarketData.length) {
+    return null;
+  }
+
+  return [...tokenMarketData].sort((a, b) => a.dex_id - b.dex_id)?.[0];
+}
+
+export const dexIdToMarketDataProviderMap: Record<number, SupportedMarketDataProviders> = {
+  1: 'CsprTrade',
+  2: 'CoinGecko',
+  3: 'FriendlyMarket',
+};

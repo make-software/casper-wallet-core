@@ -5,7 +5,6 @@ import {
   AssociatedKeysContractInfo,
   AuctionManagerContractInfo,
   CasperNetwork,
-  CEP_18_ACTION_ENTRY_POINTS,
   CSPR_COIN,
   CSPRMarketContractInfo,
   IAccountInfo,
@@ -73,14 +72,14 @@ export class TxSignatureRequestDto implements ITxSignatureRequest {
       signingPublicKeyHex,
       signingKeyType,
     );
-    this.signingKey = this.signingAccountInfo?.publicKey ?? signingPublicKeyHex;
+    this.signingKey = this.signingAccountInfo?.publicKey || signingPublicKeyHex;
     this.signingKeyType = this.signingAccountInfo?.publicKey ? 'publicKey' : signingKeyType;
 
     const senderKey =
       tx.initiatorAddr.publicKey?.toHex() ?? tx.initiatorAddr.accountHash?.toHex() ?? '';
     const senderKeyType = deriveKeyType(senderKey);
     this.senderAccountInfo = getAccountInfoFromMap(accountInfoMap, senderKey, senderKeyType);
-    this.senderKey = this.senderAccountInfo?.publicKey ?? senderKey;
+    this.senderKey = this.senderAccountInfo?.publicKey || senderKey;
     this.senderKeyType = this.senderAccountInfo?.publicKey ? 'publicKey' : senderKeyType;
 
     this.paymentAmount = getTxPayment(tx);

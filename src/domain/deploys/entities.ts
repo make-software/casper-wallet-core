@@ -173,6 +173,7 @@ export type INftActionsResult = Pick<
   | 'contractName'
   | 'entryPoint'
   | 'iconUrl'
+  | 'collectionHash'
 > &
   IEntity;
 

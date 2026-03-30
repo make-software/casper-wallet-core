@@ -17,7 +17,12 @@ import {
 import type { IHttpDataProvider, IAccountInfoRepository } from '../../../domain';
 import { getAccountHashFromPublicKey } from '../../../utils';
 import { CsprTransferDeployDto, processDeploy, Cep18TransferDeployDto } from '../../dto';
-import { ExtendedCloudDeploy, ICsprTransferResponse, IErc20TokensTransferResponse } from './types';
+import {
+  ExtendedCloudDeploy,
+  ICloudTransactionFeedItem,
+  ICsprTransferResponse,
+  IErc20TokensTransferResponse,
+} from './types';
 import {
   getAccountHashesFromDeploy,
   getAccountHashesFromDeployActionResults,
@@ -32,6 +37,7 @@ export class DeploysRepository implements IDeploysRepository {
     private _casperWalletApiUrl: Record<CasperNetwork, string>,
   ) {}
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getDeploys({
     network,
     activePublicKey,
@@ -47,7 +53,7 @@ export class DeploysRepository implements IDeploysRepository {
           public_key: activePublicKey,
           page,
           page_size: limit,
-          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info', // ,friendlymarket_data(1),coingecko_data(1)
+          includes: 'rate(1),contract_entrypoint,contract_package,transfers,account_info',
           ...(contractPackageHash ? { contract_package_hash: contractPackageHash } : {}),
         },
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
@@ -84,6 +90,7 @@ export class DeploysRepository implements IDeploysRepository {
     }
   }
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getCsprTransferDeploys({
     network,
     activePublicKey,
@@ -161,6 +168,10 @@ export class DeploysRepository implements IDeploysRepository {
         accountHashes: [...deployHashes, ...resultsHashes],
       });
 
+      if (resp?.data) {
+        await this._accountInfoRepository.getAccountInfoFromTransactionsFeed([resp.data], network);
+      }
+
       return processDeploy(
         activePublicKey,
         network,
@@ -177,6 +188,7 @@ export class DeploysRepository implements IDeploysRepository {
     }
   }
 
+  /** @deprecated Use `getTransactionsFeed` instead */
   async getCep18TransferDeploys({
     network,
     page,
@@ -230,6 +242,60 @@ export class DeploysRepository implements IDeploysRepository {
       };
     } catch (e) {
       this._processError(e, 'getCep18TransferDeploys');
+    }
+  }
+
+  async getTransactionsFeed({
+    network,
+    activePublicKey,
+    page,
+    limit = DEFAULT_PAGE_LIMIT,
+    contractPackageHash,
+    withProxyHeader = true,
+  }: IGetDeploysParams) {
+    try {
+      const resp = await this._httpProvider.get<CloudPaginatedResponse<ICloudTransactionFeedItem>>({
+        url: `${this._casperWalletApiUrl[network]}/accounts/${activePublicKey}/feed-transactions`,
+        params: {
+          page,
+          page_size: limit,
+          includes:
+            'rate(1),contract_entrypoint,contract_package,transfers,centralized_account_info,account_info,cspr_name,nft_token_actions,ft_token_actions,token_market_data(1)',
+          ...(contractPackageHash ? { contract_package_hash: contractPackageHash } : {}),
+        },
+        ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
+        errorType: 'getTransactionsFeed',
+      });
+
+      if (!resp) {
+        return EMPTY_PAGINATED_RESPONSE;
+      }
+
+      const rawDeploys = resp.data.map(d => processDeploy(activePublicKey, network, {}, d));
+      const accountHashes = rawDeploys.map(d => getAccountHashesFromDeploy(d)).flat();
+
+      await this._accountInfoRepository.getAccountsInfo({
+        network,
+        accountHashes,
+      });
+
+      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(resp.data, network);
+
+      return {
+        itemCount: resp.item_count,
+        pageCount: resp.page_count,
+        pages: resp.pages,
+        data: resp.data.map(d =>
+          processDeploy(
+            activePublicKey,
+            network,
+            this._accountInfoRepository.accountsInfoMapCache,
+            d,
+          ),
+        ),
+      };
+    } catch (e) {
+      this._processError(e, 'getTransactionsFeed');
     }
   }
 

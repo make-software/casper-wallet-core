@@ -1,7 +1,8 @@
 import { IAccountInfo } from './entities';
-import { Network } from '../common';
+import { CasperNetwork, Network } from '../common';
 import { Maybe } from '../../typings';
 import { ICsprBalance } from '../tokens';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../data/repositories';
 
 export interface IGetAccountsInfoParams {
   accountHashes: string[];
@@ -19,6 +20,10 @@ export interface IAccountInfoRepository {
     withProxyHeader?: boolean,
   ): Promise<Maybe<IAccountInfo>>;
   getAccountsBalances(params: IGetAccountsBalancesParams): Promise<Record<string, ICsprBalance>>;
+  getAccountInfoFromTransactionsFeed(
+    resp: Array<ICloudTransactionFeedItem | ExtendedCloudDeploy>,
+    network: CasperNetwork,
+  ): Promise<Record<string, IAccountInfo>>;
 }
 
 export interface IGetAccountsBalancesParams extends IGetAccountsInfoParams {

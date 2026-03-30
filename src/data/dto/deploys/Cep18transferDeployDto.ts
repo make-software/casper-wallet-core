@@ -20,7 +20,12 @@ import {
   SupportedMarketDataProviders,
 } from '../../../domain';
 
-import { getAccountInfoFromMap, getMarketDataProviderUrl } from '../common';
+import {
+  dexIdToMarketDataProviderMap,
+  getAccountInfoFromMap,
+  getMarketDataProviderUrl,
+  getPreferredTokenMarketData,
+} from '../common';
 import { getCsprFiatAmount } from '../common';
 import { Maybe } from '../../../typings';
 import { IErc20TokensTransferResponse } from '../../repositories';
@@ -51,14 +56,14 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
       recipientKey,
       recipientKeyType,
     );
-    this.recipientKey = this.recipientAccountInfo?.publicKey ?? recipientKey;
+    this.recipientKey = this.recipientAccountInfo?.publicKey || recipientKey;
     this.recipientKeyType = this.recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType;
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
 
     const callerPublicKey = data?.from_public_key ?? data?.from_hash ?? '';
     const callerKeyType = data?.from_public_key ? 'publicKey' : 'accountHash';
     this.callerAccountInfo = getAccountInfoFromMap(accountInfoMap, callerPublicKey, callerKeyType);
-    this.callerPublicKey = this.callerAccountInfo?.publicKey ?? callerPublicKey;
+    this.callerPublicKey = this.callerAccountInfo?.publicKey || callerPublicKey;
     this.callerKeyType = this.callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType;
 
     this.symbol = data?.contract_package?.metadata?.symbol ?? '';
@@ -78,26 +83,15 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
     this.fiatPaymentAmount = getCsprFiatAmount(this.paymentAmount, data?.deploy?.rate);
     this.nftActionsResult = [];
 
-    this.fiatAmount = getCep18FiatAmount(
-      this.decimalAmount,
-      data?.contract_package?.coingecko_data?.price ??
-        data?.contract_package?.friendlymarket_data?.price ??
-        0,
-      false,
-    );
-    this.formattedFiatAmount = getCep18FiatAmount(
-      this.decimalAmount,
-      data?.contract_package?.coingecko_data?.price ??
-        data?.contract_package?.friendlymarket_data?.price ??
-        0,
-      true,
-    );
+    const tokenMarketData = getPreferredTokenMarketData(data?.contract_package?.token_market_data);
+    const fiatRate = tokenMarketData?.latest_rate ?? 0;
+
+    this.fiatAmount = getCep18FiatAmount(this.decimalAmount, fiatRate, false);
+    this.formattedFiatAmount = getCep18FiatAmount(this.decimalAmount, fiatRate, true);
     this.fiatCurrency = 'USD';
-    this.marketDataProvider = data?.contract_package?.coingecko_data?.price
-      ? 'CoinGecko'
-      : data?.contract_package?.friendlymarket_data?.price
-        ? 'FriendlyMarket'
-        : null;
+    this.marketDataProvider = tokenMarketData
+      ? dexIdToMarketDataProviderMap[tokenMarketData.dex_id]
+      : null;
     this.marketDataProviderUrl = getMarketDataProviderUrl(
       this.marketDataProvider,
       data?.contract_package?.coingecko_id,

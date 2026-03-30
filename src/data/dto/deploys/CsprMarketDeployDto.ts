@@ -18,7 +18,7 @@ import {
   Network,
 } from '../../../domain';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getAccountInfoFromMap, getCsprFiatAmount, getNftTokenUrlsMap } from '../common';
 
@@ -26,7 +26,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
   constructor(
     network: Network,
     activePublicKey: string,
-    data?: Partial<ExtendedCloudDeploy>,
+    data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
     accountInfoMap: Record<string, IAccountInfo> = {},
   ) {
     super(network, activePublicKey, data, accountInfoMap);
@@ -36,7 +36,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
 
     const { offererHash, offererHashType } = getOffererFormDeploy(data);
     this.offererAccountInfo = getAccountInfoFromMap(accountInfoMap, offererHash, offererHashType);
-    this.offererHash = this.offererAccountInfo?.publicKey ?? offererHash;
+    this.offererHash = this.offererAccountInfo?.publicKey || offererHash;
     this.offererHashType = this.offererAccountInfo?.publicKey ? 'publicKey' : offererHashType;
 
     this.collectionHash = getCollectionHashFormDeploy(
@@ -50,10 +50,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
     this.amount = getDeployAmount(data?.args);
     this.decimalAmount = getDecimalTokenBalance(this.amount, CSPR_COIN.decimals);
     this.formattedDecimalAmount = formatTokenBalance(this.amount, CSPR_COIN.decimals);
-    this.fiatAmount = getCsprFiatAmount(
-      this.amount,
-      data?.time_transaction_currency_rate ?? data?.rate,
-    );
+    this.fiatAmount = getCsprFiatAmount(this.amount, data?.rate);
     this.iconUrl = data?.contract_package?.icon_url ?? null;
   }
 
@@ -74,7 +71,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
 }
 
 export function getOffererFormDeploy(
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ): Pick<ICasperMarketDeploy, 'offererHash' | 'offererHashType'> {
   const offererHash = guardedDeriveSplitDataFromArguments(deploy?.args?.offerer, 'Account');
 

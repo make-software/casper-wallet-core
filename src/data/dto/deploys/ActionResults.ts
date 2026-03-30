@@ -16,7 +16,12 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
-import { ExtendedCloudDeploy } from '../../repositories';
+import {
+  ExtendedCloudDeploy,
+  FTActionsResult,
+  ICloudTransactionFeedItem,
+  NftCloudActionsResult,
+} from '../../repositories';
 import { getCsprFiatAmount } from '../common';
 
 const mapCep18EntryPointIdToName: Record<number, CEP18EntryPointType> = {
@@ -36,13 +41,13 @@ const mapNftentryPointIdToName: Record<number, NFTEntryPointType> = {
 
 export function getCep18ActionsResult(
   activePublicKey: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
     deploy?.ft_token_actions?.map<ICep18ActionsResult>(action => {
       const recipientKey = action?.to_public_key ?? action?.to_hash ?? '';
-      const recipientKeyType: AccountKeyType = action?.to_public_key ? 'publicKey' : 'accountHash';
+      const recipientKeyType: AccountKeyType = getActionRecipientKeyType(action);
       const recipientAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         recipientKey,
@@ -50,9 +55,7 @@ export function getCep18ActionsResult(
       );
 
       const callerPublicKey = action?.from_public_key ?? action?.from_hash ?? '';
-      const callerPublicKeyType: AccountKeyType = action?.from_public_key
-        ? 'publicKey'
-        : 'accountHash';
+      const callerPublicKeyType: AccountKeyType = getActionCallerKeyType(action);
       const callerAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         callerPublicKey,
@@ -61,16 +64,16 @@ export function getCep18ActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         contractPackageHash: action?.contract_package_hash,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerPublicKeyType,
         symbol: action?.contract_package?.metadata?.symbol ?? '',
         contractName: action?.contract_package?.name ?? '',
         iconUrl: action?.contract_package?.icon_url ?? '',
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         decimals: action?.contract_package?.metadata?.decimals ?? 0,
         amount: action.amount,
         decimalAmount: getDecimalTokenBalance(
@@ -93,13 +96,13 @@ export function getNftActionsResult(
   activePublicKey: string,
   network: Network,
   collectionHash: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
     deploy?.nft_token_actions?.map<INftActionsResult>(action => {
       const recipientKey = action?.to_public_key ?? action?.to_hash ?? '';
-      const recipientKeyType: AccountKeyType = action?.to_public_key ? 'publicKey' : 'accountHash';
+      const recipientKeyType: AccountKeyType = getActionRecipientKeyType(action);
       const recipientAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         recipientKey,
@@ -107,9 +110,7 @@ export function getNftActionsResult(
       );
 
       const callerPublicKey = action?.from_public_key ?? action?.from_hash ?? '';
-      const callerPublicKeyType: AccountKeyType = action?.from_public_key
-        ? 'publicKey'
-        : 'accountHash';
+      const callerPublicKeyType: AccountKeyType = getActionCallerKeyType(action);
       const callerAccountInfo = getAccountInfoFromMap(
         accountInfoMap,
         callerPublicKey,
@@ -121,11 +122,11 @@ export function getNftActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerPublicKeyType,
         contractName: action?.contract_package?.name ?? '',
         iconUrl: action?.contract_package?.icon_url ?? '',
@@ -134,6 +135,8 @@ export function getNftActionsResult(
         id: getUniqueId(),
         nftTokenIds,
         nftTokenUrlsMap,
+        collectionHash:
+          action.contract_package_hash ?? action.contract_package?.contract_package_hash ?? '',
       };
     }) ?? []
   );
@@ -141,7 +144,7 @@ export function getNftActionsResult(
 
 export function getTransferActionsResult(
   activePublicKey: string,
-  deploy?: Partial<ExtendedCloudDeploy>,
+  deploy?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
   accountInfoMap: Record<string, IAccountInfo> = {},
 ) {
   return (
@@ -169,22 +172,43 @@ export function getTransferActionsResult(
 
       return {
         recipientAccountInfo,
-        recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+        recipientKey: recipientAccountInfo?.publicKey || recipientKey,
         recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
-        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey ?? recipientKey),
+        isReceive: isKeysEqual(activePublicKey, recipientAccountInfo?.publicKey || recipientKey),
         callerAccountInfo,
-        callerPublicKey: callerAccountInfo?.publicKey ?? callerPublicKey,
+        callerPublicKey: callerAccountInfo?.publicKey || callerPublicKey,
         callerKeyType: callerAccountInfo?.publicKey ? 'publicKey' : callerKeyType,
         timestamp: action?.timestamp,
         id: getUniqueId(),
         amount: action.amount,
         decimalAmount: getDecimalTokenBalance(action.amount, CSPR_COIN.decimals),
         formattedDecimalAmount: formatTokenBalance(action.amount, CSPR_COIN.decimals),
-        fiatAmount: getCsprFiatAmount(
-          action.amount,
-          deploy?.time_transaction_currency_rate ?? deploy?.rate,
-        ),
+        fiatAmount: getCsprFiatAmount(action.amount, deploy?.rate),
       };
     }) ?? []
   );
+}
+
+function getActionRecipientKeyType(action: FTActionsResult | NftCloudActionsResult) {
+  if (action?.to_public_key) {
+    return 'publicKey';
+  }
+
+  if (action?.to_hash) {
+    return action.to_type === 0 ? 'accountHash' : 'contractHash';
+  }
+
+  return 'purse';
+}
+
+function getActionCallerKeyType(action: FTActionsResult | NftCloudActionsResult) {
+  if (action?.from_public_key) {
+    return 'publicKey';
+  }
+
+  if (action?.from_hash) {
+    return action.from_type === 0 ? 'accountHash' : 'contractHash';
+  }
+
+  return 'purse';
 }

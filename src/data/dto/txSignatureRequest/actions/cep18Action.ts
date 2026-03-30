@@ -34,7 +34,7 @@ export function getTxSignatureRequestCep18Action(
     formattedDecimalAmount: formatTokenBalance(amount, decimals),
     fiatAmount: '',
     recipientAccountInfo,
-    recipientKey: recipientAccountInfo?.publicKey ?? recipientKey,
+    recipientKey: recipientAccountInfo?.publicKey || recipientKey,
     recipientKeyType: recipientAccountInfo?.publicKey ? 'publicKey' : recipientKeyType,
     decimals,
     symbol,

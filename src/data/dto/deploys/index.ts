@@ -1,4 +1,4 @@
-import { ExtendedCloudDeploy } from '../../repositories';
+import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { NativeCsprDeployDto } from './NativeCsprDeployDto';
 import { Cep18DeployDto } from './Cep18DeployDto';
 import { NftDeployDto } from './NftDeployDto';
@@ -16,7 +16,7 @@ export function processDeploy(
   activePublicKey: string,
   network: Network,
   accountInfoMap: Record<string, IAccountInfo>,
-  data?: Partial<ExtendedCloudDeploy>,
+  data?: Partial<ExtendedCloudDeploy | ICloudTransactionFeedItem>,
 ): IDeploy {
   const type = getDeployType(network, data);
 

@@ -7,6 +7,7 @@ export interface IDeploysRepository {
   getDeploys(params: IGetDeploysParams): Promise<PaginatedResponse<IDeploy>>;
   getCsprTransferDeploys(params: IGetDeploysParams): Promise<PaginatedResponse<IDeploy>>;
   getCep18TransferDeploys(params: IGetDeploysParams): Promise<PaginatedResponse<IDeploy>>;
+  getTransactionsFeed(params: IGetDeploysParams): Promise<PaginatedResponse<IDeploy>>;
 }
 
 export interface IGetSingleDeployParams {

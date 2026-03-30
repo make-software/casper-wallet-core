@@ -47,7 +47,7 @@ export function getTxSignatureRequestCasperMarketAction(
     nftTokenIds,
     nftTokenUrlsMap,
     offererAccountInfo,
-    offererHash: offererAccountInfo?.publicKey ?? offererHash,
+    offererHash: offererAccountInfo?.publicKey || offererHash,
     offererHashType: offererAccountInfo?.publicKey ? 'publicKey' : offererHashType,
     ...getContractInfo(tx, contractPackage),
   };
