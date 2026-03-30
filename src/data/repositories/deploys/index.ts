@@ -255,7 +255,7 @@ export class DeploysRepository implements IDeploysRepository {
   }: IGetDeploysParams) {
     try {
       const resp = await this._httpProvider.get<CloudPaginatedResponse<ICloudTransactionFeedItem>>({
-        url: `https://cspr-wallet-api.dev.make.services:443/accounts/${activePublicKey}/feed-transactions`, // TODO: Replace with production API endpoint
+        url: `${this._casperWalletApiUrl[network]}/accounts/${activePublicKey}/feed-transactions`,
         params: {
           page,
           page_size: limit,
