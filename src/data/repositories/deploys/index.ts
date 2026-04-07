@@ -271,7 +271,10 @@ export class DeploysRepository implements IDeploysRepository {
         return EMPTY_PAGINATED_RESPONSE;
       }
 
-      const rawDeploys = resp.data.map(d => processDeploy(activePublicKey, network, {}, d));
+      // API return data as null on empty feed
+      const feedItems = resp.data ?? [];
+
+      const rawDeploys = feedItems.map(d => processDeploy(activePublicKey, network, {}, d));
       const accountHashes = rawDeploys.map(d => getAccountHashesFromDeploy(d)).flat();
 
       await this._accountInfoRepository.getAccountsInfo({
@@ -279,13 +282,13 @@ export class DeploysRepository implements IDeploysRepository {
         accountHashes,
       });
 
-      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(resp.data, network);
+      await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(feedItems, network);
 
       return {
         itemCount: resp.item_count,
         pageCount: resp.page_count,
         pages: resp.pages,
-        data: resp.data.map(d =>
+        data: feedItems.map(d =>
           processDeploy(
             activePublicKey,
             network,
