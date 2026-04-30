@@ -20,4 +20,6 @@ export interface IValidator extends IEntity {
   readonly minAmount: string;
   readonly maxAmount: string;
   readonly reservedSlots: number;
+
+  readonly networkShare: Maybe<string>;
 }

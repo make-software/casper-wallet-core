@@ -30,6 +30,7 @@ export class ValidatorDto implements IValidator {
     this.minAmount = getMinAmount(apiValidator?.minimum_delegation_amount);
     this.maxAmount = getMaxAmount(apiValidator?.maximum_delegation_amount);
     this.reservedSlots = apiValidator?.reserved_slots ?? 0;
+    this.networkShare = apiValidator?.network_share ?? null;
   }
 
   id: string;
@@ -47,6 +48,7 @@ export class ValidatorDto implements IValidator {
   minAmount: string;
   maxAmount: string;
   reservedSlots: number;
+  networkShare: Maybe<string> = null;
 }
 
 export class ValidatorWithStateDto implements IValidator {
@@ -70,6 +72,7 @@ export class ValidatorWithStateDto implements IValidator {
     this.minAmount = getMinAmount(apiValidator?.bidder?.minimum_delegation_amount);
     this.maxAmount = getMaxAmount(apiValidator?.bidder?.maximum_delegation_amount);
     this.reservedSlots = apiValidator?.bidder?.reserved_slots ?? 0;
+    this.networkShare = apiValidator?.bidder?.network_share ?? null;
   }
 
   id: string;
@@ -87,6 +90,7 @@ export class ValidatorWithStateDto implements IValidator {
   minAmount: string;
   maxAmount: string;
   reservedSlots: number;
+  networkShare: Maybe<string>;
 }
 
 function getMinAmount(minAmount?: string) {
