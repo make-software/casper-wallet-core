@@ -22,4 +22,6 @@ export interface IValidator extends IEntity {
   readonly reservedSlots: number;
 
   readonly networkShare: Maybe<string>;
+  readonly formattedNetworkShare: Maybe<string>;
+  readonly isHighStakeValidator: boolean;
 }

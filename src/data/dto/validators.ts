@@ -1,8 +1,10 @@
 import {
   formatAddress,
+  formatNetworkShare,
   formatTokenBalance,
   getDecimalTokenBalance,
   getUniqueId,
+  isHighStakeValidator,
 } from '../../utils';
 import { CSPR_DECIMALS, IValidator } from '../../domain';
 import { IApiValidator, IApiValidatorWithStake } from '../repositories';
@@ -31,6 +33,8 @@ export class ValidatorDto implements IValidator {
     this.maxAmount = getMaxAmount(apiValidator?.maximum_delegation_amount);
     this.reservedSlots = apiValidator?.reserved_slots ?? 0;
     this.networkShare = apiValidator?.network_share ?? null;
+    this.formattedNetworkShare = formatNetworkShare(this.networkShare);
+    this.isHighStakeValidator = isHighStakeValidator(this);
   }
 
   id: string;
@@ -49,6 +53,8 @@ export class ValidatorDto implements IValidator {
   maxAmount: string;
   reservedSlots: number;
   networkShare: Maybe<string> = null;
+  formattedNetworkShare: Maybe<string> = null;
+  isHighStakeValidator: boolean = false;
 }
 
 export class ValidatorWithStateDto implements IValidator {
@@ -73,6 +79,8 @@ export class ValidatorWithStateDto implements IValidator {
     this.maxAmount = getMaxAmount(apiValidator?.bidder?.maximum_delegation_amount);
     this.reservedSlots = apiValidator?.bidder?.reserved_slots ?? 0;
     this.networkShare = apiValidator?.bidder?.network_share ?? null;
+    this.formattedNetworkShare = formatNetworkShare(this.networkShare);
+    this.isHighStakeValidator = isHighStakeValidator(this);
   }
 
   id: string;
@@ -91,6 +99,8 @@ export class ValidatorWithStateDto implements IValidator {
   maxAmount: string;
   reservedSlots: number;
   networkShare: Maybe<string>;
+  formattedNetworkShare: Maybe<string>;
+  isHighStakeValidator: boolean;
 }
 
 function getMinAmount(minAmount?: string) {
