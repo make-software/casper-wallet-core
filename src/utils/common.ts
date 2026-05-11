@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 
 import { v4 } from 'uuid';
-import { FIAT_DECIMALS, TOKEN_DISPLAY_DECIMALS } from '../domain';
+import { FIAT_DECIMALS, HIGH_STAKE_THRESHOLD, IValidator, TOKEN_DISPLAY_DECIMALS } from '../domain';
 import { Maybe } from '../typings';
 
 export const noop = () => undefined;
@@ -170,3 +170,19 @@ export function getCep18FiatAmount(
     ? formatFiatBalance(new Decimal(decimalAmount).mul(rate ?? 0).toFixed())
     : new Decimal(decimalAmount).mul(rate ?? 0).toFixed();
 }
+
+export const isHighStakeValidator = (validator: Pick<IValidator, 'networkShare'>): boolean => {
+  const share = Number(validator.networkShare);
+  return !Number.isNaN(share) && share >= HIGH_STAKE_THRESHOLD;
+};
+
+export const formatNetworkShare = (networkShare: Maybe<string>): Maybe<string> => {
+  if (!networkShare) {
+    return null;
+  }
+  const num = Number(networkShare);
+  if (Number.isNaN(num)) {
+    return null;
+  }
+  return formatNumber(num, { precision: { max: 2, min: 2 } });
+};

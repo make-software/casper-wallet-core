@@ -124,6 +124,7 @@ export const CSPR_BALANCE: ICsprBalance = {
 export const CSPR_TRANSFER_PAYMENT_AMOUNT = '0.1';
 export const CSPR_DELEGATION_PAYMENT_AMOUNT = '2.5';
 export const CSPR_DELEGATION_MIN_AMOUNT = '500';
+export const HIGH_STAKE_THRESHOLD = 5;
 export const CSPR_TRANSFER_MIN_AMOUNT = '2.5';
 export const CEP18_DEFAULT_TRANSFER_PAYMENT_AMOUNT = '1.5';
 export const NFT_DEFAULT_TRANSFER_PAYMENT_AMOUNT: Record<NftStandard, string> = {
