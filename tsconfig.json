@@ -1,10 +1,12 @@
 {
-  "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": false,
+    "customConditions": ["react-native"],
     "baseUrl": ".",
     "types": ["node"],
     "lib": ["esnext", "dom"],
