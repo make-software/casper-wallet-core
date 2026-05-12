@@ -19,7 +19,7 @@
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "deepmerge": "^4.3.1",
-    "lru-cache": "10.4.3",
+    "lru-cache": "11.3.6",
     "uuid": "^9.0.0"
   },
   "overrides": {
@@ -44,7 +44,7 @@
     "*.{ts,tsx}": "eslint --fix"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20 || >=22"
   },
   "packageManager": "yarn@4.2.2"
 }
