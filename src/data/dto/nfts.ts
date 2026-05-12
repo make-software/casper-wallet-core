@@ -81,7 +81,7 @@ export const getNonObjectsEntryValue = ([, value]: NFtMetadataEntry) => {
     const parsed = JSON.parse(value);
 
     return !(parsed && typeof parsed === 'object');
-  } catch (e) {
+  } catch {
     return true;
   }
 };

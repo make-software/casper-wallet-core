@@ -71,7 +71,7 @@ export function getHashByType(hash: Maybe<string>, keyType?: Maybe<AccountKeyTyp
     }
 
     return null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }

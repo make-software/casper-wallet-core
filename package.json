@@ -1,15 +1,15 @@
 {
   "name": "CasperWalletCore",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "main": "index.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/make-software/casper-wallet-core"
   },
   "scripts": {
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "lint": "eslint . --fix",
     "code:check": "tsc --skipLibCheck --noEmit && yarn lint",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
@@ -26,14 +26,15 @@
     "elliptic": "6.6.1"
   },
   "devDependencies": {
-    "@react-native/eslint-config": "0.74.83",
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^9.39.4",
+    "@react-native/eslint-config": "^0.85.3",
     "@types/node": "^20.0.0",
-    "eslint": "8.22.0",
-    "eslint-plugin-prettier": "5.0.0",
-    "eslint-plugin-simple-import-sort": "^10.0.0",
-    "husky": "^8.0.0",
-    "lint-staged": "^13.2.2",
-    "prettier": "3.2.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.8.3",
     "typescript": "^5.9.3"
   },
   "resolutions": {

@@ -88,11 +88,11 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           withProxyHeader,
         });
         csprFiatRate = rateResp.rate.toString();
-      } catch (e) {}
+      } catch {}
 
       try {
         isWasmProxyOnApi = await this._checkIsWasmProxyTx(tx, withProxyHeader, env);
-      } catch (e) {}
+      } catch {}
 
       try {
         contractPackage = await this._processContractPackage(
@@ -101,7 +101,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           isWasmProxyOnApi,
           withProxyHeader,
         );
-      } catch (e) {}
+      } catch {}
 
       const rawSignatureRequest = new TxSignatureRequestDto({
         tx,
@@ -121,7 +121,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           network,
           withProxyHeader,
         );
-      } catch (e) {}
+      } catch {}
 
       try {
         const accountHashes = getAccountHashesFromTxSignatureRequest(rawSignatureRequest);
@@ -130,7 +130,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           network,
           accountHashes,
         });
-      } catch (e) {}
+      } catch {}
 
       try {
         const handler = new HttpHandler(this._grpcUrl[network], 'fetch');
@@ -151,7 +151,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
           null,
           new AccountIdentifier(undefined, tx.initiatorAddr.publicKey),
         );
-      } catch (e) {}
+      } catch {}
 
       return new TxSignatureRequestDto({
         tx,
@@ -327,7 +327,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
       });
 
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
