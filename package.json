@@ -15,8 +15,8 @@
     "@noble/hashes": "^1.8.0",
     "@react-native/typescript-config": "0.74.83",
     "apisauce": "^3.2.2",
-    "casper-js-sdk": "5.0.10",
-    "date-fns": "^2.30.0",
+    "casper-js-sdk": "5.0.12",
+    "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "deepmerge": "^4.3.1",
     "lru-cache": "10.4.3",
@@ -35,6 +35,10 @@
     "lint-staged": "^13.2.2",
     "prettier": "3.2.5",
     "typescript": "5.1.6"
+  },
+  "resolutions": {
+    "axios": "^1.16.0",
+    "bn.js": "^5.2.3"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix"
