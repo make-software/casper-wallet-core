@@ -1,0 +1,56 @@
+{
+  "approvals": [],
+  "hash": "e19f4c15894232e570ae9a9e0f43a5ff5f2e904b0cef31dacb4cd06be43c180c",
+  "header": {
+    "account": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+    "body_hash": "a0120bd9aa50adcbfb9bd3864dd0b9ae921d321b5546e580efe4fba717951fe9",
+    "chain_name": "casper-test",
+    "dependencies": [],
+    "gas_price": 1,
+    "timestamp": "2026-05-17T16:16:42.477Z",
+    "ttl": "30m"
+  },
+  "payment": {
+    "ModuleBytes": {
+      "module_bytes": "",
+      "args": [
+        [
+          "amount",
+          {
+            "bytes": "0400e1f505",
+            "cl_type": "U512"
+          }
+        ]
+      ]
+    }
+  },
+  "session": {
+    "Transfer": {
+      "args": [
+        [
+          "amount",
+          {
+            "bytes": "0400f90295",
+            "cl_type": "U512"
+          }
+        ],
+        [
+          "target",
+          {
+            "bytes": "020329169b6c9e632fbeca5677fcad1bb48b87cd80500202911b933c16fa1d107e2e",
+            "cl_type": "PublicKey"
+          }
+        ],
+        [
+          "id",
+          {
+            "bytes": "01d204000000000000",
+            "cl_type": {
+              "Option": "U64"
+            }
+          }
+        ]
+      ]
+    }
+  }
+}

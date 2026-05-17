@@ -1,0 +1,73 @@
+{
+  "hash": "c11d9dbef3a75ee770deed8344f3f7043f6fb6e0d35d8cee327a29540c3238bf",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.475Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 15000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "contract_package_hash",
+            {
+              "bytes": "e6e783a9ae53d220e33a23ccb6f3717a0045efbd274f3c32507e4277ec5da62d",
+              "cl_type": {
+                "ByteArray": 32
+              }
+            }
+          ],
+          [
+            "entry_point",
+            {
+              "bytes": "03000000627579",
+              "cl_type": "String"
+            }
+          ],
+          [
+            "args",
+            {
+              "bytes": "180000000100000006000000616d6f756e74050000000400ca9a3b08",
+              "cl_type": {
+                "List": "U8"
+              }
+            }
+          ],
+          [
+            "attached_value",
+            {
+              "bytes": "0400ca9a3b",
+              "cl_type": "U512"
+            }
+          ],
+          [
+            "amount",
+            {
+              "bytes": "0400ca9a3b",
+              "cl_type": "U512"
+            }
+          ]
+        ]
+      },
+      "target": {
+        "Session": {
+          "module_bytes": "0061736d01000000",
+          "runtime": "VmCasperV1",
+          "is_install_upgrade": false
+        }
+      },
+      "entry_point": "Call",
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

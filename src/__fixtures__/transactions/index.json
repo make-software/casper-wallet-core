@@ -1,0 +1,19 @@
+{
+  "signingKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+  "fixtures": [
+    "cspr-native-transfer",
+    "auction-delegate",
+    "auction-undelegate",
+    "auction-redelegate",
+    "nft-burn",
+    "cep18-transfer",
+    "cspr-market-list",
+    "associated-keys-set",
+    "unknown-contract",
+    "wasm-session",
+    "wasm-proxy",
+    "legacy-cspr-transfer-deploy",
+    "legacy-auction-delegate-deploy",
+    "legacy-cep18-transfer-deploy"
+  ]
+}

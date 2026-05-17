@@ -1,0 +1,41 @@
+{
+  "hash": "df8c266bb610c02b146602c4985e36af2ff150ad376e5c1b844e3871cc70c2b7",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.474Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 15000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "danger",
+            {
+              "bytes": "00",
+              "cl_type": "Bool"
+            }
+          ]
+        ]
+      },
+      "target": {
+        "Session": {
+          "module_bytes": "0061736d01000000",
+          "runtime": "VmCasperV1",
+          "is_install_upgrade": false
+        }
+      },
+      "entry_point": "Call",
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

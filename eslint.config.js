@@ -16,6 +16,8 @@ module.exports = [
       '__generated__/**',
       'coverage/**',
       'eslint.config.js',
+      'jest.config.cjs',
+      'scripts/**',
       '.prettierrc.js',
     ],
   },
