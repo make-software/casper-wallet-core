@@ -7,25 +7,23 @@ const logRequestResult = (
   { config, status, originalError, ok, data }: ApiResponse<unknown>,
   logger: ILogger,
 ) => {
-  if (config) {
-    const { method, url, baseURL, params } = config;
+  if (!config) return;
 
-    const param = Object.entries(params)
-      .map(([key, value]) => `${key} - ${value}`)
-      .join(', ');
+  const { method, url, baseURL, params, responseType } = config;
 
-    const error = !ok
-      ? `Error - ${originalError?.name} - ${originalError?.message} ${originalError?.code ?? ''}`
-      : '';
+  const param = Object.entries(params ?? {})
+    .map(([key, value]) => `${key} - ${value}`)
+    .join(', ');
 
-    const response = ok ? `response - ${JSON.stringify(data, null, ' ')}` : '';
+  const error = !ok
+    ? `Error - ${originalError?.name} - ${originalError?.message} ${originalError?.code ?? ''}`
+    : '';
 
-    logger.log(`${getCurrentTime()} - ${status} ${method} - ${baseURL}${url}
-${param}
-${response}
-${error}
-`);
-  }
+  logger.logGroup(`${getCurrentTime()} - ${status} ${method} - ${baseURL}${url}`);
+  param && logger.log('params --- ', param);
+  responseType !== 'arraybuffer' && logger.log('response --- ', data);
+  error && logger.log('errors --- ', error);
+  logger.logGroupEnd();
 };
 
 export const makeLogRequestMonitor =
