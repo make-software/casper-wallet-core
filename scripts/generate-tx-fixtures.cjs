@@ -18,7 +18,6 @@ const {
   Args,
   AuctionManagerEntryPoint,
   CasperNetworkName,
-  CLTypePublicKey,
   CLTypeString,
   CLTypeUInt256,
   CLTypeUInt512,
