@@ -4,11 +4,9 @@ All notable changes to **CasperWalletCore** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Note:** Entries for `1.2.2` were reconstructed from git history (no GitHub release published). Entries for `1.0.0`–`1.2.0` are sourced from the published [GitHub Releases](https://github.com/make-software/casper-wallet-core/releases). Tags without release notes are listed as stubs with a compare link.
-
 ## [Unreleased]
 
-## [1.2.2] - 2026-05-17
+## [1.3.0] - 2026-05-18
 
 ### Added
 
@@ -16,14 +14,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `scripts/generate-tx-fixtures.cjs` for regenerating transaction test fixtures.
 - Grouped logging support in `ILogger` / `Logger` with structured, conditional API-response logging.
 - `@types/node` to dev dependencies for improved Node.js type support.
+- GitHub Actions workflows for CI (`.github/workflows/ci.yml`) and CodeQL analysis (`.github/workflows/codeql.yml`).
+- Issue templates (`bug_report.yml`, `feature_request.yml`, `config.yml`), pull request template, and `CODEOWNERS`.
+- Dependabot configuration (`.github/dependabot.yml`) for automated dependency updates.
+- Developer Certificate of Origin (`.github/developer-certificate-of-origin`) and expanded `CONTRIBUTING.md` / `SECURITY.md`.
+- `.nvmrc` to pin the Node.js version used for development.
+- `.editorconfig` for consistent code styling across editors.
+- `fast-check` dev dependency and property-based tests for fiat and token formatters (`src/utils/common.property.test.ts`).
+- Extended `package.json` metadata: `description`, `license`, `author`, `keywords`, repository fields.
+- New NPM scripts for formatting (`yarn format`, `yarn format:check`).
 
 ### Changed
 
 - Migrated ESLint config from `.eslintrc.js` to flat-config (`eslint.config.js`) and upgraded ESLint and related plugins.
 - `tsconfig.json` switched to a custom configuration (removed `@react-native/typescript-config`); `module` set to `nodenext`.
+- Enabled stricter TypeScript compiler options: `noImplicitOverride`, `noFallthroughCasesInSwitch`, `forceConsistentCasingInFileNames`.
 - Upgraded `typescript` to `5.9.3` and `uuid` to `14.0.0`.
 - `src/utils/crypto.ts` updated for `ArrayBuffer` compatibility.
 - Bumped `lru-cache` to `11.3.6` and adjusted the `engines.node` requirement.
+- Reformatted tests and source files for improved readability and consistency.
 
 ### Fixed
 
@@ -186,8 +195,8 @@ Tag exists; no GitHub release notes were published. See the
 Tagged but not published as GitHub Releases. See the
 [tag list](https://github.com/make-software/casper-wallet-core/tags) for history.
 
-[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v1.2.2...HEAD
-[1.2.2]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.2.2
+[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/make-software/casper-wallet-core/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/make-software/casper-wallet-core/compare/v1.1.8...v1.2.0
 [1.1.8]: https://github.com/make-software/casper-wallet-core/compare/v1.1.7...v1.1.8
