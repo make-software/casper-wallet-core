@@ -49,9 +49,7 @@ const config = {
   moduleFileExtensions: ['ts', 'tsx', 'mjs', 'js', 'jsx', 'json'],
 
   // Whitelist ESM-only transitive deps that need transforming.
-  transformIgnorePatterns: [
-    'node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild)/)',
-  ],
+  transformIgnorePatterns: ['node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild)/)'],
 
   testMatch: ['<rootDir>/src/**/*.test.ts'],
 

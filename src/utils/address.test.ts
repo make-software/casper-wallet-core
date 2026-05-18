@@ -10,7 +10,9 @@ const LONG_ADDR = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece6
 describe('address utils', () => {
   describe('renderShortAddress', () => {
     it('shortens addresses longer than minLength', () => {
-      expect(renderShortAddress(LONG_ADDR)).toBe(`${LONG_ADDR.slice(0, 5)}...${LONG_ADDR.slice(-5)}`);
+      expect(renderShortAddress(LONG_ADDR)).toBe(
+        `${LONG_ADDR.slice(0, 5)}...${LONG_ADDR.slice(-5)}`,
+      );
     });
 
     it('returns the address unchanged when it is shorter than minLength', () => {

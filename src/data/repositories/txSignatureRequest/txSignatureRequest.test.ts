@@ -18,7 +18,10 @@ describe('TxSignatureRequestRepository', () => {
     const http = createMockHttpProvider();
     const accountInfoRepository = new AccountInfoRepository(http, CasperWalletApiByNetworkUrl);
     const tokensRepository = new TokensRepository(http, CasperWalletApiByNetworkUrl);
-    const contractPackageRepository = new ContractPackageRepository(http, CasperWalletApiByNetworkUrl);
+    const contractPackageRepository = new ContractPackageRepository(
+      http,
+      CasperWalletApiByNetworkUrl,
+    );
     const repo = new TxSignatureRequestRepository(
       http,
       accountInfoRepository,

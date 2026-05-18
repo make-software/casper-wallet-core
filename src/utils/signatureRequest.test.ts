@@ -12,20 +12,22 @@ import {
 import type { ITxSignatureRequestActionUnion } from '../domain';
 
 const action = (type: ITxSignatureRequestActionUnion['type']): ITxSignatureRequestActionUnion =>
-  ({ type } as ITxSignatureRequestActionUnion);
+  ({ type }) as ITxSignatureRequestActionUnion;
 
 describe('tx signature request action type guards', () => {
-  it.each<[ITxSignatureRequestActionUnion['type'], (a: ITxSignatureRequestActionUnion) => boolean]>([
-    ['AUCTION', isTxSignatureRequestAuctionAction],
-    ['ASSOCIATED_KEYS', isTxSignatureRequestAssociatedKeysAction],
-    ['CSPR_MARKET', isTxSignatureRequestCasperMarketAction],
-    ['CEP18', isTxSignatureRequestCep18Action],
-    ['CSPR_NATIVE', isTxSignatureRequestNativeCsprAction],
-    ['NFT', isTxSignatureRequestNftAction],
-    ['UNKNOWN', isTxSignatureRequestUnknownContractAction],
-    ['WASM', isTxSignatureRequestWasmAction],
-    ['WASM_PROXY', isTxSignatureRequestWasmProxyAction],
-  ])('matches its own type (%s)', (type, guard) => {
+  it.each<[ITxSignatureRequestActionUnion['type'], (a: ITxSignatureRequestActionUnion) => boolean]>(
+    [
+      ['AUCTION', isTxSignatureRequestAuctionAction],
+      ['ASSOCIATED_KEYS', isTxSignatureRequestAssociatedKeysAction],
+      ['CSPR_MARKET', isTxSignatureRequestCasperMarketAction],
+      ['CEP18', isTxSignatureRequestCep18Action],
+      ['CSPR_NATIVE', isTxSignatureRequestNativeCsprAction],
+      ['NFT', isTxSignatureRequestNftAction],
+      ['UNKNOWN', isTxSignatureRequestUnknownContractAction],
+      ['WASM', isTxSignatureRequestWasmAction],
+      ['WASM_PROXY', isTxSignatureRequestWasmProxyAction],
+    ],
+  )('matches its own type (%s)', (type, guard) => {
     expect(guard(action(type))).toBe(true);
   });
 

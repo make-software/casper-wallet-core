@@ -1,6 +1,21 @@
 {
   "name": "CasperWalletCore",
   "version": "1.2.2",
+  "description": "Core business logic and data layer for the Casper Wallet browser extension and mobile app.",
+  "license": "Apache-2.0",
+  "author": "MAKE Software",
+  "homepage": "https://github.com/make-software/casper-wallet-core#readme",
+  "bugs": {
+    "url": "https://github.com/make-software/casper-wallet-core/issues"
+  },
+  "keywords": [
+    "casper",
+    "casper-network",
+    "wallet",
+    "blockchain",
+    "typescript",
+    "cspr"
+  ],
   "main": "index.ts",
   "repository": {
     "type": "git",
@@ -8,12 +23,14 @@
   },
   "scripts": {
     "lint": "eslint . --fix",
-    "code:check": "tsc --skipLibCheck --noEmit && yarn lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "code:check": "tsc --skipLibCheck --noEmit && yarn lint && yarn format:check",
     "prepare": "husky",
-    "test": "node --no-warnings node_modules/jest/bin/jest.js --watchman=false",
-    "test:watch": "node --no-warnings node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --no-warnings node_modules/jest/bin/jest.js --coverage --watchman=false",
-    "test:integration": "node --no-warnings node_modules/jest/bin/jest.js --testPathPattern=integration.test --watchman=false",
+    "test": "jest --watchman=false",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --watchman=false",
+    "test:integration": "jest --testPathPattern=integration.test --watchman=false",
     "fixtures:generate": "node scripts/generate-tx-fixtures.cjs"
   },
   "dependencies": {
@@ -26,15 +43,12 @@
     "lru-cache": "11.3.6",
     "uuid": "^14.0.0"
   },
-  "overrides": {
-    "elliptic": "6.6.1"
-  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.4",
     "@react-native/eslint-config": "^0.85.3",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-prettier": "^5.5.5",
     "fast-check": "^4.8.0",
@@ -47,7 +61,8 @@
   },
   "resolutions": {
     "axios": "^1.16.0",
-    "bn.js": "^5.2.3"
+    "bn.js": "^5.2.3",
+    "elliptic": "6.6.1"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix"

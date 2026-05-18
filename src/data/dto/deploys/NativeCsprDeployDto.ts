@@ -39,8 +39,8 @@ export class NativeCsprDeployDto extends DeployDto implements INativeCsprDeploy 
     this.fiatAmount = getCsprFiatAmount(this.amount, data?.rate);
   }
 
-  readonly entryPoint: Maybe<string>;
-  readonly contractName: Maybe<string>;
+  override readonly entryPoint: Maybe<string>;
+  override readonly contractName: Maybe<string>;
   readonly recipientKey: string;
   readonly recipientKeyType: AccountKeyType;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;

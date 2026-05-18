@@ -18,7 +18,7 @@ describe('getAccountHashesFromTxSignatureRequest', () => {
   it('returns at least the signing/sender keys converted to account hashes', () => {
     const hashes = getAccountHashesFromTxSignatureRequest(baseRequest());
     expect(hashes.length).toBeGreaterThan(0);
-    hashes.forEach((h) => expect(h).toMatch(/^[0-9a-f]+$/));
+    hashes.forEach(h => expect(h).toMatch(/^[0-9a-f]+$/));
   });
 
   it('includes signaturesCollected publicKeys', () => {

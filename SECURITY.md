@@ -6,10 +6,10 @@ The CasperWalletCore maintainers take security seriously. This library is used b
 
 Only the latest minor release line of CasperWalletCore receives security patches. Older versions are not actively maintained.
 
-| Version  | Supported          |
-| -------- | ------------------ |
-| `1.2.x`  | :white_check_mark: |
-| `< 1.2`  | :x:                |
+| Version | Supported          |
+| ------- | ------------------ |
+| `1.2.x` | :white_check_mark: |
+| `< 1.2` | :x:                |
 
 If you are vendoring an older version, please update to the latest `1.2.x` release before reporting; the issue may already be fixed.
 

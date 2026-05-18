@@ -33,55 +33,55 @@ export class HttpError extends Error implements IHttpError {
 }
 
 export class HttpClientError extends HttpError {
-  name: string = CLIENT_ERROR;
+  override name: string = CLIENT_ERROR;
 }
 
 export class HttpClientValidationError extends HttpClientError {
-  name = '400 - client validation';
+  override name = '400 - client validation';
 }
 
 export class HttpClientUnauthorizedError extends HttpClientError {
-  name = '401 - client Unauthorized';
+  override name = '401 - client Unauthorized';
 }
 
 export class HttpClientForbiddenError extends HttpClientError {
-  name = '403 - client Forbidden';
+  override name = '403 - client Forbidden';
 }
 
 export class HttpClientNotFoundError extends HttpClientError {
-  name = '404 - not found';
+  override name = '404 - not found';
 }
 
 export class HttpServerError extends HttpError {
   static readonly message = 'errors:server-error';
-  name = SERVER_ERROR;
-  traceable = true;
+  override name = SERVER_ERROR;
+  override traceable = true;
 }
 
 export class HttpConnectionError extends HttpError {
   static readonly message: 'errors:connection-error';
-  name = CONNECTION_ERROR;
+  override name = CONNECTION_ERROR;
 }
 
 export class HttpNetworkError extends HttpError {
   static readonly message = 'errors:network-error';
-  name = NETWORK_ERROR;
-  traceable = false;
+  override name = NETWORK_ERROR;
+  override traceable = false;
 }
 
 export class HttpTimeoutError extends HttpError {
   static readonly message = 'errors:timeout-error';
-  name = TIMEOUT_ERROR;
-  traceable = false;
+  override name = TIMEOUT_ERROR;
+  override traceable = false;
 }
 
 export class HttpCancelError extends HttpError {
   static readonly message = 'errors:cancel-request-error';
-  name = CANCEL_ERROR;
-  traceable = false;
+  override name = CANCEL_ERROR;
+  override traceable = false;
 }
 
 export class HttpUnknownError extends HttpError {
   static readonly message = 'errors:unexpected';
-  name = UNKNOWN_ERROR;
+  override name = UNKNOWN_ERROR;
 }

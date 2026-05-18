@@ -1,11 +1,18 @@
 import { CsprBalanceDto, TokenDto, TokenFiatRateDto } from './tokens';
-import { makeCsprBalanceResponse, makeCurrencyRateResponse, makeErc20Token } from '../../__test-utils__';
+import {
+  makeCsprBalanceResponse,
+  makeCurrencyRateResponse,
+  makeErc20Token,
+} from '../../__test-utils__';
 import { CSPR_DECIMALS } from '../../domain';
 
 describe('TokenDto', () => {
   it('builds a token with decimal balance and fiat fields', () => {
     const apiToken = makeErc20Token();
-    const dto = new TokenDto('mainnet', { ...apiToken.contract_package, balance: apiToken.balance });
+    const dto = new TokenDto('mainnet', {
+      ...apiToken.contract_package,
+      balance: apiToken.balance,
+    });
 
     expect(dto.network).toBe('mainnet');
     expect(dto.balance).toBe('10000000000');
@@ -19,7 +26,13 @@ describe('TokenDto', () => {
 
   it('marks CSPR-symbol tokens as native', () => {
     const dto = new TokenDto('mainnet', {
-      metadata: { decimals: 9, symbol: 'CSPR', name: 'CSPR', balances_uref: '', total_supply_uref: '' },
+      metadata: {
+        decimals: 9,
+        symbol: 'CSPR',
+        name: 'CSPR',
+        balances_uref: '',
+        total_supply_uref: '',
+      },
     });
     expect(dto.isNative).toBe(true);
   });
@@ -34,7 +47,13 @@ describe('TokenDto', () => {
 
   it('picks the lowest dex_id token_market_data entry', () => {
     const dto = new TokenDto('mainnet', {
-      metadata: { decimals: 9, symbol: 'STK', name: 'STK', balances_uref: '', total_supply_uref: '' },
+      metadata: {
+        decimals: 9,
+        symbol: 'STK',
+        name: 'STK',
+        balances_uref: '',
+        total_supply_uref: '',
+      },
       balance: '1000000000',
       token_market_data: [
         // higher dex_id should be discarded by the sort

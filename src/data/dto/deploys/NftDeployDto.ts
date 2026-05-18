@@ -52,12 +52,12 @@ export class NftDeployDto extends DeployDto implements INftDeploy {
     this.isReceive = isKeysEqual(activePublicKey, this.recipientKey);
   }
 
-  readonly entryPoint: NFTEntryPointType;
-  readonly contractName: string;
+  override readonly entryPoint: NFTEntryPointType;
+  override readonly contractName: string;
   readonly amountOfNFTs: Maybe<number>;
   readonly nftTokenIds: string[];
   readonly nftTokenUrlsMap: Record<string, Maybe<string>>;
-  readonly iconUrl: Maybe<string>;
+  override readonly iconUrl: Maybe<string>;
   readonly recipientKey: string;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
   readonly recipientKeyType: AccountKeyType;

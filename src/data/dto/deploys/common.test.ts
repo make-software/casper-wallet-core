@@ -16,15 +16,21 @@ import { AuctionManagerContractHash, CSPRMarketContractHash } from '../../../dom
 
 describe('getDeployType', () => {
   it('detects AUCTION by contract_package.name', () => {
-    expect(getDeployType('mainnet', { contract_package: { name: 'Auction' } as never })).toBe('AUCTION');
+    expect(getDeployType('mainnet', { contract_package: { name: 'Auction' } as never })).toBe(
+      'AUCTION',
+    );
   });
 
   it('detects AUCTION by mainnet AuctionManagerContractHash', () => {
-    expect(getDeployType('mainnet', { contract_hash: AuctionManagerContractHash.mainnet })).toBe('AUCTION');
+    expect(getDeployType('mainnet', { contract_hash: AuctionManagerContractHash.mainnet })).toBe(
+      'AUCTION',
+    );
   });
 
   it('detects CSPR_MARKET', () => {
-    expect(getDeployType('mainnet', { contract_hash: CSPRMarketContractHash.mainnet })).toBe('CSPR_MARKET');
+    expect(getDeployType('mainnet', { contract_hash: CSPRMarketContractHash.mainnet })).toBe(
+      'CSPR_MARKET',
+    );
   });
 
   it('detects CEP18 from entry point + contract_type_id', () => {
@@ -106,7 +112,10 @@ describe('getNftTokensQuantity', () => {
   it('returns null when entry point is excluded', () => {
     expect(
       getNftTokensQuantity(
-        { contract_entrypoint: { name: 'mint' } as never, args: { token_id: { parsed: '1' } } as never },
+        {
+          contract_entrypoint: { name: 'mint' } as never,
+          args: { token_id: { parsed: '1' } } as never,
+        },
         ['mint'],
       ),
     ).toBeNull();
@@ -129,7 +138,10 @@ describe('deriveSplitDataFromNamedKeyValue', () => {
 describe('guardedDeriveSplitDataFromArguments', () => {
   it('handles Account-typed argument', () => {
     expect(
-      guardedDeriveSplitDataFromArguments({ parsed: { Account: 'account-hash-abc123' } }, 'Account'),
+      guardedDeriveSplitDataFromArguments(
+        { parsed: { Account: 'account-hash-abc123' } },
+        'Account',
+      ),
     ).toMatchObject({
       keyType: 'accountHash',
       hash: 'abc123',
@@ -138,7 +150,9 @@ describe('guardedDeriveSplitDataFromArguments', () => {
   });
 
   it('returns null when parsed[key] is not a string', () => {
-    expect(guardedDeriveSplitDataFromArguments({ parsed: { Account: { nested: true } } }, 'Account')).toBeNull();
+    expect(
+      guardedDeriveSplitDataFromArguments({ parsed: { Account: { nested: true } } }, 'Account'),
+    ).toBeNull();
   });
 });
 
@@ -182,9 +196,10 @@ describe('getNftTokenIdsFromArguments', () => {
   });
 
   it('extracts string token ids', () => {
-    expect(
-      getNftTokenIdsFromArguments({ token_ids: { parsed: ['1', '2'] } } as never),
-    ).toEqual(['1', '2']);
+    expect(getNftTokenIdsFromArguments({ token_ids: { parsed: ['1', '2'] } } as never)).toEqual([
+      '1',
+      '2',
+    ]);
   });
 
   it('handles a single token_id', () => {

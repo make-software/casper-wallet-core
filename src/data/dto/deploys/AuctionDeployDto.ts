@@ -56,14 +56,14 @@ export class AuctionDeployDto extends DeployDto implements IAuctionDeploy {
       : toValidatorKeyType;
   }
 
-  readonly entryPoint: AuctionEntryPointType;
+  override readonly entryPoint: AuctionEntryPointType;
   readonly fromValidator: Maybe<string>;
   readonly fromValidatorKeyType: AccountKeyType;
   readonly fromValidatorAccountInfo: Maybe<IAccountInfo>;
   readonly toValidator: Maybe<string>;
   readonly toValidatorKeyType: AccountKeyType;
   readonly toValidatorAccountInfo: Maybe<IAccountInfo>;
-  readonly contractName: string;
+  override readonly contractName: string;
 
   readonly decimals: number;
   readonly symbol: string;

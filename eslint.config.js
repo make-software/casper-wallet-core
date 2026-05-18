@@ -25,7 +25,7 @@ module.exports = [
   {
     rules: {
       'jest/expect-expect': 'off',
-      'jest/no-disabled-tests': 'off'
+      'jest/no-disabled-tests': 'off',
     },
   },
 ];

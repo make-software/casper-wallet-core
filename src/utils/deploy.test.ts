@@ -14,7 +14,7 @@ import {
 import type { IDeploy } from '../domain';
 
 const deployOfType = (type: IDeploy['type'], executionTypeId = 1): IDeploy =>
-  ({ type, executionTypeId } as unknown as IDeploy);
+  ({ type, executionTypeId }) as unknown as IDeploy;
 
 describe('deploy type guards', () => {
   it.each<[string, (d: IDeploy) => boolean, IDeploy['type']]>([

@@ -16,6 +16,6 @@ export class AssociatedKeysDeployDto extends DeployDto implements IAssociatedKey
     this.entryPoint = getEntryPoint(data) ?? null;
   }
 
-  readonly entryPoint: Maybe<string>;
-  readonly contractName: string;
+  override readonly entryPoint: Maybe<string>;
+  override readonly contractName: string;
 }

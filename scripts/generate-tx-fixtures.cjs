@@ -56,7 +56,8 @@ const VALIDATOR_C = '01c8be540a643e6c9df283dd2d2d6be67748f69a3c7bb6cf34471c899b8
 const NFT_PACKAGE_HASH = '6ca070c78d4eb468b4db4cbc5cadd815c35e15019a841c137372a88d7e247d1d';
 const CEP18_PACKAGE_HASH = '7fd113f60890c8ea77daf90880852f544b618c62315bcfd2dd93304c389fa19d';
 const CSPR_MARKET_PACKAGE_HASH = '154ff59b5f9feec42d3a418058d66badcb2121dc3ffb2e3cf92596bf5aafbc88';
-const ASSOCIATED_KEYS_PACKAGE_HASH = 'ff9c3c0c447d2e3a79c02e13d048c03f6fac8a911fdc04118cc754c84ef6259e';
+const ASSOCIATED_KEYS_PACKAGE_HASH =
+  'ff9c3c0c447d2e3a79c02e13d048c03f6fac8a911fdc04118cc754c84ef6259e';
 const WASM_PROXY_PACKAGE_HASH = 'e6e783a9ae53d220e33a23ccb6f3717a0045efbd274f3c32507e4277ec5da62d';
 
 const OUT_DIR = path.resolve(__dirname, '..', 'src', '__fixtures__', 'transactions');
@@ -272,11 +273,13 @@ writeFixture(
       .wasm(Conversions.decodeBase16('0061736d01000000'))
       .runtimeArgs(
         Args.fromMap({
-          contract_package_hash: CLValue.newCLByteArray(Conversions.decodeBase16(WASM_PROXY_PACKAGE_HASH)),
+          contract_package_hash: CLValue.newCLByteArray(
+            Conversions.decodeBase16(WASM_PROXY_PACKAGE_HASH),
+          ),
           entry_point: CLValue.newCLString('buy'),
           args: CLValue.newCLList(
             CLTypeUInt8,
-            Array.from(innerBytes).map((b) => CLValue.newCLUint8(b)),
+            Array.from(innerBytes).map(b => CLValue.newCLUint8(b)),
           ),
           attached_value: CLValue.newCLUInt512(1_000_000_000),
           amount: CLValue.newCLUInt512(1_000_000_000),

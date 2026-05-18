@@ -250,7 +250,7 @@ describe('TxSignatureRequestDto — action mapping per fixture', () => {
   });
 
   describe('rawJson preserves the source tx', () => {
-    it.each(indexFixture.fixtures)('round-trips %s through Transaction.fromJSON()', (name) => {
+    it.each(indexFixture.fixtures)('round-trips %s through Transaction.fromJSON()', name => {
       const dto = baseDto(name);
       expect(dto.rawJson).toContain('"chain_name"');
     });

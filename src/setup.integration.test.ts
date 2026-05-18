@@ -27,8 +27,6 @@ describe('setupRepositories (integration)', () => {
   });
 
   it('accepts a custom http authorization header', () => {
-    expect(() =>
-      setupRepositories({ httpAuthorizationHeader: 'Bearer test' }),
-    ).not.toThrow();
+    expect(() => setupRepositories({ httpAuthorizationHeader: 'Bearer test' })).not.toThrow();
   });
 });

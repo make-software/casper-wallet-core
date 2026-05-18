@@ -25,7 +25,9 @@ const ACCOUNT_HASH = 'a'.repeat(64);
 export const makeFakePublicKey = (): string => PUBLIC_KEY;
 export const makeFakeAccountHash = (): string => ACCOUNT_HASH;
 
-export const makeErc20Token = (overrides: Partial<Erc20Token['contract_package']> = {}): Erc20Token => ({
+export const makeErc20Token = (
+  overrides: Partial<Erc20Token['contract_package']> = {},
+): Erc20Token => ({
   balance: '10000000000', // raw, 10 token at 9 decimals
   contract_package_hash: 'cph_' + 'b'.repeat(60),
   owner_hash: ACCOUNT_HASH,
@@ -65,9 +67,7 @@ export const makeCsprBalanceResponse = (
   ...overrides,
 });
 
-export const makeCurrencyRateResponse = (
-  amount = 0.05,
-): IGetCurrencyRateResponse => ({
+export const makeCurrencyRateResponse = (amount = 0.05): IGetCurrencyRateResponse => ({
   data: {
     currency_id: 1,
     amount,
@@ -175,7 +175,9 @@ export const makeAccountInfo = (overrides: Partial<IAccountInfo> = {}): IAccount
   ...overrides,
 });
 
-export const makeCloudDeploy = (overrides: Partial<ExtendedCloudDeploy> = {}): ExtendedCloudDeploy =>
+export const makeCloudDeploy = (
+  overrides: Partial<ExtendedCloudDeploy> = {},
+): ExtendedCloudDeploy =>
   ({
     deploy_hash: 'd'.repeat(64),
     caller_public_key: PUBLIC_KEY,

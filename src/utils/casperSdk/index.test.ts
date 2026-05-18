@@ -28,7 +28,7 @@ describe('casperSdk helpers', () => {
   describe('getCasperNetworkByChainName', () => {
     it.each(['mainnet', 'testnet', 'devnet', 'integration'])(
       'returns %s unchanged when already a CasperNetwork',
-      (network) => {
+      network => {
         expect(getCasperNetworkByChainName(network)).toBe(network);
       },
     );
@@ -52,7 +52,9 @@ describe('casperSdk helpers', () => {
 
     it('uses uref path for uref keys', () => {
       const uref = 'uref-abc';
-      expect(getBlockExplorerAccountUrl('mainnet', uref)).toBe(`${CasperLiveUrl.mainnet}/uref/${uref}`);
+      expect(getBlockExplorerAccountUrl('mainnet', uref)).toBe(
+        `${CasperLiveUrl.mainnet}/uref/${uref}`,
+      );
     });
 
     it('returns null for unknown network', () => {

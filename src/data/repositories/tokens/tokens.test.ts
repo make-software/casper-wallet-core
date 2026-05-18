@@ -1,5 +1,10 @@
 import { TokensRepository } from './index';
-import { createMockHttpProvider, makeCsprBalanceResponse, makeCurrencyRateResponse, makeErc20Token } from '../../../__test-utils__';
+import {
+  createMockHttpProvider,
+  makeCsprBalanceResponse,
+  makeCurrencyRateResponse,
+  makeErc20Token,
+} from '../../../__test-utils__';
 import {
   CasperWalletApiByNetworkUrl,
   CSPR_API_PROXY_HEADERS,
@@ -44,7 +49,9 @@ describe('TokensRepository', () => {
       http.get.mockRejectedValueOnce(new Error('boom'));
       const repo = new TokensRepository(http, CasperWalletApiByNetworkUrl);
 
-      await expect(repo.getTokens({ network: 'mainnet', publicKey: PUBLIC_KEY })).rejects.toBeInstanceOf(TokensError);
+      await expect(
+        repo.getTokens({ network: 'mainnet', publicKey: PUBLIC_KEY }),
+      ).rejects.toBeInstanceOf(TokensError);
     });
   });
 

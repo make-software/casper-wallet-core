@@ -1,5 +1,9 @@
 import { AppEventsRepository } from './index';
-import { createMockHttpProvider, makeMarketingEvent, makeReleaseEvent } from '../../../__test-utils__';
+import {
+  createMockHttpProvider,
+  makeMarketingEvent,
+  makeReleaseEvent,
+} from '../../../__test-utils__';
 import { AppEventsError, CasperWalletApiByEnvUrl } from '../../../domain';
 
 describe('AppEventsRepository', () => {

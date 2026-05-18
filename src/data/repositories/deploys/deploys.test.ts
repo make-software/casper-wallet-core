@@ -31,7 +31,11 @@ describe('DeploysRepository', () => {
         data: [makeCloudDeploy()],
       });
 
-      const out = await repo.getDeploys({ network: 'mainnet', activePublicKey: PUBLIC_KEY, page: 1 });
+      const out = await repo.getDeploys({
+        network: 'mainnet',
+        activePublicKey: PUBLIC_KEY,
+        page: 1,
+      });
       expect(out.data).toHaveLength(1);
       expect(http.get).toHaveBeenCalledTimes(1);
     });
@@ -39,7 +43,11 @@ describe('DeploysRepository', () => {
     it('returns empty paginated response on empty API result', async () => {
       const { http, repo } = buildRepo();
       http.get.mockResolvedValueOnce(undefined);
-      const out = await repo.getDeploys({ network: 'mainnet', activePublicKey: PUBLIC_KEY, page: 1 });
+      const out = await repo.getDeploys({
+        network: 'mainnet',
+        activePublicKey: PUBLIC_KEY,
+        page: 1,
+      });
       expect(out).toEqual(EMPTY_PAGINATED_RESPONSE);
     });
 
@@ -116,7 +124,11 @@ describe('DeploysRepository', () => {
       const { http, repo } = buildRepo();
       http.get.mockResolvedValueOnce(undefined);
       expect(
-        await repo.getCsprTransferDeploys({ network: 'mainnet', activePublicKey: PUBLIC_KEY, page: 1 }),
+        await repo.getCsprTransferDeploys({
+          network: 'mainnet',
+          activePublicKey: PUBLIC_KEY,
+          page: 1,
+        }),
       ).toEqual(EMPTY_PAGINATED_RESPONSE);
     });
 
@@ -124,7 +136,11 @@ describe('DeploysRepository', () => {
       const { http, repo } = buildRepo();
       http.get.mockResolvedValueOnce(undefined);
       expect(
-        await repo.getCep18TransferDeploys({ network: 'mainnet', activePublicKey: PUBLIC_KEY, page: 1 }),
+        await repo.getCep18TransferDeploys({
+          network: 'mainnet',
+          activePublicKey: PUBLIC_KEY,
+          page: 1,
+        }),
       ).toEqual(EMPTY_PAGINATED_RESPONSE);
     });
   });

@@ -1,11 +1,7 @@
 import fc from 'fast-check';
 import Decimal from 'decimal.js';
 
-import {
-  formatFiatAmountToTokenAmount,
-  formatFiatBalance,
-  getDecimalTokenBalance,
-} from './common';
+import { formatFiatAmountToTokenAmount, formatFiatBalance, getDecimalTokenBalance } from './common';
 
 const bigIntString = (min: bigint, max: bigint) => fc.bigInt({ min, max }).map(String);
 

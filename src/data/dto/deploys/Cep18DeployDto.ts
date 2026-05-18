@@ -72,7 +72,7 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
     );
   }
 
-  readonly entryPoint: CEP18EntryPointType;
+  override readonly entryPoint: CEP18EntryPointType;
   readonly recipientKey: string;
   readonly isReceive: boolean;
   readonly amount: string;
@@ -80,8 +80,8 @@ export class Cep18DeployDto extends DeployDto implements ICep18Deploy {
   readonly formattedDecimalAmount: string;
   readonly symbol: string;
   readonly decimals: number;
-  readonly contractName: string;
-  readonly iconUrl: Maybe<string>;
+  override readonly contractName: string;
+  override readonly iconUrl: Maybe<string>;
   readonly recipientKeyType: AccountKeyType;
   readonly recipientAccountInfo: Maybe<IAccountInfo>;
 

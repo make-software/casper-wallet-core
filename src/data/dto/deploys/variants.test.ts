@@ -1,6 +1,10 @@
 import { processDeploy } from './index';
 import { makeCloudDeploy } from '../../../__test-utils__';
-import { AuctionManagerContractHash, CSPRMarketContractHash, AssociatedKeysContractHash } from '../../../domain';
+import {
+  AuctionManagerContractHash,
+  CSPRMarketContractHash,
+  AssociatedKeysContractHash,
+} from '../../../domain';
 
 const ACTIVE_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
 

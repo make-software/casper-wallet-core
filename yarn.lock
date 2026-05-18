@@ -1135,12 +1135,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^20.0.0":
-  version: 20.19.41
-  resolution: "@types/node@npm:20.19.41"
+"@types/node@npm:^22.0.0":
+  version: 22.19.19
+  resolution: "@types/node@npm:22.19.19"
   dependencies:
     undici-types: "npm:~6.21.0"
-  checksum: 10c0/aa2a07317bbd700bea68d5784b403a738dbcebadbe2d8ef05649f7953065120d5d37f7edfdd7881df3a3bd15328c8a4dc46fdd69732ab540d552c505378c585b
+  checksum: 10c0/402e0f088c94cabda3cd721546bd8e4e75e098e0b342f6e03b90ca1e19c28986f9650112c64fcfd09fc8cebc0f8b20291a513153e90489331cf666e1e5503e16
   languageName: node
   linkType: hard
 
@@ -1311,7 +1311,7 @@ __metadata:
     "@noble/hashes": "npm:^1.8.0"
     "@react-native/eslint-config": "npm:^0.85.3"
     "@types/jest": "npm:^29.5.14"
-    "@types/node": "npm:^20.0.0"
+    "@types/node": "npm:^22.0.0"
     apisauce: "npm:^3.2.2"
     casper-js-sdk: "npm:5.0.12"
     date-fns: "npm:^4.1.0"

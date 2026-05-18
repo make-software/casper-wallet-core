@@ -1,5 +1,9 @@
 import { AccountInfoRepository } from './index';
-import { createMockHttpProvider, makeAccountsInfoResponse, makeCsprBalanceResponse } from '../../../__test-utils__';
+import {
+  createMockHttpProvider,
+  makeAccountsInfoResponse,
+  makeCsprBalanceResponse,
+} from '../../../__test-utils__';
 import {
   AccountInfoError,
   CasperWalletApiByNetworkUrl,
@@ -13,7 +17,10 @@ describe('AccountInfoRepository', () => {
       http.post.mockResolvedValueOnce({ data: [makeAccountsInfoResponse()] });
       const repo = new AccountInfoRepository(http, CasperWalletApiByNetworkUrl);
 
-      const out = await repo.getAccountsInfo({ network: 'mainnet', accountHashes: ['a'.repeat(64)] });
+      const out = await repo.getAccountsInfo({
+        network: 'mainnet',
+        accountHashes: ['a'.repeat(64)],
+      });
       expect(http.post).toHaveBeenCalledTimes(1);
       expect(Object.keys(out)).toHaveLength(1);
     });

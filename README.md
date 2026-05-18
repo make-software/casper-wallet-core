@@ -166,17 +166,17 @@ setupRepositories({ debug: true, logger });
 
 Each domain module exposes a repository interface (in `src/domain/<module>/repository.ts`) backed by an implementation in `src/data/repositories/<module>/`.
 
-| Domain                                        | Repository                       | Responsibility                                          |
-| --------------------------------------------- | -------------------------------- | ------------------------------------------------------- |
-| `domain/accountInfo`                          | `accountInfoRepository`          | Resolve account names, avatars, and verified info       |
-| `domain/tokens`                               | `tokensRepository`               | Fungible token balances, metadata, price data           |
-| `domain/nfts`                                 | `nftsRepository`                 | NFT ownership, metadata, collections                    |
-| `domain/deploys`                              | `deploysRepository`              | Deploy history, parsing, transfer details               |
-| `domain/validator`                            | `validatorsRepository`           | Validator listings, delegation info, auction state      |
-| `domain/onRamp`                               | `onRampRepository`               | Fiat on-ramp providers and quote handling               |
-| `domain/appEvents`                            | `appEventsRepository`            | Wallet-wide announcements / app events                  |
-| `domain/tx-signature-request`                 | `txSignatureRequestRepository`   | Decoding & describing transactions awaiting signature   |
-| `domain/contractPackage`                      | `contractPackageRepository`      | Contract package metadata lookups                       |
+| Domain                        | Repository                     | Responsibility                                        |
+| ----------------------------- | ------------------------------ | ----------------------------------------------------- |
+| `domain/accountInfo`          | `accountInfoRepository`        | Resolve account names, avatars, and verified info     |
+| `domain/tokens`               | `tokensRepository`             | Fungible token balances, metadata, price data         |
+| `domain/nfts`                 | `nftsRepository`               | NFT ownership, metadata, collections                  |
+| `domain/deploys`              | `deploysRepository`            | Deploy history, parsing, transfer details             |
+| `domain/validator`            | `validatorsRepository`         | Validator listings, delegation info, auction state    |
+| `domain/onRamp`               | `onRampRepository`             | Fiat on-ramp providers and quote handling             |
+| `domain/appEvents`            | `appEventsRepository`          | Wallet-wide announcements / app events                |
+| `domain/tx-signature-request` | `txSignatureRequestRepository` | Decoding & describing transactions awaiting signature |
+| `domain/contractPackage`      | `contractPackageRepository`    | Contract package metadata lookups                     |
 
 > ⚠️ Note the naming asymmetry between `domain/` and `data/repositories/` (e.g. `domain/validator` ↔ `repositories/validators`, `domain/tx-signature-request` ↔ `repositories/txSignatureRequest`). Always import from the package root to avoid drift.
 

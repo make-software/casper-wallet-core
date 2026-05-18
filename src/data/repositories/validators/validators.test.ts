@@ -32,14 +32,12 @@ describe('ValidatorsRepository', () => {
   describe('getValidators', () => {
     it('fetches era id then validators', async () => {
       const http = createMockHttpProvider();
-      http.get
-        .mockResolvedValueOnce({ data: { current_era_id: 1 } })
-        .mockResolvedValueOnce({
-          item_count: 1,
-          page_count: 1,
-          pages: [],
-          data: [makeApiValidator()],
-        });
+      http.get.mockResolvedValueOnce({ data: { current_era_id: 1 } }).mockResolvedValueOnce({
+        item_count: 1,
+        page_count: 1,
+        pages: [],
+        data: [makeApiValidator()],
+      });
       const repo = new ValidatorsRepository(http, CasperWalletApiByNetworkUrl);
 
       const out = await repo.getValidators({ network: 'mainnet', page: 1 });
@@ -49,7 +47,9 @@ describe('ValidatorsRepository', () => {
 
     it('returns empty paginated response when API returns nothing', async () => {
       const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({ data: { current_era_id: 1 } }).mockResolvedValueOnce(undefined);
+      http.get
+        .mockResolvedValueOnce({ data: { current_era_id: 1 } })
+        .mockResolvedValueOnce(undefined);
       const repo = new ValidatorsRepository(http, CasperWalletApiByNetworkUrl);
 
       expect(await repo.getValidators({ network: 'mainnet', page: 1 })).toEqual(
@@ -61,13 +61,14 @@ describe('ValidatorsRepository', () => {
   describe('getValidatorsWithStakes', () => {
     it('returns mapped validators with stakes', async () => {
       const http = createMockHttpProvider();
-      http.get
-        .mockResolvedValueOnce({ data: { current_era_id: 1 } })
-        .mockResolvedValueOnce({
-          data: [
-            { stake: '1000000000', bidder: { public_key: 'v1', total_stake: 0, fee: 0, network_share: '1' } } as never,
-          ],
-        });
+      http.get.mockResolvedValueOnce({ data: { current_era_id: 1 } }).mockResolvedValueOnce({
+        data: [
+          {
+            stake: '1000000000',
+            bidder: { public_key: 'v1', total_stake: 0, fee: 0, network_share: '1' },
+          } as never,
+        ],
+      });
       const repo = new ValidatorsRepository(http, CasperWalletApiByNetworkUrl);
 
       const out = await repo.getValidatorsWithStakes({ network: 'mainnet', publicKey: PUBLIC_KEY });

@@ -28,7 +28,7 @@ Before opening an issue:
   - The Ecosystem Support category of the [Casper Network Forum](https://forum.casper.network/c/ecosystem-support/7).
   - The [CSPR Developers Group](https://t.me/CSPRDevelopers) on Telegram.
 
-**For security issues, please do *not* open a public issue** — follow the [Security Policy](./SECURITY.md).
+**For security issues, please do _not_ open a public issue** — follow the [Security Policy](./SECURITY.md).
 
 ### Before filing
 
@@ -56,15 +56,15 @@ yarn install --immutable
 
 ## Running tests and checks
 
-| Command                  | Purpose                                                     |
-| ------------------------ | ----------------------------------------------------------- |
-| `yarn code:check`        | Type-check (`tsc --skipLibCheck --noEmit`) + ESLint         |
-| `yarn lint`              | ESLint with `--fix`                                         |
-| `yarn test`              | Run the Jest suite                                          |
-| `yarn test:watch`        | Run Jest in watch mode                                      |
-| `yarn test:coverage`     | Generate a coverage report under `coverage/`                |
-| `yarn test:integration`  | Run only integration tests (`*.integration.test.ts`)        |
-| `yarn fixtures:generate` | Regenerate transaction test fixtures (`scripts/`)           |
+| Command                  | Purpose                                              |
+| ------------------------ | ---------------------------------------------------- |
+| `yarn code:check`        | Type-check (`tsc --skipLibCheck --noEmit`) + ESLint  |
+| `yarn lint`              | ESLint with `--fix`                                  |
+| `yarn test`              | Run the Jest suite                                   |
+| `yarn test:watch`        | Run Jest in watch mode                               |
+| `yarn test:coverage`     | Generate a coverage report under `coverage/`         |
+| `yarn test:integration`  | Run only integration tests (`*.integration.test.ts`) |
+| `yarn fixtures:generate` | Regenerate transaction test fixtures (`scripts/`)    |
 
 CI runs `yarn code:check` and `yarn test --ci --coverage` on Node 20 and 22. All checks must be green before a PR can be merged.
 
@@ -119,7 +119,7 @@ PR conventions:
 
 - **No AI-tool attribution** in PR titles or descriptions.
 - **No change-statistics blocks** (file/line counts) — GitHub already shows these.
-- Keep descriptions focused on *what changed* and *why*.
+- Keep descriptions focused on _what changed_ and _why_.
 
 Reviews typically land within a few business days. Ping the PR if it's been idle for more than a week.
 

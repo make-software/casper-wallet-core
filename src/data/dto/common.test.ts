@@ -41,10 +41,14 @@ describe('dto/common helpers', () => {
 
   describe('getAccountInfoFromMap', () => {
     const ACCOUNT_HASH = 'a'.repeat(64);
-    const map: Record<string, IAccountInfo> = { [ACCOUNT_HASH]: makeAccountInfo({ accountHash: ACCOUNT_HASH }) };
+    const map: Record<string, IAccountInfo> = {
+      [ACCOUNT_HASH]: makeAccountInfo({ accountHash: ACCOUNT_HASH }),
+    };
 
     it('looks up by accountHash', () => {
-      expect(getAccountInfoFromMap(map, ACCOUNT_HASH, 'accountHash')?.accountHash).toBe(ACCOUNT_HASH);
+      expect(getAccountInfoFromMap(map, ACCOUNT_HASH, 'accountHash')?.accountHash).toBe(
+        ACCOUNT_HASH,
+      );
     });
 
     it('returns undefined when not found (record lookup)', () => {

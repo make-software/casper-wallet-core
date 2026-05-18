@@ -70,11 +70,17 @@ describe('stringifyEntryValue', () => {
 
 describe('convertIpfsSourceAsLink', () => {
   it('replaces ipfs:// prefix with HTTPS gateway', () => {
-    expect(convertIpfsSourceAsLink(['url', 'ipfs://abc'])).toEqual(['url', 'https://ipfs.io/ipfs/abc']);
+    expect(convertIpfsSourceAsLink(['url', 'ipfs://abc'])).toEqual([
+      'url',
+      'https://ipfs.io/ipfs/abc',
+    ]);
   });
 
   it('prefixes bare values when key contains "ipfs"', () => {
-    expect(convertIpfsSourceAsLink(['ipfs_hash', 'abc'])).toEqual(['ipfs_hash', 'https://ipfs.io/ipfs/abc']);
+    expect(convertIpfsSourceAsLink(['ipfs_hash', 'abc'])).toEqual([
+      'ipfs_hash',
+      'https://ipfs.io/ipfs/abc',
+    ]);
   });
 
   it('leaves http links alone', () => {

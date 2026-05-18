@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
     "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": false,
+    "forceConsistentCasingInFileNames": true,
     "customConditions": ["react-native"],
     "baseUrl": ".",
     "types": ["node", "jest"],

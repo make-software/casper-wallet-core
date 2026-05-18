@@ -45,7 +45,10 @@ describe('cep-nft-transfer', () => {
     });
 
     it('returns args for CEP47', () => {
-      const args = getRuntimeArgsForCep47Transfer({ tokenId: '7', recipientPublicKeyHex: RECIPIENT });
+      const args = getRuntimeArgsForCep47Transfer({
+        tokenId: '7',
+        recipientPublicKeyHex: RECIPIENT,
+      });
       expect(args).toBeDefined();
     });
 

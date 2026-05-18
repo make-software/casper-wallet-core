@@ -5,7 +5,10 @@ import { CasperLiveUrl } from '../../domain';
 describe('AccountsInfoDto', () => {
   describe('fromGetAccountsInfoResponse', () => {
     it('builds a DTO with name, branding, csprName, explorerLink', () => {
-      const dto = AccountsInfoDto.fromGetAccountsInfoResponse('mainnet', makeAccountsInfoResponse());
+      const dto = AccountsInfoDto.fromGetAccountsInfoResponse(
+        'mainnet',
+        makeAccountsInfoResponse(),
+      );
 
       expect(dto.publicKey).toBeTruthy();
       expect(dto.accountHash).toBeTruthy();
