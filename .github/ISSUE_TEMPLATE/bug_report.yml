@@ -1,0 +1,100 @@
+name: Bug report
+description: Report a defect in CasperWalletCore
+title: '[Bug]: '
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        **Before filing**, please:
+        - Search [existing issues](https://github.com/make-software/casper-wallet-core/issues?q=is%3Aissue) — your problem may already be reported.
+        - If this is a question about *using* the Casper Wallet itself (not the core library), please use the [User Guide](https://www.casperwallet.io/user-guide), [FAQ](https://www.casperwallet.io/faq), or [Telegram community](https://t.me/CSPRhub) instead.
+        - If this is a **security vulnerability**, do **not** file a public issue — follow [SECURITY.md](https://github.com/make-software/casper-wallet-core/blob/master/SECURITY.md).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear and concise description of the bug.
+      placeholder: When I call `tokensRepository.getTokens(...)` with a mainnet public key, the returned `balance` is missing decimals…
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Minimal, complete steps (or a code snippet) that reproduce the issue.
+      placeholder: |
+        1. Call `setupRepositories({ debug: true })`
+        2. Call `tokensRepository.getTokens({ network: CasperNetwork.Mainnet, publicKey: '0123…' })`
+        3. Observe response
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: I expected `balance` to be a `Decimal` matching the on-chain balance.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      placeholder: |
+        `balance` is `'0'` even though the account holds 1234 CSPR.
+        Include stack traces, error messages, or screenshots if relevant.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: CasperWalletCore version
+      description: From `package.json` of the consumer project, or the commit SHA.
+      placeholder: 1.2.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Casper network
+      multiple: true
+      options:
+        - Mainnet
+        - Testnet
+        - Devnet
+        - N/A
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: 22.10.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 14.5 / Ubuntu 24.04 / Windows 11
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help — logs, related issues, workarounds you've tried.
+    validations:
+      required: false
