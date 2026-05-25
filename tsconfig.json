@@ -1,22 +1,22 @@
 {
-  "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "customConditions": ["react-native"],
     "baseUrl": ".",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "lib": ["esnext", "dom"],
     "noEmit": true,
     "target": "esnext",
+    "module": "nodenext",
     "moduleResolution": "nodenext"
   },
   "include": ["src"],
-  "exclude": [
-    "node_modules",
-    "babel.config.js",
-    "metro.config.js",
-    "jest.config.js"
-  ]
+  "exclude": ["node_modules", "babel.config.js", "metro.config.js", "jest.config.cjs", "coverage"]
 }

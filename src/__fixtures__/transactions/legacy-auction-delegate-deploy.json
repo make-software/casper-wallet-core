@@ -1,0 +1,56 @@
+{
+  "approvals": [],
+  "hash": "708ca38c99a5ed596e9459b13bb481874efbac4d00f4812efd1b8c42e55e8487",
+  "header": {
+    "account": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+    "body_hash": "4bb5bbd675ca29af1cadb6766f3ac98ea06e7556a64bfc00849f00282c45745f",
+    "chain_name": "casper-test",
+    "dependencies": [],
+    "gas_price": 1,
+    "timestamp": "2026-05-17T16:16:42.479Z",
+    "ttl": "30m"
+  },
+  "payment": {
+    "ModuleBytes": {
+      "module_bytes": "",
+      "args": [
+        [
+          "amount",
+          {
+            "bytes": "0400f90295",
+            "cl_type": "U512"
+          }
+        ]
+      ]
+    }
+  },
+  "session": {
+    "StoredContractByHash": {
+      "hash": "93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2",
+      "entry_point": "delegate",
+      "args": [
+        [
+          "validator",
+          {
+            "bytes": "0106ca7c39cd272dbf21a86eeb3b36b7c26e2e9b94af64292419f7862936bca2ca",
+            "cl_type": "PublicKey"
+          }
+        ],
+        [
+          "delegator",
+          {
+            "bytes": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+            "cl_type": "PublicKey"
+          }
+        ],
+        [
+          "amount",
+          {
+            "bytes": "0400f90295",
+            "cl_type": "U512"
+          }
+        ]
+      ]
+    }
+  }
+}

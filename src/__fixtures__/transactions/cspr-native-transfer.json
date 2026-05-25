@@ -1,0 +1,51 @@
+{
+  "hash": "6f46927a5e3be7a1db1a3251679b3ad402431c7567b1ec64e0182bc949e9ce20",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.444Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 100000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "target",
+            {
+              "bytes": "020329169b6c9e632fbeca5677fcad1bb48b87cd80500202911b933c16fa1d107e2e",
+              "cl_type": "PublicKey"
+            }
+          ],
+          [
+            "amount",
+            {
+              "bytes": "0500ba1dd205",
+              "cl_type": "U512"
+            }
+          ],
+          [
+            "id",
+            {
+              "bytes": "010100000000000000",
+              "cl_type": {
+                "Option": "U64"
+              }
+            }
+          ]
+        ]
+      },
+      "target": "Native",
+      "entry_point": "Transfer",
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

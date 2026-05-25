@@ -62,7 +62,8 @@ export interface ITxSignatureRequestAction {
 }
 
 export interface ITxSignatureRequestNativeCsprAction
-  extends ITxSignatureRequestAction,
+  extends
+    ITxSignatureRequestAction,
     Pick<
       INativeCsprDeploy,
       | 'recipientKey'
@@ -79,7 +80,8 @@ export interface ITxSignatureRequestNativeCsprAction
 }
 
 export interface ITxSignatureRequestCep18Action
-  extends ITxSignatureRequestAction,
+  extends
+    ITxSignatureRequestAction,
     Pick<
       ICep18Deploy,
       | 'recipientKey'
@@ -102,7 +104,8 @@ export interface ITxSignatureRequestCep18Action
 }
 
 export interface ITxSignatureRequestNFTAction
-  extends ITxSignatureRequestAction,
+  extends
+    ITxSignatureRequestAction,
     Pick<
       INftDeploy,
       | 'contractName'
@@ -124,7 +127,8 @@ export interface ITxSignatureRequestNFTAction
 }
 
 export interface ITxSignatureRequestCasperMarketAction
-  extends ITxSignatureRequestAction,
+  extends
+    ITxSignatureRequestAction,
     Pick<
       ICasperMarketDeploy,
       | 'contractName'
@@ -150,8 +154,7 @@ export interface ITxSignatureRequestCasperMarketAction
 }
 
 export interface ITxSignatureRequestAssociatedKeysAction
-  extends ITxSignatureRequestAction,
-    Pick<IAssociatedKeysDeploy, 'contractName'> {
+  extends ITxSignatureRequestAction, Pick<IAssociatedKeysDeploy, 'contractName'> {
   readonly type: 'ASSOCIATED_KEYS';
   readonly contractPackageHash: Maybe<string>;
   readonly contractHash: Maybe<string>;
@@ -159,7 +162,8 @@ export interface ITxSignatureRequestAssociatedKeysAction
 }
 
 export interface ITxSignatureRequestAuctionAction
-  extends ITxSignatureRequestAction,
+  extends
+    ITxSignatureRequestAction,
     Pick<
       IAuctionDeploy,
       | 'contractName'

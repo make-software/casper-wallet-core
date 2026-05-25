@@ -1,0 +1,56 @@
+{
+  "hash": "f75c5e4434d3666adb2de18479350dcefc9f541490fac013aa74b473e1e20ac8",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.459Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 1000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "delegator",
+            {
+              "bytes": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+              "cl_type": "PublicKey"
+            }
+          ],
+          [
+            "validator",
+            {
+              "bytes": "017d9aa0b86413d7ff9a9169182c53f0bacaa80d34c211adab007ed4876af17077",
+              "cl_type": "PublicKey"
+            }
+          ],
+          [
+            "amount",
+            {
+              "bytes": "0400f90295",
+              "cl_type": "U512"
+            }
+          ],
+          [
+            "new_validator",
+            {
+              "bytes": "01c8be540a643e6c9df283dd2d2d6be67748f69a3c7bb6cf34471c899b8e858c9a",
+              "cl_type": "PublicKey"
+            }
+          ]
+        ]
+      },
+      "target": "Native",
+      "entry_point": "Redelegate",
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

@@ -1,0 +1,53 @@
+{
+  "hash": "1aade33cc650c09318018542967ef49ff2b54279a712b641b88947ac825c33a1",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.466Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 3000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "recipient",
+            {
+              "bytes": "00102803f72be160c63422103853da0e6630ef99dbd667b37323e4112853dd4b1a",
+              "cl_type": "Key"
+            }
+          ],
+          [
+            "amount",
+            {
+              "bytes": "0800008a5d78456301",
+              "cl_type": "U256"
+            }
+          ]
+        ]
+      },
+      "target": {
+        "Stored": {
+          "id": {
+            "ByPackageHash": {
+              "addr": "7fd113f60890c8ea77daf90880852f544b618c62315bcfd2dd93304c389fa19d"
+            }
+          },
+          "runtime": "VmCasperV1"
+        }
+      },
+      "entry_point": {
+        "Custom": "transfer"
+      },
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

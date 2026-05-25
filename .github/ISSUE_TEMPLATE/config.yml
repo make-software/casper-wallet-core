@@ -1,0 +1,20 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Casper Wallet user help & FAQ
+    url: https://www.casperwallet.io/faq
+    about: Questions about using the Casper Wallet itself (extension/mobile) — please check the FAQ before filing.
+  - name: Casper Wallet user guide
+    url: https://www.casperwallet.io/user-guide
+    about: Step-by-step guides for end users.
+  - name: Telegram — Casper community
+    url: https://t.me/CSPRhub
+    about: Ask questions and chat with other Casper Wallet users.
+  - name: Telegram — CSPR developers
+    url: https://t.me/CSPRDevelopers
+    about: For developers building on top of CasperWalletCore or the Casper Network.
+  - name: Casper Network forum — Ecosystem Support
+    url: https://forum.casper.network/c/ecosystem-support/7
+    about: Long-form ecosystem support and discussion.
+  - name: Report a security vulnerability
+    url: https://github.com/make-software/casper-wallet-core/security/advisories/new
+    about: Privately disclose a security issue. Please do NOT file a public issue.

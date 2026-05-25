@@ -2,10 +2,16 @@ import { ILogger } from '../domain';
 import { getCurrentTime } from './date';
 
 export class Logger implements ILogger {
-  log(msg: string | object) {
-    const message = typeof msg === 'string' ? msg : JSON.stringify(msg, null, ' ');
+  log(...params: Parameters<typeof console.log>) {
+    console.log('--------', ...params);
+  }
 
-    console.log('--------', message);
+  logGroup(msg: string) {
+    console.group(msg);
+  }
+
+  logGroupEnd() {
+    console.groupEnd();
   }
 
   reportError(error: Error | unknown, message?: string) {

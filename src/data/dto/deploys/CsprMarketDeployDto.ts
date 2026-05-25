@@ -54,8 +54,8 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
     this.iconUrl = data?.contract_package?.icon_url ?? null;
   }
 
-  readonly entryPoint: CSPRMarketEntryPointType;
-  readonly contractName: string;
+  override readonly entryPoint: CSPRMarketEntryPointType;
+  override readonly contractName: string;
   readonly amountOfNFTs: Maybe<number>;
   readonly offererHash: Maybe<string>;
   readonly offererHashType: Maybe<AccountKeyType>;
@@ -67,7 +67,7 @@ export class CsprMarketDeployDto extends DeployDto implements ICasperMarketDeplo
   readonly decimalAmount: string;
   readonly formattedDecimalAmount: string;
   readonly fiatAmount: string;
-  readonly iconUrl: Maybe<string>;
+  override readonly iconUrl: Maybe<string>;
 }
 
 export function getOffererFormDeploy(

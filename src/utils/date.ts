@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict, isAfter, isBefore } from 'date-fns';
-import en from 'date-fns/locale/en-US';
+import { enUS } from 'date-fns/locale/en-US';
 import { IAppMarketingEvent } from '../domain';
 
 /** @param {string} timestamp - 2023-05-24T20:43:50.000Z
@@ -54,7 +54,7 @@ export const formatTimestampAge = (timestamp: string): string => {
 
   return formatDistanceToNowStrict(date, {
     addSuffix: true,
-    locale: { ...en },
+    locale: enUS,
     roundingMethod: 'floor',
   });
 };

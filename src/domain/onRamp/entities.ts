@@ -21,8 +21,10 @@ export interface IOnRampCurrencyItem {
   rate: number;
 }
 
-export interface IOnRampProvidersOptions
-  extends Omit<IOnRampProvidersResponse, 'currencies' | 'isCryptoChanged' | 'fiatCurrency'> {
+export interface IOnRampProvidersOptions extends Omit<
+  IOnRampProvidersResponse,
+  'currencies' | 'isCryptoChanged' | 'fiatCurrency'
+> {
   currency?: Maybe<IOnRampCurrencyItem>;
 }
 

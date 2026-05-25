@@ -79,7 +79,7 @@ export class NftsRepository implements INftsRepository {
       const isKnownType = /^(image|video|audio)/.test(type);
 
       return isKnownType ? type : 'unknown';
-    } catch (e) {
+    } catch {
       return 'unknown';
     }
   }

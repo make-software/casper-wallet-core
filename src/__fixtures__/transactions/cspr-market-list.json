@@ -1,0 +1,72 @@
+{
+  "hash": "c82a3a7a70e06f133db952a4ac14a9ac71656a130fe4db8e16c744fa201d366c",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.468Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 3000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "collection",
+            {
+              "bytes": "01998af6825d77da15485baf4bb89aeef3f1dfb4a78841d149574b0be694ce4821",
+              "cl_type": "Key"
+            }
+          ],
+          [
+            "token_type",
+            {
+              "bytes": "00",
+              "cl_type": "U8"
+            }
+          ],
+          [
+            "token_id_type",
+            {
+              "bytes": "00",
+              "cl_type": "U8"
+            }
+          ],
+          [
+            "tokens",
+            {
+              "bytes": "0100000003000000313233023702",
+              "cl_type": {
+                "Map": {
+                  "key": "String",
+                  "value": "U512"
+                }
+              }
+            }
+          ]
+        ]
+      },
+      "target": {
+        "Stored": {
+          "id": {
+            "ByPackageHash": {
+              "addr": "154ff59b5f9feec42d3a418058d66badcb2121dc3ffb2e3cf92596bf5aafbc88"
+            }
+          },
+          "runtime": "VmCasperV1"
+        }
+      },
+      "entry_point": {
+        "Custom": "list_token"
+      },
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}

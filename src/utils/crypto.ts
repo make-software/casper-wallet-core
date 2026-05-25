@@ -14,7 +14,7 @@ export const convertHexToBytes = (hexString: string): Uint8Array => {
 };
 
 export const convertBytesToHex = (bytes: Uint8Array | ArrayBuffer): string => {
-  return Buffer.from(bytes).toString('hex');
+  return (bytes instanceof Uint8Array ? Buffer.from(bytes) : Buffer.from(bytes)).toString('hex');
 };
 
 export const convertBase64ToBytes = (hexString: string): Uint8Array => {
@@ -22,7 +22,7 @@ export const convertBase64ToBytes = (hexString: string): Uint8Array => {
 };
 
 export const convertBytesToBase64 = (bytes: Uint8Array | ArrayBuffer): string => {
-  return Buffer.from(bytes).toString('base64');
+  return (bytes instanceof Uint8Array ? Buffer.from(bytes) : Buffer.from(bytes)).toString('base64');
 };
 
 export const convertBytesToHexString = (byteArray: Uint8Array) =>

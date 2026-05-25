@@ -1,0 +1,49 @@
+{
+  "hash": "a53908c8105782a4bb8385145a0ed34da5e968aebe7b6d3f6074d6f3b15c80e6",
+  "payload": {
+    "initiator_addr": {
+      "PublicKey": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183"
+    },
+    "timestamp": "2026-05-17T16:16:42.456Z",
+    "ttl": "30m",
+    "pricing_mode": {
+      "PaymentLimited": {
+        "gas_price_tolerance": 1,
+        "payment_amount": 1000000000,
+        "standard_payment": true
+      }
+    },
+    "chain_name": "casper-test",
+    "fields": {
+      "args": {
+        "Named": [
+          [
+            "delegator",
+            {
+              "bytes": "01b516ab20756667b085b50da25c657f040216b5a8a3e9f78fc9536de2a2c33183",
+              "cl_type": "PublicKey"
+            }
+          ],
+          [
+            "validator",
+            {
+              "bytes": "0106ca7c39cd272dbf21a86eeb3b36b7c26e2e9b94af64292419f7862936bca2ca",
+              "cl_type": "PublicKey"
+            }
+          ],
+          [
+            "amount",
+            {
+              "bytes": "0400f90295",
+              "cl_type": "U512"
+            }
+          ]
+        ]
+      },
+      "target": "Native",
+      "entry_point": "Undelegate",
+      "scheduling": "Standard"
+    }
+  },
+  "approvals": []
+}
