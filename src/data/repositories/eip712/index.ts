@@ -24,6 +24,10 @@ import {
 /**
  * Synchronous repository: EIP-712 work is pure CPU (validation, hashing, signing) with no network
  * or I/O, so — unlike the HTTP-backed repositories in this package — these methods are not async.
+ *
+ * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
+ * `recoverSigner` and `verifySignature` are thin secp256k1 wrappers that surface raw library errors
+ * as-is (they are not wrapped in EIP712Error).
  */
 export class EIP712Repository implements IEIP712Repository {
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest {
