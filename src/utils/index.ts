@@ -6,3 +6,4 @@ export * from './casperSdk';
 export * from './deploy';
 export * from './logger';
 export * from './signatureRequest';
+export * from './eip712';
