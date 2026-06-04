@@ -7,3 +7,4 @@ export * from './accountInfo';
 export * from './appEvents';
 export * from './txSignatureRequest';
 export * from './contractPackage';
+export * from './eip712';
