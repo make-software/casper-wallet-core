@@ -1,7 +1,29 @@
-import { buildTypedDataDisplayModel, keyToLabel } from './displayModel';
+import { buildTypedDataDisplayModel, getPresentationForType, keyToLabel } from './displayModel';
 
-const FULL_ADDR = '0x00' + '02'.repeat(32);
+const FULL_ADDR = 'a'.repeat(64); // 64 hex chars, no 0x prefix — like a Casper account hash
 const PKG_HASH = '0x' + '01'.repeat(32);
+
+describe('getPresentationForType', () => {
+  it('classifies bytes1..bytes32 as hash', () => {
+    expect(getPresentationForType('bytes1')).toBe('hash');
+    expect(getPresentationForType('bytes32')).toBe('hash');
+  });
+  it('classifies uint*/int* as number', () => {
+    expect(getPresentationForType('uint8')).toBe('number');
+    expect(getPresentationForType('uint256')).toBe('number');
+    expect(getPresentationForType('int256')).toBe('number');
+    expect(getPresentationForType('uint')).toBe('number');
+    expect(getPresentationForType('int')).toBe('number');
+  });
+  it('classifies address as account', () => {
+    expect(getPresentationForType('address')).toBe('account');
+  });
+  it('classifies bool and unknown as string', () => {
+    expect(getPresentationForType('bool')).toBe('string');
+    expect(getPresentationForType('string')).toBe('string');
+    expect(getPresentationForType('bytes33')).toBe('string');
+  });
+});
 
 describe('keyToLabel', () => {
   it('maps contract_package_hash to "Package Hash"', () => {
@@ -30,30 +52,63 @@ describe('buildTypedDataDisplayModel', () => {
     message: { owner: FULL_ADDR, tag: PKG_HASH, value: '1000' },
   };
 
-  const model = buildTypedDataDisplayModel(typedData);
+  it('classifies presentation and leaves enrichment null on the sync path', () => {
+    const model = buildTypedDataDisplayModel(typedData);
 
-  it('domain: contract_package_hash is an address row, bytes32 domain field is NOT', () => {
     const pkg = model.domainRows.find(r => r.label === 'Package Hash')!;
-    expect(pkg.isAddress).toBe(true);
+    expect(pkg.presentation).toBe('hash');
     expect(pkg.copyValue).toBe(PKG_HASH);
     expect(pkg.displayValue).not.toBe(PKG_HASH); // shortened
+    expect(pkg.accountInfo).toBeNull();
+    expect(pkg.contractPackage).toBeNull();
+
     const chain = model.domainRows.find(r => r.label === 'Chain Name')!;
-    expect(chain.isAddress).toBe(false);
+    expect(chain.presentation).toBe('string');
     expect(chain.copyValue).toBeNull();
-  });
 
-  it('message: both address and bytes32 are address rows', () => {
     const owner = model.messageRows.find(r => r.label === 'Owner')!;
-    const tag = model.messageRows.find(r => r.label === 'Tag')!;
     const value = model.messageRows.find(r => r.label === 'Value')!;
-    expect(owner.isAddress).toBe(true);
-    expect(tag.isAddress).toBe(true); // bytes32 in message IS address-formatted
-    expect(value.isAddress).toBe(false);
+    expect(owner.presentation).toBe('account');
     expect(owner.copyValue).toBe(FULL_ADDR);
+    expect(owner.accountInfo).toBeNull();
+    expect(value.presentation).toBe('number');
     expect(value.displayValue).toBe('1000');
+    expect(model.primaryType).toBe('Permit');
+
+    const tag = model.messageRows.find(r => r.label === 'Tag')!;
+    expect(tag.presentation).toBe('hash'); // bytes32 in message → hash, not account
+    expect(tag.copyValue).toBe(PKG_HASH);  // still shortened + copyable
   });
 
-  it('carries primaryType', () => {
-    expect(model.primaryType).toBe('Permit');
+  it('attaches enrichment through the callback', () => {
+    const accountInfo = {
+      id: 'x',
+      publicKey: '02pub',
+      accountHash: FULL_ADDR,
+      name: 'Alice',
+      brandingLogo: null,
+      csprName: null,
+      explorerLink: null,
+    };
+    const contractPackage = {
+      id: 'c',
+      latestVersionContractTypeId: 1,
+      contractPackageHash: PKG_HASH,
+      name: 'MyToken',
+      iconUrl: null,
+      symbol: 'MTK',
+      decimals: 9,
+    };
+
+    const model = buildTypedDataDisplayModel(typedData, {
+      resolveAccountInfo: value => (value === FULL_ADDR ? accountInfo : null),
+      contractPackage,
+    });
+
+    expect(model.messageRows.find(r => r.label === 'Owner')!.accountInfo).toEqual(accountInfo);
+    expect(model.domainRows.find(r => r.label === 'Package Hash')!.contractPackage).toEqual(
+      contractPackage,
+    );
+    expect(model.messageRows.find(r => r.label === 'Value')!.accountInfo).toBeNull();
   });
 });

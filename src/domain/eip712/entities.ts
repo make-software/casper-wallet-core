@@ -1,4 +1,8 @@
 import { Maybe } from '../../typings';
+import { AccountKeyType } from '../deploys';
+import { CasperNetwork, IEntity } from '../common';
+import { IAccountInfo } from '../accountInfo';
+import { IContractPackage } from '../contractPackage';
 
 export interface IEIP712Field {
   name: string;
@@ -35,13 +39,17 @@ export interface IEIP712Digest {
   hashArtifacts?: IEIP712HashArtifacts;
 }
 
+export type EIP712FieldPresentation = 'hash' | 'number' | 'account' | 'string';
+
 export interface IEIP712DisplayRow {
   label: string;
   value: string;
   displayValue: string;
-  isAddress: boolean;
-  copyValue: Maybe<string>;
+  presentation: EIP712FieldPresentation;
   type: string;
+  copyValue: Maybe<string>;
+  accountInfo: Maybe<IAccountInfo>;
+  contractPackage: Maybe<IContractPackage>;
 }
 
 export interface IEIP712DisplayModel {
@@ -57,4 +65,21 @@ export interface IEIP712SignResult {
   digest: string;
   publicKey: string;
   hashArtifacts?: IEIP712HashArtifacts;
+}
+
+export interface IEIP712SignatureRequest extends IEntity {
+  readonly signingKey: string;
+  readonly signingKeyType: AccountKeyType;
+  readonly signingAccountInfo: Maybe<IAccountInfo>;
+
+  readonly network: Maybe<CasperNetwork>;
+  readonly chainName: string;
+  readonly primaryType: string;
+
+  readonly domainRows: IEIP712DisplayRow[];
+  readonly messageRows: IEIP712DisplayRow[];
+
+  readonly digest: string;
+  readonly hashArtifacts?: IEIP712HashArtifacts;
+  readonly rawJson: string;
 }
