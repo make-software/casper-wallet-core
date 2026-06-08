@@ -1,7 +1,7 @@
 import { setupRepositories } from './setup';
 
 describe('setupRepositories (integration)', () => {
-  it('wires all 9 repositories', () => {
+  it('wires all 10 repositories', () => {
     const repos = setupRepositories();
 
     expect(repos.accountInfoRepository).toBeDefined();
@@ -13,6 +13,7 @@ describe('setupRepositories (integration)', () => {
     expect(repos.appEventsRepository).toBeDefined();
     expect(repos.txSignatureRequestRepository).toBeDefined();
     expect(repos.contractPackageRepository).toBeDefined();
+    expect(repos.eip712Repository).toBeDefined();
   });
 
   it('honors debug flag (logger is wired)', () => {

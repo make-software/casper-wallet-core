@@ -12,6 +12,7 @@ export type EIP712ErrorType =
   | 'validateTypedData'
   | 'resolveDomainTypes'
   | 'computeDigest'
+  | 'signDigest'
   | 'signTypedData';
 
 export type IEIP712Error = IDomainError<EIP712ErrorType> & {

@@ -46,7 +46,7 @@ export class EIP712Repository implements IEIP712Repository {
     try {
       return signTypedDataDigestWithKey(privateKey, digest);
     } catch (e) {
-      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signTypedData');
+      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signDigest');
     }
   }
 
