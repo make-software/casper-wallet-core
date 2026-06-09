@@ -77,7 +77,7 @@ describe('buildTypedDataDisplayModel', () => {
 
     const tag = model.messageRows.find(r => r.label === 'Tag')!;
     expect(tag.presentation).toBe('hash'); // bytes32 in message → hash, not account
-    expect(tag.copyValue).toBe(PKG_HASH);  // still shortened + copyable
+    expect(tag.copyValue).toBe(PKG_HASH); // still shortened + copyable
   });
 
   it('attaches enrichment through the callback', () => {

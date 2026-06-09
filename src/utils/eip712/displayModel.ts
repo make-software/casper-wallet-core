@@ -44,6 +44,7 @@ export function keyToLabel(key: string): string {
 }
 
 /**
+ * @internal
  * Optional enrichment for display rows. `utils` stays free of `data`-layer imports: the data layer
  * passes a closure (over `getAccountInfoFromMap`) and the already-fetched contract package.
  */
@@ -68,7 +69,7 @@ function toRow(
       : null;
   const contractPackage =
     section === 'domain' && key === 'contract_package_hash'
-      ? enrichment.contractPackage ?? null
+      ? (enrichment.contractPackage ?? null)
       : null;
 
   return {

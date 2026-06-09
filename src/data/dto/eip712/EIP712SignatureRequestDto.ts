@@ -11,6 +11,7 @@ import {
 } from '../../../domain';
 import { buildTypedDataDisplayModel } from '../../../utils';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
+import { resolveEip712AddressToAccountHash } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
   typedData: IEIP712TypedData;
@@ -46,7 +47,14 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     contractPackage,
   }: IEIP712SignatureRequestDtoProps) {
     const { domainRows, messageRows } = buildTypedDataDisplayModel(typedData, {
-      resolveAccountInfo: value => getAccountInfoFromMap(accountInfoMap, value, 'accountHash'),
+      resolveAccountInfo: value => {
+        // address values may be a Casper public key or account hash — resolve to account hash first,
+        // then look up by it so the key matches what getAccountHashesFromTypedData fetched.
+        const accountHash = resolveEip712AddressToAccountHash(value);
+        return accountHash
+          ? (getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null)
+          : null;
+      },
       contractPackage,
     });
 
@@ -64,7 +72,9 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.messageRows = messageRows;
     this.digest = digest;
     this.hashArtifacts = hashArtifacts;
-    this.rawJson = JSON.stringify(typedData);
+    this.rawJson = JSON.stringify(typedData, (_key, value) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    );
     this.id = digest;
   }
 }

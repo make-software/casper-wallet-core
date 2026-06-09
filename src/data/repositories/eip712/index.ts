@@ -1,35 +1,55 @@
 import {
   EIP712Error,
+  IAccountInfo,
+  IAccountInfoRepository,
+  IContractPackage,
+  IContractPackageRepository,
   IEIP712Digest,
   IEIP712DisplayModel,
   IEIP712RecoverSignerParams,
   IEIP712Repository,
+  IEIP712SignatureRequest,
   IEIP712SignDigestParams,
   IEIP712SignResult,
   IEIP712SignTypedDataOptions,
   IEIP712SignTypedDataParams,
   IEIP712TypedData,
   IEIP712VerifySignatureParams,
+  IPrepareEIP712SignatureRequestParams,
   isEIP712Error,
 } from '../../../domain';
+import { Maybe } from '../../../typings';
 import {
   buildTypedDataDisplayModel,
   computeTypedDataDigest,
+  getCasperNetworkByChainName,
   recoverTypedDataSignerAddress,
   signTypedData as signTypedDataUtil,
   signTypedDataDigestWithKey,
   verifyTypedDataSignature,
 } from '../../../utils';
+import {
+  EIP712SignatureRequestDto,
+  getAccountHashesFromTypedData,
+  stripHexPrefix,
+} from '../../dto';
 
 /**
- * Synchronous repository: EIP-712 work is pure CPU (validation, hashing, signing) with no network
- * or I/O, so — unlike the HTTP-backed repositories in this package — these methods are not async.
+ * `prepareSignatureRequest` is asynchronous: it enriches the typed data with account info and
+ * contract-package data over HTTP (best-effort — each lookup is isolated in its own try/catch, so a
+ * flaky API never breaks the request). The other methods are synchronous pure-CPU work.
  *
  * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
- * `recoverSigner` and `verifySignature` are thin secp256k1 wrappers that surface raw library errors
- * as-is (they are not wrapped in EIP712Error).
+ * `prepareSignatureRequest` surfaces digest/validation failures as {@link EIP712Error} (via
+ * `computeDigest`) and swallows enrichment-lookup failures (best-effort). `recoverSigner` and
+ * `verifySignature` surface raw library errors.
  */
 export class EIP712Repository implements IEIP712Repository {
+  constructor(
+    private _accountInfoRepository: IAccountInfoRepository,
+    private _contractPackageRepository: IContractPackageRepository,
+  ) {}
+
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest {
     try {
       return computeTypedDataDigest(typedData, options);
@@ -64,5 +84,55 @@ export class EIP712Repository implements IEIP712Repository {
 
   verifySignature(params: IEIP712VerifySignatureParams): boolean {
     return verifyTypedDataSignature(params);
+  }
+
+  async prepareSignatureRequest({
+    typedData,
+    signingPublicKeyHex,
+    network: networkParam,
+    options,
+    withProxyHeader = true,
+  }: IPrepareEIP712SignatureRequestParams): Promise<IEIP712SignatureRequest> {
+    const { digest, hashArtifacts } = this.computeDigest(typedData, options);
+
+    const network =
+      getCasperNetworkByChainName(String(typedData.domain.chain_name ?? '')) ??
+      networkParam ??
+      null;
+
+    let accountInfoMap: Record<string, IAccountInfo> = {};
+    let contractPackage: Maybe<IContractPackage> = null;
+
+    if (network) {
+      try {
+        const accountHashes = getAccountHashesFromTypedData(typedData, signingPublicKeyHex);
+        accountInfoMap = await this._accountInfoRepository.getAccountsInfo({
+          accountHashes,
+          network,
+          withProxyHeader,
+        });
+      } catch {}
+
+      try {
+        const contractPackageHash = typedData.domain.contract_package_hash;
+        if (contractPackageHash) {
+          contractPackage = await this._contractPackageRepository.getContractPackage({
+            contractPackageHash: stripHexPrefix(String(contractPackageHash)),
+            network,
+            withProxyHeader,
+          });
+        }
+      } catch {}
+    }
+
+    return new EIP712SignatureRequestDto({
+      typedData,
+      signingPublicKeyHex,
+      network,
+      digest,
+      hashArtifacts,
+      accountInfoMap,
+      contractPackage,
+    });
   }
 }

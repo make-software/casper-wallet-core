@@ -76,7 +76,7 @@ export const setupRepositories = ({
     grpcUrl,
     httpAuthorizationHeader,
   );
-  const eip712Repository = new EIP712Repository();
+  const eip712Repository = new EIP712Repository(accountInfoRepository, contractPackageRepository);
 
   return {
     accountInfoRepository,

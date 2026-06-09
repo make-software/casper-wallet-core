@@ -96,4 +96,17 @@ describe('EIP712SignatureRequestDto', () => {
     expect(dto.signingKeyType).toBe('publicKey');
     expect(dto.signingAccountInfo).toBeNull();
   });
+
+  it('serializes bigint message values in rawJson', () => {
+    const bigintData = { ...typedData, message: { owner: OWNER, value: 1000n } };
+    const d = new EIP712SignatureRequestDto({
+      typedData: bigintData,
+      signingPublicKeyHex: SIGNING_PK,
+      network: 'mainnet',
+      digest: '0xd',
+      accountInfoMap: {},
+      contractPackage: null,
+    });
+    expect(JSON.parse(d.rawJson).message.value).toBe('1000');
+  });
 });

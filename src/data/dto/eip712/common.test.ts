@@ -1,4 +1,8 @@
-import { getAccountHashesFromTypedData } from './common';
+import {
+  getAccountHashesFromTypedData,
+  resolveEip712AddressToAccountHash,
+  stripHexPrefix,
+} from './common';
 import { getAccountHashFromPublicKey } from '../../../utils';
 
 const OWNER = 'a'.repeat(64);
@@ -54,5 +58,26 @@ describe('getAccountHashesFromTypedData', () => {
     const hashes = getAccountHashesFromTypedData(missingValue, SIGNING_PK);
     expect(hashes).toEqual([getAccountHashFromPublicKey(SIGNING_PK)]);
     expect(hashes).not.toContain('undefined');
+  });
+});
+
+describe('stripHexPrefix', () => {
+  it('removes a leading 0x only', () => {
+    expect(stripHexPrefix('0xabc')).toBe('abc');
+    expect(stripHexPrefix('abc')).toBe('abc');
+  });
+});
+
+describe('resolveEip712AddressToAccountHash', () => {
+  it('strips 0x and resolves a public key to its account hash', () => {
+    const expected = getAccountHashFromPublicKey(SIGNING_PK);
+    expect(resolveEip712AddressToAccountHash(SIGNING_PK)).toBe(expected);
+    expect(resolveEip712AddressToAccountHash('0x' + SIGNING_PK)).toBe(expected);
+  });
+
+  it('returns a 64-hex account-hash value unchanged (minus 0x)', () => {
+    const acct = 'c'.repeat(64);
+    expect(resolveEip712AddressToAccountHash(acct)).toBe(acct);
+    expect(resolveEip712AddressToAccountHash('0x' + acct)).toBe(acct);
   });
 });

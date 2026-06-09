@@ -2,10 +2,12 @@ import { PrivateKey } from 'casper-js-sdk';
 import {
   IEIP712Digest,
   IEIP712DisplayModel,
+  IEIP712SignatureRequest,
   IEIP712SignResult,
   IEIP712SignTypedDataOptions,
   IEIP712TypedData,
 } from './entities';
+import { CasperNetwork } from '../common';
 
 export interface IEIP712SignDigestParams {
   privateKey: PrivateKey;
@@ -33,9 +35,20 @@ export interface IEIP712VerifySignatureParams {
   expectedAddress: string;
 }
 
+export interface IPrepareEIP712SignatureRequestParams {
+  typedData: IEIP712TypedData;
+  signingPublicKeyHex: string;
+  /** Fallback network when `domain.chain_name` cannot be mapped. */
+  network?: CasperNetwork;
+  options?: IEIP712SignTypedDataOptions;
+  /** Default `true`. */
+  withProxyHeader?: boolean;
+}
+
 /**
- * All methods are synchronous: EIP-712 operations are pure CPU work (validation, hashing, signing)
- * with no network or I/O, unlike the async HTTP-backed repositories in this package.
+ * `prepareSignatureRequest` is asynchronous: it enriches the typed data with account info and
+ * contract-package data over HTTP. The remaining methods are synchronous — EIP-712 validation,
+ * hashing and signing are pure CPU work with no I/O.
  */
 export interface IEIP712Repository {
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest;
@@ -44,4 +57,7 @@ export interface IEIP712Repository {
   signTypedData(params: IEIP712SignTypedDataParams): IEIP712SignResult;
   recoverSigner(params: IEIP712RecoverSignerParams): string;
   verifySignature(params: IEIP712VerifySignatureParams): boolean;
+  prepareSignatureRequest(
+    params: IPrepareEIP712SignatureRequestParams,
+  ): Promise<IEIP712SignatureRequest>;
 }
