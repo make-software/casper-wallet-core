@@ -92,7 +92,13 @@ describe('dto/common helpers', () => {
   });
 
   describe('getMarketDataProviderUrl', () => {
-    it('handles CsprTrade', () => {
+    it('handles CsprTrade with contract package hash', () => {
+      expect(getMarketDataProviderUrl('CsprTrade', null, null, 'cph-123')).toBe(
+        'https://cspr.trade/token-details/cph-123',
+      );
+    });
+
+    it('falls back to cspr.trade homepage without package hash', () => {
       expect(getMarketDataProviderUrl('CsprTrade')).toBe('https://cspr.trade/');
     });
 
