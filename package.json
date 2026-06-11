@@ -55,7 +55,7 @@
     "fast-check": "^4.8.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
-    "lint-staged": "^15.5.2",
+    "lint-staged": "^17.0.7",
     "prettier": "^3.8.3",
     "ts-jest": "^29.4.11",
     "typescript": "^5.9.3"
