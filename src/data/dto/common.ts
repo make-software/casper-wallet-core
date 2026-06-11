@@ -94,10 +94,13 @@ export function getMarketDataProviderUrl(
   marketDataProvider: Maybe<SupportedMarketDataProviders>,
   coingeckoId?: string | null,
   latestVersionContractHash?: string | null,
+  contractPackageHash?: string | null,
 ) {
   switch (marketDataProvider) {
     case 'CsprTrade':
-      return 'https://cspr.trade/'; // TODO link to token page
+      return contractPackageHash
+        ? `https://cspr.trade/token-details/${contractPackageHash}`
+        : 'https://cspr.trade/';
     case 'CoinGecko':
       return coingeckoId ? `https://www.coingecko.com/en/coins/${coingeckoId}` : null;
     case 'FriendlyMarket':
