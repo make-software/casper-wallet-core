@@ -9,6 +9,7 @@ import {
   AppEventsRepository,
   TxSignatureRequestRepository,
   ContractPackageRepository,
+  EIP712Repository,
 } from './data/repositories';
 import { Logger } from './utils';
 import {
@@ -75,6 +76,7 @@ export const setupRepositories = ({
     grpcUrl,
     httpAuthorizationHeader,
   );
+  const eip712Repository = new EIP712Repository();
 
   return {
     accountInfoRepository,
@@ -86,5 +88,6 @@ export const setupRepositories = ({
     appEventsRepository,
     txSignatureRequestRepository,
     contractPackageRepository,
+    eip712Repository,
   };
 };
