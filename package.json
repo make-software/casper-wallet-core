@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@casper-ecosystem/casper-eip-712": "1.2.1",
-    "@noble/hashes": "^1.8.0",
+    "@noble/hashes": "^2.2.0",
     "apisauce": "^3.2.2",
     "casper-js-sdk": "5.0.12",
     "date-fns": "^4.4.0",
