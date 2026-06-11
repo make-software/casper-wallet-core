@@ -96,6 +96,7 @@ export class Cep18TransferDeployDto implements ICep18Deploy {
       this.marketDataProvider,
       data?.contract_package?.coingecko_id,
       data?.contract_package?.latest_version_contract_hash,
+      data?.contract_package?.contract_package_hash,
     );
   }
 

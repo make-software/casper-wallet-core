@@ -46,6 +46,7 @@ export class TokenDto implements ITokenWithFiatBalance {
       this.marketDataProvider,
       apiToken?.coingecko_id,
       apiToken?.latest_version_contract_hash,
+      this.contractPackageHash,
     );
   }
 
