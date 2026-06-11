@@ -60,7 +60,11 @@ function toRow(
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
 ): IEIP712DisplayRow {
-  const presentation = getPresentationForType(type);
+  // The domain `contract_package_hash` is semantically always a hash. Some payloads omit it from
+  // `types.EIP712Domain` (so `type` is '') or send it as `string`, which would otherwise classify it
+  // as 'string' and leave the value un-shortened and non-copyable. Force hash presentation by key.
+  const isContractPackageHash = section === 'domain' && key === 'contract_package_hash';
+  const presentation = isContractPackageHash ? 'hash' : getPresentationForType(type);
   const isHashLike = presentation === 'hash' || presentation === 'account';
 
   const accountInfo =

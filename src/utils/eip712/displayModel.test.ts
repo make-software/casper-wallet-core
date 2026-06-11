@@ -80,6 +80,23 @@ describe('buildTypedDataDisplayModel', () => {
     expect(tag.copyValue).toBe(PKG_HASH); // still shortened + copyable
   });
 
+  it('forces hash presentation for an undeclared domain contract_package_hash', () => {
+    const undeclared = {
+      domain: { chain_name: 'casper', contract_package_hash: FULL_ADDR },
+      types: { EIP712Domain: [], Permit: [{ name: 'value', type: 'uint256' }] },
+      primaryType: 'Permit',
+      message: { value: '1' },
+    };
+
+    const pkg = buildTypedDataDisplayModel(undeclared).domainRows.find(
+      r => r.label === 'Package Hash',
+    )!;
+    expect(pkg.type).toBe(''); // not declared in types.EIP712Domain
+    expect(pkg.presentation).toBe('hash');
+    expect(pkg.copyValue).toBe(FULL_ADDR); // full value copyable
+    expect(pkg.displayValue).not.toBe(FULL_ADDR); // shortened
+  });
+
   it('attaches enrichment through the callback', () => {
     const accountInfo = {
       id: 'x',
