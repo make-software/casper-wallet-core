@@ -5,6 +5,7 @@ import {
   IAccountInfo,
   IContractPackage,
   IEIP712DisplayRow,
+  IEIP712Enrichment,
   IEIP712HashArtifacts,
   IEIP712SignatureRequest,
   IEIP712TypedData,
@@ -21,6 +22,7 @@ export interface IEIP712SignatureRequestDtoProps {
   hashArtifacts?: IEIP712HashArtifacts;
   accountInfoMap: Record<string, IAccountInfo>;
   contractPackage: Maybe<IContractPackage>;
+  enrichment: IEIP712Enrichment;
 }
 
 export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
@@ -36,6 +38,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
   readonly digest: string;
   readonly hashArtifacts?: IEIP712HashArtifacts;
   readonly rawJson: string;
+  readonly enrichment: IEIP712Enrichment;
 
   constructor({
     typedData,
@@ -45,6 +48,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     hashArtifacts,
     accountInfoMap,
     contractPackage,
+    enrichment,
   }: IEIP712SignatureRequestDtoProps) {
     const { domainRows, messageRows } = buildTypedDataDisplayModel(typedData, {
       resolveAccountInfo: value => {
@@ -75,6 +79,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.rawJson = JSON.stringify(typedData, (_key, value) =>
       typeof value === 'bigint' ? value.toString() : value,
     );
+    this.enrichment = enrichment;
     this.id = digest;
   }
 }

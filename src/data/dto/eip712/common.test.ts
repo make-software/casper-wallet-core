@@ -35,8 +35,13 @@ describe('getAccountHashesFromTypedData', () => {
     expect(hashes).toContain(getAccountHashFromPublicKey(SIGNING_PK));
     // non-address fields are ignored: value/contract_package_hash/chain_name absent
     expect(hashes).not.toContain('1000');
-    // deduped
-    expect(new Set(hashes).size).toBe(hashes.length);
+  });
+
+  it('deduplicates a hash that appears in more than one address field', () => {
+    // spender repeats owner's value → the resolved hash must appear exactly once
+    const dupData = { ...typedData, message: { ...typedData.message, spender: OWNER } };
+    const hashes = getAccountHashesFromTypedData(dupData, SIGNING_PK);
+    expect(hashes.filter(h => h === OWNER)).toHaveLength(1);
   });
 
   it('returns only the signing-key hash when there are no address fields', () => {
@@ -69,15 +74,35 @@ describe('stripHexPrefix', () => {
 });
 
 describe('resolveEip712AddressToAccountHash', () => {
-  it('strips 0x and resolves a public key to its account hash', () => {
+  // valid secp256k1 (02-prefixed, 68 hex) public key
+  const SECP_PK = '0202466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27';
+
+  it('strips 0x and resolves an ed25519 public key to its account hash', () => {
     const expected = getAccountHashFromPublicKey(SIGNING_PK);
     expect(resolveEip712AddressToAccountHash(SIGNING_PK)).toBe(expected);
     expect(resolveEip712AddressToAccountHash('0x' + SIGNING_PK)).toBe(expected);
+  });
+
+  it('resolves a secp256k1 (02-prefixed) public key to its account hash', () => {
+    const expected = getAccountHashFromPublicKey(SECP_PK);
+    expect(resolveEip712AddressToAccountHash(SECP_PK)).toBe(expected);
+    expect(resolveEip712AddressToAccountHash('0x' + SECP_PK)).toBe(expected);
   });
 
   it('returns a 64-hex account-hash value unchanged (minus 0x)', () => {
     const acct = 'c'.repeat(64);
     expect(resolveEip712AddressToAccountHash(acct)).toBe(acct);
     expect(resolveEip712AddressToAccountHash('0x' + acct)).toBe(acct);
+  });
+
+  it('returns null for an ETH-style 20-byte (40-hex) address', () => {
+    expect(resolveEip712AddressToAccountHash('0x' + 'ab'.repeat(20))).toBeNull();
+    expect(resolveEip712AddressToAccountHash('ab'.repeat(20))).toBeNull();
+  });
+
+  it('returns null for a non-hex / junk value', () => {
+    expect(resolveEip712AddressToAccountHash('not-an-address')).toBeNull();
+    expect(resolveEip712AddressToAccountHash('z'.repeat(64))).toBeNull();
+    expect(resolveEip712AddressToAccountHash('')).toBeNull();
   });
 });

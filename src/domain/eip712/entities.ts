@@ -58,6 +58,18 @@ export interface IEIP712DisplayModel {
   primaryType: string;
 }
 
+/** Outcome of a best-effort enrichment lookup, so consumers can tell a failed lookup from absent data. */
+export type EIP712EnrichmentStatus = 'ok' | 'failed' | 'skipped';
+/** Contract-package enrichment adds `absent` for "no `contract_package_hash` in the domain". */
+export type EIP712ContractEnrichmentStatus = EIP712EnrichmentStatus | 'absent';
+
+export interface IEIP712Enrichment {
+  /** Account-info batch: `skipped` (no network), `ok` (batch succeeded), `failed` (batch threw). */
+  accounts: EIP712EnrichmentStatus;
+  /** Contract package: `skipped`, `absent`, `ok` (lookup completed), `failed` (lookup threw). */
+  contractPackage: EIP712ContractEnrichmentStatus;
+}
+
 export type EIP712SignatureScheme = 'ed25519' | 'secp256k1';
 
 export interface IEIP712SignResult {
@@ -82,4 +94,6 @@ export interface IEIP712SignatureRequest extends IEntity {
   readonly digest: string;
   readonly hashArtifacts?: IEIP712HashArtifacts;
   readonly rawJson: string;
+
+  readonly enrichment: IEIP712Enrichment;
 }

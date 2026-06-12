@@ -48,6 +48,7 @@ describe('EIP712SignatureRequestDto', () => {
     digest: '0xdigest',
     accountInfoMap: { [OWNER]: ownerAccountInfo },
     contractPackage,
+    enrichment: { accounts: 'ok', contractPackage: 'ok' },
   });
 
   it('enriches address rows with account info', () => {
@@ -87,6 +88,7 @@ describe('EIP712SignatureRequestDto', () => {
       hashArtifacts: artifacts,
       accountInfoMap: {},
       contractPackage: null,
+      enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(withArtifacts.hashArtifacts).toEqual(artifacts);
   });
@@ -106,7 +108,12 @@ describe('EIP712SignatureRequestDto', () => {
       digest: '0xd',
       accountInfoMap: {},
       contractPackage: null,
+      enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(JSON.parse(d.rawJson).message.value).toBe('1000');
+  });
+
+  it('carries the enrichment status', () => {
+    expect(dto.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
   });
 });

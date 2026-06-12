@@ -6,17 +6,25 @@ import { getHashByType } from '../common';
 export const stripHexPrefix = (value: string): string =>
   value.startsWith('0x') ? value.slice(2) : value;
 
+/** A bare Casper account hash: exactly 64 hex chars. */
+const ACCOUNT_HASH_REGEX = /^[\da-fA-F]{64}$/;
+
 /**
  * Resolve an EIP-712 `address` field value to a Casper account hash. The value may be a Casper public
- * key (01/02-prefixed, 66/68 hex) or an account hash (64 hex), with an optional `0x` prefix. Returns
- * null when it cannot be resolved.
+ * key (01/02-prefixed, 66/68 hex) or a bare account hash (64 hex), with an optional `0x` prefix.
+ * Returns null when it cannot be resolved — including values that are neither (e.g. an ETH-style
+ * 20-byte address or junk). This keeps a bad row from poisoning the whole batched `getAccountsInfo`
+ * call: `getAccountHashesFromTypedData` drops nulls, so enrichment degrades per-row, not per-request.
  */
 export const resolveEip712AddressToAccountHash = (rawValue: string): Maybe<string> => {
   const value = stripHexPrefix(String(rawValue));
   const isPublicKey =
     (value.startsWith('01') && value.length === 66) ||
     (value.startsWith('02') && value.length === 68);
-  return getHashByType(value, isPublicKey ? 'publicKey' : 'accountHash');
+  if (isPublicKey) {
+    return getHashByType(value, 'publicKey');
+  }
+  return ACCOUNT_HASH_REGEX.test(value) ? value : null;
 };
 
 /**

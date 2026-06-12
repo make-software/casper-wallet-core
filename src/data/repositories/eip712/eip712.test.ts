@@ -4,7 +4,8 @@ import { EIP712Repository } from './index';
 import { AccountInfoRepository } from '../accountInfo';
 import { ContractPackageRepository } from '../contractPackage';
 import { createMockHttpProvider } from '../../../__test-utils__';
-import { CasperWalletApiByNetworkUrl, EIP712Error, isEIP712Error } from '../../../domain';
+import { CasperWalletApiByNetworkUrl, EIP712Error, ILogger, isEIP712Error } from '../../../domain';
+import { getAccountHashFromPublicKey } from '../../../utils';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
 const MESSAGE = {
@@ -25,8 +26,14 @@ describe('EIP712Repository', () => {
       http,
       CasperWalletApiByNetworkUrl,
     );
-    const repo = new EIP712Repository(accountInfoRepository, contractPackageRepository);
-    return { repo, http, accountInfoRepository, contractPackageRepository };
+    const logger: ILogger = {
+      log: jest.fn(),
+      logGroup: jest.fn(),
+      logGroupEnd: jest.fn(),
+      reportError: jest.fn(),
+    };
+    const repo = new EIP712Repository(accountInfoRepository, contractPackageRepository, logger);
+    return { repo, http, accountInfoRepository, contractPackageRepository, logger };
   };
 
   const repo = buildRepo().repo;
@@ -79,6 +86,25 @@ describe('EIP712Repository', () => {
 
   const SIGNING_PK = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
 
+  const accountInfo = {
+    id: 'sk',
+    publicKey: SIGNING_PK,
+    accountHash: getAccountHashFromPublicKey(SIGNING_PK),
+    name: 'Signer',
+    brandingLogo: null,
+    csprName: null,
+    explorerLink: null,
+  };
+  const pkg = {
+    id: 'c',
+    latestVersionContractTypeId: 1,
+    contractPackageHash: '01'.repeat(32),
+    name: 'Token',
+    iconUrl: null,
+    symbol: 'TKN',
+    decimals: 9,
+  };
+
   it('prepareSignatureRequest builds an enriched request', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
@@ -93,26 +119,95 @@ describe('EIP712Repository', () => {
     expect(req.primaryType).toBe('Permit');
     expect(req.network).toBe('mainnet');
     expect(req.messageRows).toHaveLength(5);
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
   });
 
-  it('still builds when enrichment lookups throw', async () => {
+  it('calls the lookups with deduped hashes, mapped network, proxy flag and 0x-stripped hash', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
-    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockRejectedValue(new Error('network'));
-    jest.spyOn(contractPackageRepository, 'getContractPackage').mockRejectedValue(new Error('x'));
+    const accountsSpy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    const pkgSpy = jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockResolvedValue(null);
+
+    await r.prepareSignatureRequest({ typedData: TYPED_DATA, signingPublicKeyHex: SIGNING_PK });
+
+    const accountsArg = accountsSpy.mock.calls[0][0];
+    expect(accountsArg.network).toBe('mainnet');
+    expect(accountsArg.withProxyHeader).toBe(true);
+    expect(accountsArg.accountHashes).toContain(getAccountHashFromPublicKey(SIGNING_PK));
+    expect(new Set(accountsArg.accountHashes).size).toBe(accountsArg.accountHashes.length);
+
+    expect(pkgSpy).toHaveBeenCalledWith({
+      contractPackageHash: '01'.repeat(32), // 0x stripped
+      network: 'mainnet',
+      withProxyHeader: true,
+    });
+  });
+
+  it('feeds a non-empty account map through to the DTO (repo→DTO keying)', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest
+      .spyOn(accountInfoRepository, 'getAccountsInfo')
+      .mockResolvedValue({ [accountInfo.accountHash]: accountInfo });
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
 
     const req = await r.prepareSignatureRequest({
       typedData: TYPED_DATA,
       signingPublicKeyHex: SIGNING_PK,
     });
 
-    expect(req.digest).toBe(EXPECTED_DIGEST);
-    expect(req.messageRows.every(row => row.accountInfo === null)).toBe(true);
+    expect(req.signingAccountInfo).toEqual(accountInfo);
+  });
+
+  it('falls back to the LRU cache and logs when getAccountsInfo throws', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository, logger } = buildRepo();
+    const err = new Error('network');
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockRejectedValue(err);
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(pkg);
+    jest
+      .spyOn(accountInfoRepository, 'accountsInfoMapCache', 'get')
+      .mockReturnValue({ [accountInfo.accountHash]: accountInfo });
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    // independent: accounts failed but the contract package still resolved
+    expect(req.enrichment).toEqual({ accounts: 'failed', contractPackage: 'ok' });
+    expect(req.signingAccountInfo).toEqual(accountInfo); // came from the warm cache
+    expect(req.domainRows.find(row => row.label === 'Package Hash')!.contractPackage).toEqual(pkg);
+    expect(logger.reportError).toHaveBeenCalledWith(
+      err,
+      expect.stringContaining('getAccountsInfo'),
+    );
+  });
+
+  it('keeps accounts when only getContractPackage throws (independent catches)', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository, logger } = buildRepo();
+    const err = new Error('pkg');
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockRejectedValue(err);
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'failed' });
     expect(req.domainRows.find(row => row.label === 'Package Hash')!.contractPackage).toBeNull();
+    expect(logger.reportError).toHaveBeenCalledWith(
+      err,
+      expect.stringContaining('getContractPackage'),
+    );
   });
 
   it('skips lookups when the network is unmappable and none is provided', async () => {
-    const { repo: r, accountInfoRepository } = buildRepo();
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    const pkgSpy = jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockResolvedValue(null);
     const offNetwork = {
       ...TYPED_DATA,
       domain: { ...TYPED_DATA.domain, chain_name: 'unknown-chain' },
@@ -124,7 +219,62 @@ describe('EIP712Repository', () => {
     });
 
     expect(spy).not.toHaveBeenCalled();
+    expect(pkgSpy).not.toHaveBeenCalled();
     expect(req.network).toBeNull();
+    expect(req.enrichment).toEqual({ accounts: 'skipped', contractPackage: 'skipped' });
+  });
+
+  it('falls back to the network param when chain_name is unmappable', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
+    const offNetwork = {
+      ...TYPED_DATA,
+      domain: { ...TYPED_DATA.domain, chain_name: 'unknown-chain' },
+    };
+
+    const req = await r.prepareSignatureRequest({
+      typedData: offNetwork,
+      signingPublicKeyHex: SIGNING_PK,
+      network: 'testnet',
+    });
+
+    expect(req.network).toBe('testnet');
+    expect(spy.mock.calls[0][0].network).toBe('testnet');
+  });
+
+  it('prefers a mappable chain_name over the network param', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA, // chain_name 'casper' → mainnet
+      signingPublicKeyHex: SIGNING_PK,
+      network: 'testnet',
+    });
+
+    expect(req.network).toBe('mainnet');
+  });
+
+  it('marks contractPackage absent when the domain has no contract_package_hash', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    const pkgSpy = jest.spyOn(contractPackageRepository, 'getContractPackage');
+    const noPkg = {
+      domain: { name: 'CasperSwap', version: '1', chain_name: 'casper' },
+      types: PermitTypes,
+      primaryType: 'Permit',
+      message: MESSAGE,
+    };
+
+    const req = await r.prepareSignatureRequest({
+      typedData: noPkg,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    expect(pkgSpy).not.toHaveBeenCalled();
+    expect(req.enrichment.contractPackage).toBe('absent');
   });
 
   it('rejects with EIP712Error for invalid typed data', async () => {
