@@ -32,6 +32,7 @@ import {
   verifyTypedDataSignature,
 } from '../../../utils';
 import {
+  EIP712_CHAIN_NAME_KEY,
   EIP712SignatureRequestDto,
   getAccountHashesFromTypedData,
   stripHexPrefix,
@@ -100,7 +101,7 @@ export class EIP712Repository implements IEIP712Repository {
     const { digest, hashArtifacts } = this.computeDigest(typedData, options);
 
     const network =
-      getCasperNetworkByChainName(String(typedData.domain.chain_name ?? '')) ??
+      getCasperNetworkByChainName(String(typedData.domain[EIP712_CHAIN_NAME_KEY] ?? '')) ??
       networkParam ??
       null;
 

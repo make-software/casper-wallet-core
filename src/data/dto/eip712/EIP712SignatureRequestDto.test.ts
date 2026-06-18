@@ -116,4 +116,33 @@ describe('EIP712SignatureRequestDto', () => {
   it('carries the enrichment status', () => {
     expect(dto.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
   });
+
+  it('excludes chain_name from domainRows (surfaced as chainName instead)', () => {
+    expect(dto.chainName).toBe('casper');
+    expect(dto.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
+    expect(dto.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
+  });
+
+  it('handles a domain without chain_name', () => {
+    const noChainName = {
+      ...typedData,
+      domain: { contract_package_hash: PKG_HASH },
+      types: {
+        ...typedData.types,
+        EIP712Domain: [{ name: 'contract_package_hash', type: 'bytes32' }],
+      },
+    };
+    const d = new EIP712SignatureRequestDto({
+      typedData: noChainName,
+      signingPublicKeyHex: SIGNING_PK,
+      network: 'mainnet',
+      digest: '0xd',
+      accountInfoMap: {},
+      contractPackage: null,
+      enrichment: { accounts: 'ok', contractPackage: 'absent' },
+    });
+    expect(d.chainName).toBe('');
+    expect(d.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
+    expect(d.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
+  });
 });

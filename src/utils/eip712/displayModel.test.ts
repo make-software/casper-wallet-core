@@ -128,4 +128,16 @@ describe('buildTypedDataDisplayModel', () => {
     );
     expect(model.messageRows.find(r => r.label === 'Value')!.accountInfo).toBeNull();
   });
+
+  it('keeps all domain keys when excludeDomainKeys is not provided', () => {
+    const model = buildTypedDataDisplayModel(typedData);
+    expect(model.domainRows.find(r => r.label === 'Chain Name')).toBeDefined();
+  });
+
+  it('omits domain keys listed in excludeDomainKeys', () => {
+    const model = buildTypedDataDisplayModel(typedData, {}, ['chain_name']);
+    expect(model.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
+    expect(model.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
+    expect(model.messageRows.find(r => r.label === 'Owner')).toBeDefined();
+  });
 });
