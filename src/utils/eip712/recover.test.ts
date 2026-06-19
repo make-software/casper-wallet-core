@@ -4,8 +4,8 @@ import { computeTypedDataEIP712Digest } from './digest';
 import {
   CASPER_DOMAIN_TYPES,
   PermitTypes as ReexportedPermitTypes,
-  recoverTypedDataSignerAddress,
-  verifyTypedDataSignature,
+  recoverTypedDataEIP712SignerAddress,
+  verifyTypedDataEIP712Signature,
 } from './recover';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
@@ -29,7 +29,7 @@ function recoverableSig(): Uint8Array {
 
 describe('recover/verify', () => {
   it('recovers the expected Ethereum-style address', () => {
-    const address = recoverTypedDataSignerAddress({
+    const address = recoverTypedDataEIP712SignerAddress({
       typedData: TYPED_DATA,
       signature: recoverableSig(),
     });
@@ -39,10 +39,10 @@ describe('recover/verify', () => {
   it('verifies a signature against the recovered address', () => {
     const sig = recoverableSig();
     const { digest } = computeTypedDataEIP712Digest(TYPED_DATA);
-    const address = recoverTypedDataSignerAddress({ typedData: TYPED_DATA, signature: sig });
-    expect(verifyTypedDataSignature({ digest, signature: sig, expectedAddress: address })).toBe(
-      true,
-    );
+    const address = recoverTypedDataEIP712SignerAddress({ typedData: TYPED_DATA, signature: sig });
+    expect(
+      verifyTypedDataEIP712Signature({ digest, signature: sig, expectedAddress: address }),
+    ).toBe(true);
   });
 
   it('re-exports lib helpers for consumers', () => {

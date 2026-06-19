@@ -26,10 +26,10 @@ import {
   buildTypedDataEIP712DisplayModel,
   computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
-  recoverTypedDataSignerAddress,
+  recoverTypedDataEIP712SignerAddress,
   signTypedDataEIP712 as signTypedDataEIP712Util,
   signTypedDataEIP712DigestWithKey,
-  verifyTypedDataSignature,
+  verifyTypedDataEIP712Signature,
 } from '../../../utils';
 import {
   EIP712SignatureRequestDto,
@@ -87,11 +87,11 @@ export class EIP712Repository implements IEIP712Repository {
   }
 
   recoverSigner(params: IEIP712RecoverSignerParams): string {
-    return recoverTypedDataSignerAddress(params);
+    return recoverTypedDataEIP712SignerAddress(params);
   }
 
   verifySignature(params: IEIP712VerifySignatureParams): boolean {
-    return verifyTypedDataSignature(params);
+    return verifyTypedDataEIP712Signature(params);
   }
 
   async prepareSignatureRequest({
