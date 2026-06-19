@@ -7,7 +7,7 @@ import {
   IEIP712TypedData,
 } from '../../domain';
 import { convertBytesToHex } from '../crypto';
-import { computeTypedDataDigest } from './digest';
+import { computeTypedDataEIP712Digest } from './digest';
 
 /**
  * Sign an EIP-712 digest with a casper-js-sdk PrivateKey.
@@ -49,7 +49,7 @@ export function signTypedDataEIP712(
   privateKey: PrivateKey,
   options: IEIP712SignTypedDataOptions = {},
 ): IEIP712SignResult {
-  const { digest, hashArtifacts } = computeTypedDataDigest(typedData, options);
+  const { digest, hashArtifacts } = computeTypedDataEIP712Digest(typedData, options);
   const result = signTypedDataEIP712DigestWithKey(privateKey, digest);
   return hashArtifacts ? { ...result, hashArtifacts } : result;
 }

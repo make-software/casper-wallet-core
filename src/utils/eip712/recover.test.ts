@@ -1,6 +1,6 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { PermitTypes, buildDomain, fromHex } from '@casper-ecosystem/casper-eip-712';
-import { computeTypedDataDigest } from './digest';
+import { computeTypedDataEIP712Digest } from './digest';
 import {
   CASPER_DOMAIN_TYPES,
   PermitTypes as ReexportedPermitTypes,
@@ -19,7 +19,7 @@ const MESSAGE = {
 const TYPED_DATA = { domain: DOMAIN, types: PermitTypes, primaryType: 'Permit', message: MESSAGE };
 
 function recoverableSig(): Uint8Array {
-  const { digest } = computeTypedDataDigest(TYPED_DATA);
+  const { digest } = computeTypedDataEIP712Digest(TYPED_DATA);
   const sig = secp256k1.sign(fromHex(digest), fromHex('11'.repeat(32)));
   const out = new Uint8Array(65);
   out.set(sig.toCompactRawBytes(), 0);
@@ -38,7 +38,7 @@ describe('recover/verify', () => {
 
   it('verifies a signature against the recovered address', () => {
     const sig = recoverableSig();
-    const { digest } = computeTypedDataDigest(TYPED_DATA);
+    const { digest } = computeTypedDataEIP712Digest(TYPED_DATA);
     const address = recoverTypedDataSignerAddress({ typedData: TYPED_DATA, signature: sig });
     expect(verifyTypedDataSignature({ digest, signature: sig, expectedAddress: address })).toBe(
       true,

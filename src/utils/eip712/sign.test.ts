@@ -2,7 +2,7 @@ import { PrivateKey, KeyAlgorithm } from 'casper-js-sdk';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
 import { PermitTypes, buildDomain, fromHex } from '@casper-ecosystem/casper-eip-712';
-import { computeTypedDataDigest } from './digest';
+import { computeTypedDataEIP712Digest } from './digest';
 import {
   signTypedDataEIP712,
   signTypedDataEIP712DigestWithKey,
@@ -65,7 +65,7 @@ describe('signTypedDataEIP712 (end-to-end)', () => {
       '0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9',
     );
 
-    const { digest } = computeTypedDataDigest(TYPED_DATA);
+    const { digest } = computeTypedDataEIP712Digest(TYPED_DATA);
     expect(result.digest).toBe(digest);
   });
 

@@ -16,7 +16,7 @@ import {
   validateTypedDataFieldTypes,
 } from './validation';
 
-export function computeTypedDataDigest(
+export function computeTypedDataEIP712Digest(
   typedData: IEIP712TypedData,
   options: IEIP712SignTypedDataOptions = {},
 ): IEIP712Digest {

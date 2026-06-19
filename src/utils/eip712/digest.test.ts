@@ -1,5 +1,5 @@
 import { PermitTypes, buildDomain } from '@casper-ecosystem/casper-eip-712';
-import { computeTypedDataDigest } from './digest';
+import { computeTypedDataEIP712Digest } from './digest';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
 const MESSAGE = {
@@ -11,9 +11,9 @@ const MESSAGE = {
 };
 const TYPED_DATA = { domain: DOMAIN, types: PermitTypes, primaryType: 'Permit', message: MESSAGE };
 
-describe('computeTypedDataDigest', () => {
+describe('computeTypedDataEIP712Digest', () => {
   it('produces the stable EIP-712 digest', () => {
-    const { digest, resolvedDomainTypes, hashArtifacts } = computeTypedDataDigest(TYPED_DATA);
+    const { digest, resolvedDomainTypes, hashArtifacts } = computeTypedDataEIP712Digest(TYPED_DATA);
     expect(digest).toBe('0x545a8088d6365ada6ef282f4d5979c655cd428b4115cbf65f561bcd65767a98c');
     expect(resolvedDomainTypes.map(f => f.name)).toEqual([
       'name',
@@ -25,7 +25,9 @@ describe('computeTypedDataDigest', () => {
   });
 
   it('populates all six hash artifacts when requested', () => {
-    const { hashArtifacts } = computeTypedDataDigest(TYPED_DATA, { returnHashArtifacts: true });
+    const { hashArtifacts } = computeTypedDataEIP712Digest(TYPED_DATA, {
+      returnHashArtifacts: true,
+    });
     expect(hashArtifacts).toEqual({
       domainTypeString:
         'EIP712Domain(string name,string version,string chain_name,bytes32 contract_package_hash)',
@@ -40,6 +42,6 @@ describe('computeTypedDataDigest', () => {
 
   it('rejects unknown message fields only when asked', () => {
     const withExtra = { ...TYPED_DATA, message: { ...MESSAGE, extra: 1n } };
-    expect(() => computeTypedDataDigest(withExtra, { rejectUnknownFields: true })).toThrow();
+    expect(() => computeTypedDataEIP712Digest(withExtra, { rejectUnknownFields: true })).toThrow();
   });
 });

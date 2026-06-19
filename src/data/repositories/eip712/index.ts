@@ -24,7 +24,7 @@ import {
 import { Maybe } from '../../../typings';
 import {
   buildTypedDataDisplayModel,
-  computeTypedDataDigest,
+  computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
   recoverTypedDataSignerAddress,
   signTypedDataEIP712 as signTypedDataEIP712Util,
@@ -56,7 +56,7 @@ export class EIP712Repository implements IEIP712Repository {
 
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest {
     try {
-      return computeTypedDataDigest(typedData, options);
+      return computeTypedDataEIP712Digest(typedData, options);
     } catch (e) {
       throw isEIP712Error(e) ? e : new EIP712Error(e, 'computeDigest');
     }
