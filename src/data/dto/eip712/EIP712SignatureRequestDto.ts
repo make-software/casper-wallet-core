@@ -10,7 +10,7 @@ import {
   IEIP712SignatureRequest,
   IEIP712TypedData,
 } from '../../../domain';
-import { buildTypedDataDisplayModel } from '../../../utils';
+import { buildTypedDataEIP712DisplayModel } from '../../../utils';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import { resolveEip712AddressToAccountHash } from './common';
 
@@ -50,7 +50,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     contractPackage,
     enrichment,
   }: IEIP712SignatureRequestDtoProps) {
-    const { domainRows, messageRows } = buildTypedDataDisplayModel(typedData, {
+    const { domainRows, messageRows } = buildTypedDataEIP712DisplayModel(typedData, {
       resolveAccountInfo: value => {
         // address values may be a Casper public key or account hash — resolve to account hash first,
         // then look up by it so the key matches what getAccountHashesFromTypedData fetched.

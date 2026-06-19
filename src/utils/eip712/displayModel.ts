@@ -88,7 +88,7 @@ function toRow(
   };
 }
 
-export function buildTypedDataDisplayModel(
+export function buildTypedDataEIP712DisplayModel(
   typedData: IEIP712TypedData,
   enrichment: IEIP712DisplayEnrichment = {},
 ): IEIP712DisplayModel {

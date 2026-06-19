@@ -1,4 +1,8 @@
-import { buildTypedDataDisplayModel, getPresentationForType, keyToLabel } from './displayModel';
+import {
+  buildTypedDataEIP712DisplayModel,
+  getPresentationForType,
+  keyToLabel,
+} from './displayModel';
 
 const FULL_ADDR = 'a'.repeat(64); // 64 hex chars, no 0x prefix — like a Casper account hash
 const PKG_HASH = '0x' + '01'.repeat(32);
@@ -34,7 +38,7 @@ describe('keyToLabel', () => {
   });
 });
 
-describe('buildTypedDataDisplayModel', () => {
+describe('buildTypedDataEIP712DisplayModel', () => {
   const typedData = {
     domain: { chain_name: 'casper', contract_package_hash: PKG_HASH },
     types: {
@@ -53,7 +57,7 @@ describe('buildTypedDataDisplayModel', () => {
   };
 
   it('classifies presentation and leaves enrichment null on the sync path', () => {
-    const model = buildTypedDataDisplayModel(typedData);
+    const model = buildTypedDataEIP712DisplayModel(typedData);
 
     const pkg = model.domainRows.find(r => r.label === 'Package Hash')!;
     expect(pkg.presentation).toBe('hash');
@@ -88,7 +92,7 @@ describe('buildTypedDataDisplayModel', () => {
       message: { value: '1' },
     };
 
-    const pkg = buildTypedDataDisplayModel(undeclared).domainRows.find(
+    const pkg = buildTypedDataEIP712DisplayModel(undeclared).domainRows.find(
       r => r.label === 'Package Hash',
     )!;
     expect(pkg.type).toBe(''); // not declared in types.EIP712Domain
@@ -117,7 +121,7 @@ describe('buildTypedDataDisplayModel', () => {
       decimals: 9,
     };
 
-    const model = buildTypedDataDisplayModel(typedData, {
+    const model = buildTypedDataEIP712DisplayModel(typedData, {
       resolveAccountInfo: value => (value === FULL_ADDR ? accountInfo : null),
       contractPackage,
     });

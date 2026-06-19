@@ -23,7 +23,7 @@ import {
 } from '../../../domain';
 import { Maybe } from '../../../typings';
 import {
-  buildTypedDataDisplayModel,
+  buildTypedDataEIP712DisplayModel,
   computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
   recoverTypedDataSignerAddress,
@@ -63,7 +63,7 @@ export class EIP712Repository implements IEIP712Repository {
   }
 
   buildDisplayModel(typedData: IEIP712TypedData): IEIP712DisplayModel {
-    return buildTypedDataDisplayModel(typedData);
+    return buildTypedDataEIP712DisplayModel(typedData);
   }
 
   signDigest({ privateKey, digest }: IEIP712SignDigestParams): IEIP712SignResult {
