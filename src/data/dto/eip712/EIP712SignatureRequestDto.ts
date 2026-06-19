@@ -53,7 +53,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     const { domainRows, messageRows } = buildTypedDataEIP712DisplayModel(typedData, {
       resolveAccountInfo: value => {
         // address values may be a Casper public key or account hash — resolve to account hash first,
-        // then look up by it so the key matches what getAccountHashesFromTypedData fetched.
+        // then look up by it so the key matches what getAccountHashesFromTypedDataEIP712 fetched.
         const accountHash = resolveEip712AddressToAccountHash(value);
         return accountHash
           ? (getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null)

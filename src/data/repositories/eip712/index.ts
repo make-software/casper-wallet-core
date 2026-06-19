@@ -33,7 +33,7 @@ import {
 } from '../../../utils';
 import {
   EIP712SignatureRequestDto,
-  getAccountHashesFromTypedData,
+  getAccountHashesFromTypedDataEIP712,
   stripHexPrefix,
 } from '../../dto';
 
@@ -115,7 +115,7 @@ export class EIP712Repository implements IEIP712Repository {
 
     if (network) {
       // Pure-CPU; kept outside the try so a bug here surfaces instead of being mislabeled API flakiness.
-      const accountHashes = getAccountHashesFromTypedData(typedData, signingPublicKeyHex);
+      const accountHashes = getAccountHashesFromTypedDataEIP712(typedData, signingPublicKeyHex);
       try {
         accountInfoMap = await this._accountInfoRepository.getAccountsInfo({
           accountHashes,

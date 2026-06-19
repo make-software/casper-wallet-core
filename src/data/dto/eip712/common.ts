@@ -14,7 +14,7 @@ const ACCOUNT_HASH_REGEX = /^[\da-fA-F]{64}$/;
  * key (01/02-prefixed, 66/68 hex) or a bare account hash (64 hex), with an optional `0x` prefix.
  * Returns null when it cannot be resolved — including values that are neither (e.g. an ETH-style
  * 20-byte address or junk). This keeps a bad row from poisoning the whole batched `getAccountsInfo`
- * call: `getAccountHashesFromTypedData` drops nulls, so enrichment degrades per-row, not per-request.
+ * call: `getAccountHashesFromTypedDataEIP712` drops nulls, so enrichment degrades per-row, not per-request.
  */
 export const resolveEip712AddressToAccountHash = (rawValue: string): Maybe<string> => {
   const value = stripHexPrefix(String(rawValue));
@@ -32,7 +32,7 @@ export const resolveEip712AddressToAccountHash = (rawValue: string): Maybe<strin
  * domain and the primary-type message (resolved to account hashes), plus the signing key.
  * Deduplicated; null/empty results dropped.
  */
-export const getAccountHashesFromTypedData = (
+export const getAccountHashesFromTypedDataEIP712 = (
   typedData: IEIP712TypedData,
   signingPublicKeyHex: string,
 ): string[] => {

@@ -1,5 +1,5 @@
 import {
-  getAccountHashesFromTypedData,
+  getAccountHashesFromTypedDataEIP712,
   resolveEip712AddressToAccountHash,
   stripHexPrefix,
 } from './common';
@@ -26,9 +26,9 @@ const typedData = {
   message: { owner: OWNER, spender: SPENDER, value: '1000' },
 };
 
-describe('getAccountHashesFromTypedData', () => {
+describe('getAccountHashesFromTypedDataEIP712', () => {
   it('collects address-typed values plus the signing-key account hash, deduped', () => {
-    const hashes = getAccountHashesFromTypedData(typedData, SIGNING_PK);
+    const hashes = getAccountHashesFromTypedDataEIP712(typedData, SIGNING_PK);
 
     expect(hashes).toContain(OWNER);
     expect(hashes).toContain(SPENDER);
@@ -40,7 +40,7 @@ describe('getAccountHashesFromTypedData', () => {
   it('deduplicates a hash that appears in more than one address field', () => {
     // spender repeats owner's value → the resolved hash must appear exactly once
     const dupData = { ...typedData, message: { ...typedData.message, spender: OWNER } };
-    const hashes = getAccountHashesFromTypedData(dupData, SIGNING_PK);
+    const hashes = getAccountHashesFromTypedDataEIP712(dupData, SIGNING_PK);
     expect(hashes.filter(h => h === OWNER)).toHaveLength(1);
   });
 
@@ -50,7 +50,7 @@ describe('getAccountHashesFromTypedData', () => {
       types: { ...typedData.types, Permit: [{ name: 'value', type: 'uint256' }] },
       message: { value: '1' },
     };
-    const hashes = getAccountHashesFromTypedData(noAddr, SIGNING_PK);
+    const hashes = getAccountHashesFromTypedDataEIP712(noAddr, SIGNING_PK);
     expect(hashes).toEqual([getAccountHashFromPublicKey(SIGNING_PK)]);
   });
 
@@ -60,7 +60,7 @@ describe('getAccountHashesFromTypedData', () => {
       types: { ...typedData.types, Permit: [{ name: 'owner', type: 'address' }] },
       message: {}, // owner declared as address but absent
     };
-    const hashes = getAccountHashesFromTypedData(missingValue, SIGNING_PK);
+    const hashes = getAccountHashesFromTypedDataEIP712(missingValue, SIGNING_PK);
     expect(hashes).toEqual([getAccountHashFromPublicKey(SIGNING_PK)]);
     expect(hashes).not.toContain('undefined');
   });
