@@ -5,7 +5,7 @@ import {
   resolveDomainTypes,
   validateNoUnknownMessageFields,
   validatePrimaryType,
-  validateTypedDataFieldTypes,
+  validateTypedDataEIP712FieldTypes,
 } from './validation';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
@@ -63,16 +63,16 @@ describe('resolveDomainTypes (4-step priority)', () => {
   });
 });
 
-describe('validateTypedDataFieldTypes', () => {
+describe('validateTypedDataEIP712FieldTypes', () => {
   it('rejects array types', () => {
-    expect(() => validateTypedDataFieldTypes({ T: [{ name: 'a', type: 'uint256[]' }] })).toThrow(
-      EIP712Error,
-    );
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type: 'uint256[]' }] }),
+    ).toThrow(EIP712Error);
   });
 
   it('allows bytes32', () => {
     expect(() =>
-      validateTypedDataFieldTypes({ T: [{ name: 'a', type: 'bytes32' }] }),
+      validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type: 'bytes32' }] }),
     ).not.toThrow();
   });
 
@@ -80,7 +80,7 @@ describe('validateTypedDataFieldTypes', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 31 }), n => {
         try {
-          validateTypedDataFieldTypes({ T: [{ name: 'a', type: `bytes${n}` }] });
+          validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type: `bytes${n}` }] });
           return false;
         } catch (e) {
           return (e as EIP712Error).errorCode === SignTypedDataErrorCodes.UNSUPPORTED_TYPE;
