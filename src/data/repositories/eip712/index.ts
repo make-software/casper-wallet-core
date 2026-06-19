@@ -27,8 +27,8 @@ import {
   computeTypedDataDigest,
   getCasperNetworkByChainName,
   recoverTypedDataSignerAddress,
-  signTypedData as signTypedDataUtil,
-  signTypedDataDigestWithKey,
+  signTypedDataEIP712 as signTypedDataEIP712Util,
+  signTypedDataEIP712DigestWithKey,
   verifyTypedDataSignature,
 } from '../../../utils';
 import {
@@ -42,7 +42,7 @@ import {
  * contract-package data over HTTP (best-effort — each lookup is isolated in its own try/catch, so a
  * flaky API never breaks the request). The other methods are synchronous pure-CPU work.
  *
- * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
+ * `computeDigest`, `signDigest` and `signTypedDataEIP712` wrap unexpected failures in {@link EIP712Error}.
  * `prepareSignatureRequest` surfaces digest/validation failures as {@link EIP712Error} (via
  * `computeDigest`) and swallows enrichment-lookup failures (best-effort). `recoverSigner` and
  * `verifySignature` surface raw library errors.
@@ -68,17 +68,21 @@ export class EIP712Repository implements IEIP712Repository {
 
   signDigest({ privateKey, digest }: IEIP712SignDigestParams): IEIP712SignResult {
     try {
-      return signTypedDataDigestWithKey(privateKey, digest);
+      return signTypedDataEIP712DigestWithKey(privateKey, digest);
     } catch (e) {
       throw isEIP712Error(e) ? e : new EIP712Error(e, 'signDigest');
     }
   }
 
-  signTypedData({ typedData, privateKey, options }: IEIP712SignTypedDataParams): IEIP712SignResult {
+  signTypedDataEIP712({
+    typedData,
+    privateKey,
+    options,
+  }: IEIP712SignTypedDataParams): IEIP712SignResult {
     try {
-      return signTypedDataUtil(typedData, privateKey, options);
+      return signTypedDataEIP712Util(typedData, privateKey, options);
     } catch (e) {
-      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signTypedData');
+      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signTypedDataEIP712');
     }
   }
 

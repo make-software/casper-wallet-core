@@ -13,7 +13,7 @@ export type EIP712ErrorType =
   | 'resolveDomainTypes'
   | 'computeDigest'
   | 'signDigest'
-  | 'signTypedData'
+  | 'signTypedDataEIP712'
   | 'prepareSignatureRequest';
 
 export type IEIP712Error = IDomainError<EIP712ErrorType> & {
