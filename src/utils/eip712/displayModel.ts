@@ -91,12 +91,16 @@ function toRow(
 export function buildTypedDataDisplayModel(
   typedData: IEIP712TypedData,
   enrichment: IEIP712DisplayEnrichment = {},
+  excludeDomainKeys: readonly string[] = [],
 ): IEIP712DisplayModel {
   const { domain, types, primaryType, message } = typedData;
+  const exclude = new Set(excludeDomainKeys);
 
-  const domainRows = Object.entries(domain).map(([key, val]) =>
-    toRow(key, getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
-  );
+  const domainRows = Object.entries(domain)
+    .filter(([key]) => !exclude.has(key))
+    .map(([key, val]) =>
+      toRow(key, getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
+    );
 
   const messageFields = types[primaryType] ?? [];
   const messageRows = messageFields.map(field =>

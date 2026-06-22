@@ -12,7 +12,7 @@ import {
 } from '../../../domain';
 import { buildTypedDataDisplayModel } from '../../../utils';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
-import { resolveEip712AddressToAccountHash } from './common';
+import { EIP712_CHAIN_NAME_KEY, resolveEip712AddressToAccountHash } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
   typedData: IEIP712TypedData;
@@ -50,17 +50,21 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     contractPackage,
     enrichment,
   }: IEIP712SignatureRequestDtoProps) {
-    const { domainRows, messageRows } = buildTypedDataDisplayModel(typedData, {
-      resolveAccountInfo: value => {
-        // address values may be a Casper public key or account hash — resolve to account hash first,
-        // then look up by it so the key matches what getAccountHashesFromTypedData fetched.
-        const accountHash = resolveEip712AddressToAccountHash(value);
-        return accountHash
-          ? (getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null)
-          : null;
+    const { domainRows, messageRows } = buildTypedDataDisplayModel(
+      typedData,
+      {
+        resolveAccountInfo: value => {
+          // address values may be a Casper public key or account hash — resolve to account hash first,
+          // then look up by it so the key matches what getAccountHashesFromTypedData fetched.
+          const accountHash = resolveEip712AddressToAccountHash(value);
+          return accountHash
+            ? (getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null)
+            : null;
+        },
+        contractPackage,
       },
-      contractPackage,
-    });
+      [EIP712_CHAIN_NAME_KEY],
+    );
 
     const signingKeyType = deriveKeyType(signingPublicKeyHex);
     // getAccountInfoFromMap yields runtime `undefined` for a missing key; normalize to null for Maybe<>.
@@ -70,7 +74,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.signingKeyType = this.signingAccountInfo?.publicKey ? 'publicKey' : signingKeyType;
 
     this.network = network;
-    this.chainName = String(typedData.domain.chain_name ?? '');
+    this.chainName = String(typedData.domain[EIP712_CHAIN_NAME_KEY] ?? '');
     this.primaryType = typedData.primaryType;
     this.domainRows = domainRows;
     this.messageRows = messageRows;
