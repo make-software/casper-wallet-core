@@ -2,6 +2,14 @@ import { IEIP712Field, IEIP712TypedData } from '../../../domain';
 import { Maybe } from '../../../typings';
 import { getHashByType } from '../common';
 
+/**
+ * The EIP-712 domain key carrying the chain name. It is promoted to the dedicated
+ * `IEIP712SignatureRequest.chainName` field (and surfaced as a synthetic "Network" row by consumers),
+ * so it is excluded from the generic `domainRows` to avoid showing the same value twice. Keep the
+ * promote-and-exclude sites in sync via this single constant.
+ */
+export const EIP712_CHAIN_NAME_KEY = 'chain_name';
+
 /** Strip an optional `0x` prefix. */
 export const stripHexPrefix = (value: string): string =>
   value.startsWith('0x') ? value.slice(2) : value;

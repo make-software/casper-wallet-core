@@ -12,7 +12,7 @@ import {
 } from '../../../domain';
 import { buildTypedDataEIP712DisplayModel } from '../../../utils';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
-import { resolveEip712AddressToAccountHash } from './common';
+import { EIP712_CHAIN_NAME_KEY, resolveEip712AddressToAccountHash } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
   typedData: IEIP712TypedData;
@@ -60,7 +60,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
           : null;
       },
       contractPackage,
-    });
+    }, [EIP712_CHAIN_NAME_KEY]);
 
     const signingKeyType = deriveKeyType(signingPublicKeyHex);
     // getAccountInfoFromMap yields runtime `undefined` for a missing key; normalize to null for Maybe<>.
@@ -70,7 +70,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.signingKeyType = this.signingAccountInfo?.publicKey ? 'publicKey' : signingKeyType;
 
     this.network = network;
-    this.chainName = String(typedData.domain.chain_name ?? '');
+    this.chainName = String(typedData.domain[EIP712_CHAIN_NAME_KEY] ?? '');
     this.primaryType = typedData.primaryType;
     this.domainRows = domainRows;
     this.messageRows = messageRows;
