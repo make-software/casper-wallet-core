@@ -13,10 +13,10 @@ import {
   resolveDomainTypes,
   validateNoUnknownMessageFields,
   validatePrimaryType,
-  validateTypedDataFieldTypes,
+  validateTypedDataEIP712FieldTypes,
 } from './validation';
 
-export function computeTypedDataDigest(
+export function computeTypedDataEIP712Digest(
   typedData: IEIP712TypedData,
   options: IEIP712SignTypedDataOptions = {},
 ): IEIP712Digest {
@@ -25,7 +25,7 @@ export function computeTypedDataDigest(
 
   validatePrimaryType(types, primaryType);
   const resolvedDomainTypes = resolveDomainTypes(domain, types, domainTypes);
-  validateTypedDataFieldTypes(types);
+  validateTypedDataEIP712FieldTypes(types);
   if (rejectUnknownFields) {
     validateNoUnknownMessageFields(types, primaryType, message);
   }

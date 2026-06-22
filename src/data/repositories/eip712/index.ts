@@ -23,18 +23,18 @@ import {
 } from '../../../domain';
 import { Maybe } from '../../../typings';
 import {
-  buildTypedDataDisplayModel,
-  computeTypedDataDigest,
+  buildTypedDataEIP712DisplayModel,
+  computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
-  recoverTypedDataSignerAddress,
-  signTypedData as signTypedDataUtil,
-  signTypedDataDigestWithKey,
-  verifyTypedDataSignature,
+  recoverTypedDataEIP712SignerAddress,
+  signTypedDataEIP712 as signTypedDataEIP712Util,
+  signTypedDataEIP712DigestWithKey,
+  verifyTypedDataEIP712Signature,
 } from '../../../utils';
 import {
   EIP712_CHAIN_NAME_KEY,
   EIP712SignatureRequestDto,
-  getAccountHashesFromTypedData,
+  getAccountHashesFromTypedDataEIP712,
   stripHexPrefix,
 } from '../../dto';
 
@@ -43,7 +43,7 @@ import {
  * contract-package data over HTTP (best-effort — each lookup is isolated in its own try/catch, so a
  * flaky API never breaks the request). The other methods are synchronous pure-CPU work.
  *
- * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
+ * `computeDigest`, `signDigest` and `signTypedDataEIP712` wrap unexpected failures in {@link EIP712Error}.
  * `prepareSignatureRequest` surfaces digest/validation failures as {@link EIP712Error} (via
  * `computeDigest`) and swallows enrichment-lookup failures (best-effort). `recoverSigner` and
  * `verifySignature` surface raw library errors.
@@ -57,38 +57,42 @@ export class EIP712Repository implements IEIP712Repository {
 
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest {
     try {
-      return computeTypedDataDigest(typedData, options);
+      return computeTypedDataEIP712Digest(typedData, options);
     } catch (e) {
       throw isEIP712Error(e) ? e : new EIP712Error(e, 'computeDigest');
     }
   }
 
   buildDisplayModel(typedData: IEIP712TypedData): IEIP712DisplayModel {
-    return buildTypedDataDisplayModel(typedData);
+    return buildTypedDataEIP712DisplayModel(typedData);
   }
 
   signDigest({ privateKey, digest }: IEIP712SignDigestParams): IEIP712SignResult {
     try {
-      return signTypedDataDigestWithKey(privateKey, digest);
+      return signTypedDataEIP712DigestWithKey(privateKey, digest);
     } catch (e) {
       throw isEIP712Error(e) ? e : new EIP712Error(e, 'signDigest');
     }
   }
 
-  signTypedData({ typedData, privateKey, options }: IEIP712SignTypedDataParams): IEIP712SignResult {
+  signTypedDataEIP712({
+    typedData,
+    privateKey,
+    options,
+  }: IEIP712SignTypedDataParams): IEIP712SignResult {
     try {
-      return signTypedDataUtil(typedData, privateKey, options);
+      return signTypedDataEIP712Util(typedData, privateKey, options);
     } catch (e) {
-      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signTypedData');
+      throw isEIP712Error(e) ? e : new EIP712Error(e, 'signTypedDataEIP712');
     }
   }
 
   recoverSigner(params: IEIP712RecoverSignerParams): string {
-    return recoverTypedDataSignerAddress(params);
+    return recoverTypedDataEIP712SignerAddress(params);
   }
 
   verifySignature(params: IEIP712VerifySignatureParams): boolean {
-    return verifyTypedDataSignature(params);
+    return verifyTypedDataEIP712Signature(params);
   }
 
   async prepareSignatureRequest({
@@ -112,7 +116,7 @@ export class EIP712Repository implements IEIP712Repository {
 
     if (network) {
       // Pure-CPU; kept outside the try so a bug here surfaces instead of being mislabeled API flakiness.
-      const accountHashes = getAccountHashesFromTypedData(typedData, signingPublicKeyHex);
+      const accountHashes = getAccountHashesFromTypedDataEIP712(typedData, signingPublicKeyHex);
       try {
         accountInfoMap = await this._accountInfoRepository.getAccountsInfo({
           accountHashes,

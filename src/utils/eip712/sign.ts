@@ -7,7 +7,7 @@ import {
   IEIP712TypedData,
 } from '../../domain';
 import { convertBytesToHex } from '../crypto';
-import { computeTypedDataDigest } from './digest';
+import { computeTypedDataEIP712Digest } from './digest';
 
 /**
  * Sign an EIP-712 digest with a casper-js-sdk PrivateKey.
@@ -22,7 +22,7 @@ import { computeTypedDataDigest } from './digest';
  * secp256k1 path applies a SHA-256 prehash; ed25519 receives and signs the digest bytes directly
  * with NO internal prehash.
  */
-export function signTypedDataDigestWithKey(
+export function signTypedDataEIP712DigestWithKey(
   privateKey: PrivateKey,
   digestHex: string,
 ): IEIP712SignResult {
@@ -34,22 +34,22 @@ export function signTypedDataDigestWithKey(
   };
 }
 
-export function signTypedDataWithRawKey(
+export function signTypedDataEIP712WithRawKey(
   scalarBytes: Uint8Array,
   scheme: EIP712SignatureScheme,
   digestHex: string,
 ): IEIP712SignResult {
   const algorithm = scheme === 'ed25519' ? KeyAlgorithm.ED25519 : KeyAlgorithm.SECP256K1;
   const privateKey = PrivateKey.fromHex(convertBytesToHex(scalarBytes), algorithm);
-  return signTypedDataDigestWithKey(privateKey, digestHex);
+  return signTypedDataEIP712DigestWithKey(privateKey, digestHex);
 }
 
-export function signTypedData(
+export function signTypedDataEIP712(
   typedData: IEIP712TypedData,
   privateKey: PrivateKey,
   options: IEIP712SignTypedDataOptions = {},
 ): IEIP712SignResult {
-  const { digest, hashArtifacts } = computeTypedDataDigest(typedData, options);
-  const result = signTypedDataDigestWithKey(privateKey, digest);
+  const { digest, hashArtifacts } = computeTypedDataEIP712Digest(typedData, options);
+  const result = signTypedDataEIP712DigestWithKey(privateKey, digest);
   return hashArtifacts ? { ...result, hashArtifacts } : result;
 }

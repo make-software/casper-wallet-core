@@ -15,11 +15,11 @@ import { resolveDomainTypes } from './validation';
 
 /**
  * NOTE: these wrappers are secp256k1 / Ethereum-style. `signature` must be the raw 65-byte
- * recoverable signature (r‖s‖v) and `recoverTypedDataSignerAddress` returns a 0x-prefixed 20-byte
+ * recoverable signature (r‖s‖v) and `recoverTypedDataEIP712SignerAddress` returns a 0x-prefixed 20-byte
  * Ethereum address. They do NOT accept the wallet's `02`-prefixed 64-byte wire format and do NOT
  * apply to ed25519 (use the native key's verifySignature for ed25519).
  */
-export function recoverTypedDataSignerAddress({
+export function recoverTypedDataEIP712SignerAddress({
   typedData,
   signature,
   options,
@@ -38,7 +38,7 @@ export function recoverTypedDataSignerAddress({
 }
 
 /** secp256k1 only; `signature` is the raw 65-byte recoverable sig (r‖s‖v) over the keccak256 digest. */
-export function verifyTypedDataSignature({
+export function verifyTypedDataEIP712Signature({
   digest,
   signature,
   expectedAddress,

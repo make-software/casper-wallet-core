@@ -8,7 +8,7 @@ export function validatePrimaryType(types: IEIP712Types, primaryType: string): v
   if (!types[primaryType]) {
     throw new EIP712Error(
       new Error(`Primary type "${primaryType}" not found in type definitions`),
-      'validateTypedData',
+      'validateTypedDataEIP712',
       SignTypedDataErrorCodes.INVALID_PARAMS,
     );
   }
@@ -42,13 +42,13 @@ export function resolveDomainTypes(
   return CASPER_DOMAIN_TYPES.filter(f => domain[f.name] != null);
 }
 
-export function validateTypedDataFieldTypes(types: IEIP712Types): void {
+export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
   for (const [typeName, fields] of Object.entries(types)) {
     for (const field of fields) {
       if (ARRAY_PATTERN.test(field.type)) {
         throw new EIP712Error(
           new Error(`Array types are not supported: "${field.type}" in ${typeName}.${field.name}`),
-          'validateTypedData',
+          'validateTypedDataEIP712',
           SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
         );
       }
@@ -57,7 +57,7 @@ export function validateTypedDataFieldTypes(types: IEIP712Types): void {
           new Error(
             `bytes1..bytes31 types are not supported: "${field.type}" in ${typeName}.${field.name}`,
           ),
-          'validateTypedData',
+          'validateTypedDataEIP712',
           SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
         );
       }
@@ -75,7 +75,7 @@ export function validateNoUnknownMessageFields(
     if (!knownFields.has(key)) {
       throw new EIP712Error(
         new Error(`Unknown field "${key}" in message not defined in type "${primaryType}"`),
-        'validateTypedData',
+        'validateTypedDataEIP712',
         SignTypedDataErrorCodes.INVALID_PARAMS,
       );
     }

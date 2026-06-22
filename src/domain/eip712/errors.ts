@@ -9,11 +9,11 @@ export type SignTypedDataErrorCode =
   (typeof SignTypedDataErrorCodes)[keyof typeof SignTypedDataErrorCodes];
 
 export type EIP712ErrorType =
-  | 'validateTypedData'
+  | 'validateTypedDataEIP712'
   | 'resolveDomainTypes'
   | 'computeDigest'
   | 'signDigest'
-  | 'signTypedData'
+  | 'signTypedDataEIP712'
   | 'prepareSignatureRequest';
 
 export type IEIP712Error = IDomainError<EIP712ErrorType> & {
