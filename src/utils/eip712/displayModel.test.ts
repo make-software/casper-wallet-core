@@ -134,12 +134,12 @@ describe('buildTypedDataEIP712DisplayModel', () => {
   });
 
   it('keeps all domain keys when excludeDomainKeys is not provided', () => {
-    const model = buildTypedDataDisplayModel(typedData);
+    const model = buildTypedDataEIP712DisplayModel(typedData);
     expect(model.domainRows.find(r => r.label === 'Chain Name')).toBeDefined();
   });
 
   it('omits domain keys listed in excludeDomainKeys', () => {
-    const model = buildTypedDataDisplayModel(typedData, {}, ['chain_name']);
+    const model = buildTypedDataEIP712DisplayModel(typedData, {}, ['chain_name']);
     expect(model.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
     expect(model.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
     expect(model.messageRows.find(r => r.label === 'Owner')).toBeDefined();
