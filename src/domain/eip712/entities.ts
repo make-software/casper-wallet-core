@@ -39,7 +39,7 @@ export interface IEIP712Digest {
   hashArtifacts?: IEIP712HashArtifacts;
 }
 
-export type EIP712FieldPresentation = 'hash' | 'number' | 'account' | 'string';
+export type EIP712FieldPresentation = 'hash' | 'number' | 'account' | 'string' | 'date';
 
 export interface IEIP712DisplayRow {
   label: string;

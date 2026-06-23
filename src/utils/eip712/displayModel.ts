@@ -1,4 +1,5 @@
 import { formatAddress } from '../address';
+import { formatDeployDetailsTimestamp } from '../date';
 import {
   EIP712FieldPresentation,
   IAccountInfo,
@@ -12,6 +13,36 @@ import { Maybe } from '../../typings';
 
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
+
+const DATE_FIELD_NAMES = new Set([
+  'validafter',
+  'validbefore',
+  'validuntil',
+  'deadline',
+  'expiry',
+  'expiration',
+]);
+
+/** Unix values at/above this are already milliseconds; below are seconds. */
+const MS_THRESHOLD = 1e12;
+
+/** Format an EIP-712 unix timestamp (seconds, or ms when >= 1e12). Null on non-positive/unparseable. */
+export function formatEip712Date(value: string): Maybe<string> {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return null;
+  }
+  const ms = num >= MS_THRESHOLD ? num : num * 1000;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return formatDeployDetailsTimestamp(date.toISOString());
+}
+
+function isDateField(name: string, type: string): boolean {
+  return DATE_FIELD_NAMES.has(name.toLowerCase()) && NUMBER_TYPE_REGEX.test(type);
+}
 
 export function getPresentationForType(type: string): EIP712FieldPresentation {
   if (type === 'address') {
@@ -39,7 +70,10 @@ export function keyToLabel(key: string): string {
     case 'contract_package_hash':
       return 'Package Hash';
     default:
-      return key.replace(/_/g, ' ').replace(/\b\w/g, match => match.toUpperCase());
+      return key
+        .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase: validAfter → valid After
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, match => match.toUpperCase());
   }
 }
 
@@ -64,7 +98,12 @@ function toRow(
   // `types.EIP712Domain` (so `type` is '') or send it as `string`, which would otherwise classify it
   // as 'string' and leave the value un-shortened and non-copyable. Force hash presentation by key.
   const isContractPackageHash = section === 'domain' && key === 'contract_package_hash';
-  const presentation = isContractPackageHash ? 'hash' : getPresentationForType(type);
+  const formattedDate = isDateField(key, type) ? formatEip712Date(value) : null;
+  const presentation: EIP712FieldPresentation = isContractPackageHash
+    ? 'hash'
+    : formattedDate
+      ? 'date'
+      : getPresentationForType(type);
   const isHashLike = presentation === 'hash' || presentation === 'account';
 
   const accountInfo =
@@ -79,7 +118,8 @@ function toRow(
   return {
     label: keyToLabel(key),
     value,
-    displayValue: isHashLike ? formatAddress(value, 'short') : value,
+    displayValue:
+      presentation === 'date' ? formattedDate! : isHashLike ? formatAddress(value, 'short') : value,
     presentation,
     type,
     copyValue: isHashLike ? value : null,
