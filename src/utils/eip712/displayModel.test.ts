@@ -1,5 +1,6 @@
 import {
   buildTypedDataEIP712DisplayModel,
+  formatEip712Date,
   getPresentationForType,
   keyToLabel,
 } from './displayModel';
@@ -35,6 +36,9 @@ describe('keyToLabel', () => {
   });
   it('title-cases snake_case otherwise', () => {
     expect(keyToLabel('chain_name')).toBe('Chain Name');
+  });
+  it('splits camelCase field names', () => {
+    expect(keyToLabel('validAfter')).toBe('Valid After');
   });
 });
 
@@ -143,5 +147,86 @@ describe('buildTypedDataEIP712DisplayModel', () => {
     expect(model.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
     expect(model.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
     expect(model.messageRows.find(r => r.label === 'Owner')).toBeDefined();
+  });
+});
+
+describe('formatEip712Date', () => {
+  it('formats unix seconds', () => {
+    // 2026-06-23T21:00:00Z = 1782680400 s
+    const out = formatEip712Date('1782680400');
+    expect(out).not.toBeNull();
+    expect(out).toContain('2026');
+  });
+  it('treats values >= 1e12 as milliseconds', () => {
+    expect(formatEip712Date('1782680400000')).toContain('2026');
+  });
+  it('returns null for non-numeric, non-positive, or invalid input', () => {
+    expect(formatEip712Date('not-a-number')).toBeNull();
+    expect(formatEip712Date('0')).toBeNull();
+    expect(formatEip712Date('-5')).toBeNull();
+  });
+  it('returns null when the value is past the representable Date range', () => {
+    expect(formatEip712Date('1e30')).toBeNull();
+  });
+});
+
+describe('buildTypedDataEIP712DisplayModel — dates', () => {
+  const base = {
+    domain: { chain_name: 'casper' },
+    types: {
+      EIP712Domain: [{ name: 'chain_name', type: 'string' }],
+      Auth: [
+        { name: 'validAfter', type: 'uint256' },
+        { name: 'validBefore', type: 'uint256' },
+        { name: 'value', type: 'uint256' },
+        { name: 'note', type: 'string' },
+      ],
+    },
+    primaryType: 'Auth',
+    message: {
+      validAfter: '1782680400',
+      validBefore: '1782684000',
+      value: '1000',
+      note: 'hi',
+    },
+  };
+
+  it('renders known timestamp fields as date presentation', () => {
+    const model = buildTypedDataEIP712DisplayModel(base);
+    const va = model.messageRows.find(r => r.label === 'Valid After')!;
+    expect(va.presentation).toBe('date');
+    expect(va.displayValue).not.toBe('1782680400');
+    expect(va.displayValue).toContain('2026');
+    expect(va.copyValue).toBeNull();
+    expect(model.messageRows.find(r => r.label === 'Valid Before')!.presentation).toBe('date');
+  });
+
+  it('leaves a non-timestamp numeric field as number', () => {
+    const value = buildTypedDataEIP712DisplayModel(base).messageRows.find(
+      r => r.label === 'Value',
+    )!;
+    expect(value.presentation).toBe('number');
+    expect(value.displayValue).toBe('1000');
+  });
+
+  it('does not treat a date-named non-numeric field as a date', () => {
+    const td = {
+      ...base,
+      types: { ...base.types, Auth: [{ name: 'validAfter', type: 'string' }] },
+      message: { validAfter: 'soon' },
+    };
+    const row = buildTypedDataEIP712DisplayModel(td).messageRows.find(
+      r => r.label === 'Valid After',
+    )!;
+    expect(row.presentation).toBe('string');
+  });
+
+  it('falls back to number when a timestamp value is unparseable', () => {
+    const td = { ...base, message: { ...base.message, validAfter: 'oops' } };
+    const row = buildTypedDataEIP712DisplayModel(td).messageRows.find(
+      r => r.label === 'Valid After',
+    )!;
+    expect(row.presentation).toBe('number');
+    expect(row.displayValue).toBe('oops');
   });
 });
