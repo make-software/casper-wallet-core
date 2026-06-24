@@ -21,7 +21,6 @@ import {
   IPrepareEIP712SignatureRequestParams,
   isEIP712Error,
 } from '../../../domain';
-import { Maybe } from '../../../typings';
 import {
   buildTypedDataEIP712DisplayModel,
   computeTypedDataEIP712Digest,
@@ -35,7 +34,7 @@ import {
   EIP712_CHAIN_NAME_KEY,
   EIP712SignatureRequestDto,
   getAccountHashesFromTypedDataEIP712,
-  stripHexPrefix,
+  getPackageHashesFromTypedDataEIP712,
 } from '../../dto';
 
 /**
@@ -110,7 +109,7 @@ export class EIP712Repository implements IEIP712Repository {
       null;
 
     let accountInfoMap: Record<string, IAccountInfo> = {};
-    let contractPackage: Maybe<IContractPackage> = null;
+    let contractPackageMap: Record<string, IContractPackage> = {};
     let accounts: EIP712EnrichmentStatus = 'skipped';
     let contractPackageStatus: EIP712ContractEnrichmentStatus = 'skipped';
 
@@ -132,24 +131,32 @@ export class EIP712Repository implements IEIP712Repository {
         this._logger.reportError(e, 'EIP712Repository.prepareSignatureRequest: getAccountsInfo');
       }
 
-      const contractPackageHash = typedData.domain.contract_package_hash;
-      if (contractPackageHash) {
-        try {
-          contractPackage = await this._contractPackageRepository.getContractPackage({
-            contractPackageHash: stripHexPrefix(String(contractPackageHash)),
-            network,
-            withProxyHeader,
-          });
-          contractPackageStatus = 'ok';
-        } catch (e) {
-          contractPackageStatus = 'failed';
-          this._logger.reportError(
-            e,
-            'EIP712Repository.prepareSignatureRequest: getContractPackage',
-          );
-        }
-      } else {
+      const packageHashes = getPackageHashesFromTypedDataEIP712(typedData);
+      if (packageHashes.length === 0) {
         contractPackageStatus = 'absent';
+      } else {
+        let anyOk = false;
+        let anyFailed = false;
+        for (const packageHash of packageHashes) {
+          try {
+            const pkg = await this._contractPackageRepository.getContractPackage({
+              contractPackageHash: packageHash,
+              network,
+              withProxyHeader,
+            });
+            if (pkg) {
+              contractPackageMap[packageHash] = pkg;
+            }
+            anyOk = true;
+          } catch (e) {
+            anyFailed = true;
+            this._logger.reportError(
+              e,
+              'EIP712Repository.prepareSignatureRequest: getContractPackage',
+            );
+          }
+        }
+        contractPackageStatus = anyOk ? 'ok' : anyFailed ? 'failed' : 'absent';
       }
     }
 
@@ -161,7 +168,7 @@ export class EIP712Repository implements IEIP712Repository {
         digest,
         hashArtifacts,
         accountInfoMap,
-        contractPackage,
+        contractPackageMap,
         enrichment: { accounts, contractPackage: contractPackageStatus },
       });
     } catch (e) {

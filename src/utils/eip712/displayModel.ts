@@ -10,18 +10,12 @@ import {
   IEIP712Types,
 } from '../../domain';
 import { Maybe } from '../../typings';
+import { decodeEip712Address } from './address';
 
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
 
-const DATE_FIELD_NAMES = new Set([
-  'validafter',
-  'validbefore',
-  'validuntil',
-  'deadline',
-  'expiry',
-  'expiration',
-]);
+const DATE_FIELD_NAMES = new Set(['validafter', 'validbefore', 'deadline']);
 
 /** Unix values at/above this are already milliseconds; below are seconds. */
 const MS_THRESHOLD = 1e12;
@@ -38,6 +32,23 @@ export function formatEip712Date(value: string): Maybe<string> {
     return null;
   }
   return formatDeployDetailsTimestamp(date.toISOString());
+}
+
+const U64_MAX = 18446744073709551615n;
+
+/** Friendly text for EIP-712 timestamp sentinels, else null. */
+function dateSentinelLabel(value: string): Maybe<string> {
+  if (value.trim() === '') {
+    return null;
+  }
+  try {
+    const n = BigInt(value);
+    if (n === 0n) return 'Always';
+    if (n >= U64_MAX) return 'No expiry';
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function isDateField(name: string, type: string): boolean {
@@ -80,11 +91,11 @@ export function keyToLabel(key: string): string {
 /**
  * @internal
  * Optional enrichment for display rows. `utils` stays free of `data`-layer imports: the data layer
- * passes a closure (over `getAccountInfoFromMap`) and the already-fetched contract package.
+ * passes closures keyed by the decoded hash (not the raw tagged value).
  */
 export interface IEIP712DisplayEnrichment {
-  resolveAccountInfo?: (rawValue: string) => Maybe<IAccountInfo>;
-  contractPackage?: Maybe<IContractPackage>;
+  resolveAccountInfo?: (accountHash: string) => Maybe<IAccountInfo>;
+  resolveContractPackage?: (packageHash: string) => Maybe<IContractPackage>;
 }
 
 function toRow(
@@ -94,37 +105,90 @@ function toRow(
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
 ): IEIP712DisplayRow {
-  // The domain `contract_package_hash` is semantically always a hash. Some payloads omit it from
-  // `types.EIP712Domain` (so `type` is '') or send it as `string`, which would otherwise classify it
-  // as 'string' and leave the value un-shortened and non-copyable. Force hash presentation by key.
-  const isContractPackageHash = section === 'domain' && key === 'contract_package_hash';
-  const formattedDate = isDateField(key, type) ? formatEip712Date(value) : null;
-  const presentation: EIP712FieldPresentation = isContractPackageHash
-    ? 'hash'
-    : formattedDate
-      ? 'date'
-      : getPresentationForType(type);
+  const label = keyToLabel(key);
+
+  // Domain contract_package_hash is a bytes32 (no Key tag) — always a package hash.
+  if (section === 'domain' && key === 'contract_package_hash') {
+    const packageHash = value.startsWith('0x') ? value.slice(2) : value;
+    return {
+      label,
+      value: packageHash,
+      displayValue: formatAddress(packageHash, 'short'),
+      presentation: 'hash',
+      type,
+      copyValue: packageHash,
+      accountInfo: null,
+      contractPackage: enrichment.resolveContractPackage?.(packageHash) ?? null,
+    };
+  }
+
+  // address fields are Casper Keys: 0x00 = account, 0x01 = package.
+  if (type === 'address') {
+    const { kind, hash } = decodeEip712Address(value);
+    if (kind === 'account' && hash) {
+      return {
+        label,
+        value: hash,
+        displayValue: formatAddress(hash, 'short'),
+        presentation: 'account',
+        type,
+        copyValue: hash,
+        accountInfo: enrichment.resolveAccountInfo?.(hash) ?? null,
+        contractPackage: null,
+      };
+    }
+    if (kind === 'package' && hash) {
+      return {
+        label,
+        value: hash,
+        displayValue: formatAddress(hash, 'short'),
+        presentation: 'hash',
+        type,
+        copyValue: hash,
+        accountInfo: null,
+        contractPackage: enrichment.resolveContractPackage?.(hash) ?? null,
+      };
+    }
+    return {
+      label,
+      value,
+      displayValue: formatAddress(value, 'short'),
+      presentation: 'hash',
+      type,
+      copyValue: value,
+      accountInfo: null,
+      contractPackage: null,
+    };
+  }
+
+  // Known timestamp fields -> date (with sentinels), else fall through.
+  if (isDateField(key, type)) {
+    const formatted = dateSentinelLabel(value) ?? formatEip712Date(value);
+    if (formatted) {
+      return {
+        label,
+        value,
+        displayValue: formatted,
+        presentation: 'date',
+        type,
+        copyValue: null,
+        accountInfo: null,
+        contractPackage: null,
+      };
+    }
+  }
+
+  const presentation = getPresentationForType(type);
   const isHashLike = presentation === 'hash' || presentation === 'account';
-
-  const accountInfo =
-    presentation === 'account' && enrichment.resolveAccountInfo
-      ? enrichment.resolveAccountInfo(value)
-      : null;
-  const contractPackage =
-    section === 'domain' && key === 'contract_package_hash'
-      ? (enrichment.contractPackage ?? null)
-      : null;
-
   return {
-    label: keyToLabel(key),
+    label,
     value,
-    displayValue:
-      presentation === 'date' ? formattedDate! : isHashLike ? formatAddress(value, 'short') : value,
+    displayValue: isHashLike ? formatAddress(value, 'short') : value,
     presentation,
     type,
     copyValue: isHashLike ? value : null,
-    accountInfo,
-    contractPackage,
+    accountInfo: null,
+    contractPackage: null,
   };
 }
 

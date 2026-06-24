@@ -1,3 +1,4 @@
+export * from './address';
 export * from './validation';
 export * from './digest';
 export * from './displayModel';
