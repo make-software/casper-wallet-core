@@ -41,6 +41,11 @@ describe('casperSdk helpers', () => {
     it('returns null for unknown chain', () => {
       expect(getCasperNetworkByChainName('bogus')).toBeNull();
     });
+
+    it('resolves a CAIP-2 chain name by its reference segment', () => {
+      expect(getCasperNetworkByChainName('casper:casper-test')).toBe('testnet');
+      expect(getCasperNetworkByChainName('casper:casper')).toBe('mainnet');
+    });
   });
 
   describe('getBlockExplorerAccountUrl', () => {

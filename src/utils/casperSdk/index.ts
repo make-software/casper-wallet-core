@@ -1,4 +1,4 @@
-import { CasperNetworkName, PublicKey } from 'casper-js-sdk';
+import { PublicKey } from 'casper-js-sdk';
 import { casperChainNameToCasperNetwork, CasperLiveUrl, CasperNetwork } from '../../domain';
 import { Maybe } from '../../typings';
 
@@ -15,15 +15,24 @@ import { Maybe } from '../../typings';
 export const getAccountHashFromPublicKey = (publicKey: string): string =>
   PublicKey.fromHex(publicKey).accountHash().toHex();
 
-/** Accepts CasperNetwork and CasperNetworkName chainNames */
-export const getCasperNetworkByChainName = (chainName: string): Maybe<CasperNetwork> => {
-  const networks: CasperNetwork[] = ['mainnet', 'testnet', 'devnet', 'integration'];
+const CASPER_NETWORKS = new Set<string>(['mainnet', 'testnet', 'devnet', 'integration']);
 
-  if (networks.includes(chainName as CasperNetwork)) {
-    return chainName as CasperNetwork;
+const isCasperNetwork = (value: string): value is CasperNetwork => CASPER_NETWORKS.has(value);
+
+/** Accepts CasperNetwork and CasperNetworkName chainNames, incl. CAIP-2 (e.g. "casper:casper-test"). */
+export const getCasperNetworkByChainName = (chainName: string): Maybe<CasperNetwork> => {
+  // CAIP-2 (e.g. "casper:casper-test") — use the reference segment after the last ':'.
+  const name = chainName.includes(':')
+    ? chainName.slice(chainName.lastIndexOf(':') + 1)
+    : chainName;
+
+  if (isCasperNetwork(name)) {
+    return name;
   }
 
-  return casperChainNameToCasperNetwork[chainName as CasperNetworkName] ?? null;
+  // Dynamic string lookup into a Record<CasperNetworkName, CasperNetwork>: widen the key type
+  // instead of asserting `name` is a valid enum member.
+  return (casperChainNameToCasperNetwork as Record<string, CasperNetwork>)[name] ?? null;
 };
 
 export const getBlockExplorerAccountUrl = (
