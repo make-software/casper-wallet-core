@@ -34,7 +34,9 @@ export function formatEip712Date(value: string): Maybe<string> {
   return formatDeployDetailsTimestamp(date.toISOString());
 }
 
-const U64_MAX = 18446744073709551615n;
+// BigInt() calls, not `n` literals: consumers compile this source under target es2017
+// (e.g. casper-wallet), where BigInt literals are a TS2737 error.
+const U64_MAX = BigInt('18446744073709551615');
 
 /** Friendly text for EIP-712 timestamp sentinels, else null. */
 function dateSentinelLabel(value: string): Maybe<string> {
@@ -43,7 +45,7 @@ function dateSentinelLabel(value: string): Maybe<string> {
   }
   try {
     const n = BigInt(value);
-    if (n === 0n) return 'Always';
+    if (n === BigInt(0)) return 'Always';
     if (n >= U64_MAX) return 'No expiry';
     return null;
   } catch {
