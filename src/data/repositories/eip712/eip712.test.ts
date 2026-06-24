@@ -226,6 +226,34 @@ describe('EIP712Repository', () => {
     );
   });
 
+  it('reports contractPackage as partial when some lookups succeed and others throw', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository, logger } = buildRepo();
+    const err = new Error('pkg');
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    // Two unique package hashes: domain ('01'…) resolves, message-tagged ('03'…) throws.
+    jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockImplementation(async ({ contractPackageHash }) => {
+        if (contractPackageHash === '03'.repeat(32)) {
+          throw err;
+        }
+        return pkg;
+      });
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'partial' });
+    // The resolved package is still mapped; the failed one is silently absent.
+    expect(req.domainRows.find(row => row.label === 'Package Hash')!.contractPackage).toEqual(pkg);
+    expect(logger.reportError).toHaveBeenCalledWith(
+      err,
+      expect.stringContaining('getContractPackage'),
+    );
+  });
+
   it('skips lookups when the network is unmappable and none is provided', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});

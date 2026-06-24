@@ -135,28 +135,37 @@ export class EIP712Repository implements IEIP712Repository {
       if (packageHashes.length === 0) {
         contractPackageStatus = 'absent';
       } else {
-        let anyOk = false;
-        let anyFailed = false;
-        for (const packageHash of packageHashes) {
-          try {
-            const pkg = await this._contractPackageRepository.getContractPackage({
+        // Independent lookups — run in parallel, but keep per-package isolation so one failure
+        // doesn't reject the batch (unlike account info, which is a single batched call).
+        const results = await Promise.allSettled(
+          packageHashes.map(packageHash =>
+            this._contractPackageRepository.getContractPackage({
               contractPackageHash: packageHash,
               network,
               withProxyHeader,
-            });
-            if (pkg) {
-              contractPackageMap[packageHash] = pkg;
+            }),
+          ),
+        );
+
+        let anyOk = false;
+        let anyFailed = false;
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            if (result.value) {
+              contractPackageMap[packageHashes[i]] = result.value;
             }
             anyOk = true;
-          } catch (e) {
+          } else {
             anyFailed = true;
             this._logger.reportError(
-              e,
+              result.reason,
               'EIP712Repository.prepareSignatureRequest: getContractPackage',
             );
           }
-        }
-        contractPackageStatus = anyOk ? 'ok' : anyFailed ? 'failed' : 'absent';
+        });
+        // Distinguish a degraded `partial` (some succeeded, some threw) from a clean `ok`/`failed`,
+        // so consumers can surface a partial-enrichment warning instead of trusting a coarse `ok`.
+        contractPackageStatus = anyOk ? (anyFailed ? 'partial' : 'ok') : 'failed';
       }
     }
 

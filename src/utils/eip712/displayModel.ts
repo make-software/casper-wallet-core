@@ -15,7 +15,10 @@ import { decodeEip712Address } from './address';
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
 
-const DATE_FIELD_NAMES = new Set(['validafter', 'validbefore', 'deadline']);
+// Lower-bound (valid-from) fields: 0 = valid since the epoch, u64::MAX = never reaches validity.
+const LOWER_BOUND_DATE_FIELDS = new Set(['validafter']);
+// Upper-bound (valid-until) fields: 0 = already expired, u64::MAX = no expiry.
+const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline']);
 
 /** Unix values at/above this are already milliseconds; below are seconds. */
 const MS_THRESHOLD = 1e12;
@@ -38,23 +41,33 @@ export function formatEip712Date(value: string): Maybe<string> {
 // (e.g. casper-wallet), where BigInt literals are a TS2737 error.
 const U64_MAX = BigInt('18446744073709551615');
 
-/** Friendly text for EIP-712 timestamp sentinels, else null. */
-function dateSentinelLabel(value: string): Maybe<string> {
+/**
+ * Friendly text for EIP-712 timestamp sentinels, else null. The label depends on the field's role:
+ * the same 0 / u64::MAX value means the opposite for a lower bound (valid-from) vs an upper bound
+ * (valid-until), so a shared mapping would mislabel one of them in a signing UI.
+ */
+function dateSentinelLabel(name: string, value: string): Maybe<string> {
   if (value.trim() === '') {
     return null;
   }
+  let n: bigint;
   try {
-    const n = BigInt(value);
-    if (n === BigInt(0)) return 'Always';
-    if (n >= U64_MAX) return 'No expiry';
-    return null;
+    n = BigInt(value);
   } catch {
     return null;
   }
+  const isLowerBound = LOWER_BOUND_DATE_FIELDS.has(name.toLowerCase());
+  if (n === BigInt(0)) return isLowerBound ? 'Always' : 'Expired';
+  if (n >= U64_MAX) return isLowerBound ? 'Never' : 'No expiry';
+  return null;
 }
 
 function isDateField(name: string, type: string): boolean {
-  return DATE_FIELD_NAMES.has(name.toLowerCase()) && NUMBER_TYPE_REGEX.test(type);
+  const lower = name.toLowerCase();
+  return (
+    (LOWER_BOUND_DATE_FIELDS.has(lower) || UPPER_BOUND_DATE_FIELDS.has(lower)) &&
+    NUMBER_TYPE_REGEX.test(type)
+  );
 }
 
 export function getPresentationForType(type: string): EIP712FieldPresentation {
@@ -165,7 +178,7 @@ function toRow(
 
   // Known timestamp fields -> date (with sentinels), else fall through.
   if (isDateField(key, type)) {
-    const formatted = dateSentinelLabel(value) ?? formatEip712Date(value);
+    const formatted = dateSentinelLabel(key, value) ?? formatEip712Date(value);
     if (formatted) {
       return {
         label,

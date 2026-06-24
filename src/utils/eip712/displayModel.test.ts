@@ -263,6 +263,28 @@ describe('buildTypedDataEIP712DisplayModel — date sentinels & trim', () => {
     expect(model.messageRows.find(r => r.label === 'Valid Before')!.displayValue).toBe('No expiry');
   });
 
+  it('keys the sentinel label on field role, not just the value', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      td(
+        {
+          validAfter: '18446744073709551615',
+          validBefore: '0',
+          deadline: '0',
+        },
+        [
+          { name: 'validAfter', type: 'uint256' },
+          { name: 'validBefore', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      ),
+    );
+    // Lower bound at u64::MAX is never reachable, not "no expiry".
+    expect(model.messageRows.find(r => r.label === 'Valid After')!.displayValue).toBe('Never');
+    // Upper bound at 0 is already expired, not "always".
+    expect(model.messageRows.find(r => r.label === 'Valid Before')!.displayValue).toBe('Expired');
+    expect(model.messageRows.find(r => r.label === 'Deadline')!.displayValue).toBe('Expired');
+  });
+
   it('no longer treats validUntil/expiry as dates (trimmed)', () => {
     const row = buildTypedDataEIP712DisplayModel(
       td({ validUntil: '1782680400' }, [{ name: 'validUntil', type: 'uint256' }]),
