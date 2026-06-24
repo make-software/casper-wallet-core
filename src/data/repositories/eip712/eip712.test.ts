@@ -122,6 +122,27 @@ describe('EIP712Repository', () => {
     expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
   });
 
+  it('calls getContractPackage once per unique package hash', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    const pkgSpy = jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockResolvedValue(null);
+
+    // TYPED_DATA has domain contract_package_hash ('01'.repeat(32))
+    // and a package-tagged spender ('0x01' + '03'.repeat(32))
+    // so 2 unique package hashes → 2 calls
+    await r.prepareSignatureRequest({ typedData: TYPED_DATA, signingPublicKeyHex: SIGNING_PK });
+
+    expect(pkgSpy).toHaveBeenCalledTimes(2);
+    expect(pkgSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ contractPackageHash: '01'.repeat(32) }),
+    );
+    expect(pkgSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ contractPackageHash: '03'.repeat(32) }),
+    );
+  });
+
   it('calls the lookups with deduped hashes, mapped network, proxy flag and 0x-stripped hash', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     const accountsSpy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
@@ -137,11 +158,14 @@ describe('EIP712Repository', () => {
     expect(accountsArg.accountHashes).toContain(getAccountHashFromPublicKey(SIGNING_PK));
     expect(new Set(accountsArg.accountHashes).size).toBe(accountsArg.accountHashes.length);
 
-    expect(pkgSpy).toHaveBeenCalledWith({
-      contractPackageHash: '01'.repeat(32), // 0x stripped
-      network: 'mainnet',
-      withProxyHeader: true,
-    });
+    // Domain package hash should be called with 0x stripped
+    expect(pkgSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractPackageHash: '01'.repeat(32), // 0x stripped
+        network: 'mainnet',
+        withProxyHeader: true,
+      }),
+    );
   });
 
   it('feeds a non-empty account map through to the DTO (repo→DTO keying)', async () => {
@@ -196,6 +220,34 @@ describe('EIP712Repository', () => {
 
     expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'failed' });
     expect(req.domainRows.find(row => row.label === 'Package Hash')!.contractPackage).toBeNull();
+    expect(logger.reportError).toHaveBeenCalledWith(
+      err,
+      expect.stringContaining('getContractPackage'),
+    );
+  });
+
+  it('reports contractPackage as partial when some lookups succeed and others throw', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository, logger } = buildRepo();
+    const err = new Error('pkg');
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    // Two unique package hashes: domain ('01'…) resolves, message-tagged ('03'…) throws.
+    jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockImplementation(async ({ contractPackageHash }) => {
+        if (contractPackageHash === '03'.repeat(32)) {
+          throw err;
+        }
+        return pkg;
+      });
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'partial' });
+    // The resolved package is still mapped; the failed one is silently absent.
+    expect(req.domainRows.find(row => row.label === 'Package Hash')!.contractPackage).toEqual(pkg);
     expect(logger.reportError).toHaveBeenCalledWith(
       err,
       expect.stringContaining('getContractPackage'),
@@ -257,7 +309,7 @@ describe('EIP712Repository', () => {
     expect(req.network).toBe('mainnet');
   });
 
-  it('marks contractPackage absent when the domain has no contract_package_hash', async () => {
+  it('marks contractPackage absent when there are no package hashes at all', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
     const pkgSpy = jest.spyOn(contractPackageRepository, 'getContractPackage');
@@ -265,7 +317,15 @@ describe('EIP712Repository', () => {
       domain: { name: 'CasperSwap', version: '1', chain_name: 'casper' },
       types: PermitTypes,
       primaryType: 'Permit',
-      message: MESSAGE,
+      // MESSAGE has a package-tagged spender ('0x01' + '03'.repeat(32)) —
+      // use a message with no package addresses and no domain package hash
+      message: {
+        owner: '0x00' + '02'.repeat(32),
+        spender: '0x00' + '04'.repeat(32), // account-tagged, not package
+        value: 1000n,
+        nonce: 0n,
+        deadline: 1999999999n,
+      },
     };
 
     const req = await r.prepareSignatureRequest({

@@ -21,7 +21,6 @@ import {
   IPrepareEIP712SignatureRequestParams,
   isEIP712Error,
 } from '../../../domain';
-import { Maybe } from '../../../typings';
 import {
   buildTypedDataEIP712DisplayModel,
   computeTypedDataEIP712Digest,
@@ -35,7 +34,7 @@ import {
   EIP712_CHAIN_NAME_KEY,
   EIP712SignatureRequestDto,
   getAccountHashesFromTypedDataEIP712,
-  stripHexPrefix,
+  getPackageHashesFromTypedDataEIP712,
 } from '../../dto';
 
 /**
@@ -110,7 +109,7 @@ export class EIP712Repository implements IEIP712Repository {
       null;
 
     let accountInfoMap: Record<string, IAccountInfo> = {};
-    let contractPackage: Maybe<IContractPackage> = null;
+    let contractPackageMap: Record<string, IContractPackage> = {};
     let accounts: EIP712EnrichmentStatus = 'skipped';
     let contractPackageStatus: EIP712ContractEnrichmentStatus = 'skipped';
 
@@ -132,24 +131,41 @@ export class EIP712Repository implements IEIP712Repository {
         this._logger.reportError(e, 'EIP712Repository.prepareSignatureRequest: getAccountsInfo');
       }
 
-      const contractPackageHash = typedData.domain.contract_package_hash;
-      if (contractPackageHash) {
-        try {
-          contractPackage = await this._contractPackageRepository.getContractPackage({
-            contractPackageHash: stripHexPrefix(String(contractPackageHash)),
-            network,
-            withProxyHeader,
-          });
-          contractPackageStatus = 'ok';
-        } catch (e) {
-          contractPackageStatus = 'failed';
-          this._logger.reportError(
-            e,
-            'EIP712Repository.prepareSignatureRequest: getContractPackage',
-          );
-        }
-      } else {
+      const packageHashes = getPackageHashesFromTypedDataEIP712(typedData);
+      if (packageHashes.length === 0) {
         contractPackageStatus = 'absent';
+      } else {
+        // Independent lookups — run in parallel, but keep per-package isolation so one failure
+        // doesn't reject the batch (unlike account info, which is a single batched call).
+        const results = await Promise.allSettled(
+          packageHashes.map(packageHash =>
+            this._contractPackageRepository.getContractPackage({
+              contractPackageHash: packageHash,
+              network,
+              withProxyHeader,
+            }),
+          ),
+        );
+
+        let anyOk = false;
+        let anyFailed = false;
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            if (result.value) {
+              contractPackageMap[packageHashes[i]] = result.value;
+            }
+            anyOk = true;
+          } else {
+            anyFailed = true;
+            this._logger.reportError(
+              result.reason,
+              'EIP712Repository.prepareSignatureRequest: getContractPackage',
+            );
+          }
+        });
+        // Distinguish a degraded `partial` (some succeeded, some threw) from a clean `ok`/`failed`,
+        // so consumers can surface a partial-enrichment warning instead of trusting a coarse `ok`.
+        contractPackageStatus = anyOk ? (anyFailed ? 'partial' : 'ok') : 'failed';
       }
     }
 
@@ -161,7 +177,7 @@ export class EIP712Repository implements IEIP712Repository {
         digest,
         hashArtifacts,
         accountInfoMap,
-        contractPackage,
+        contractPackageMap,
         enrichment: { accounts, contractPackage: contractPackageStatus },
       });
     } catch (e) {

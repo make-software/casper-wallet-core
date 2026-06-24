@@ -12,7 +12,7 @@ import {
 } from '../../../domain';
 import { buildTypedDataEIP712DisplayModel } from '../../../utils';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
-import { EIP712_CHAIN_NAME_KEY, resolveEip712AddressToAccountHash } from './common';
+import { EIP712_CHAIN_NAME_KEY } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
   typedData: IEIP712TypedData;
@@ -21,7 +21,7 @@ export interface IEIP712SignatureRequestDtoProps {
   digest: string;
   hashArtifacts?: IEIP712HashArtifacts;
   accountInfoMap: Record<string, IAccountInfo>;
-  contractPackage: Maybe<IContractPackage>;
+  contractPackageMap: Record<string, IContractPackage>;
   enrichment: IEIP712Enrichment;
 }
 
@@ -47,21 +47,15 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     digest,
     hashArtifacts,
     accountInfoMap,
-    contractPackage,
+    contractPackageMap,
     enrichment,
   }: IEIP712SignatureRequestDtoProps) {
     const { domainRows, messageRows } = buildTypedDataEIP712DisplayModel(
       typedData,
       {
-        resolveAccountInfo: value => {
-          // address values may be a Casper public key or account hash — resolve to account hash first,
-          // then look up by it so the key matches what getAccountHashesFromTypedDataEIP712 fetched.
-          const accountHash = resolveEip712AddressToAccountHash(value);
-          return accountHash
-            ? (getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null)
-            : null;
-        },
-        contractPackage,
+        resolveAccountInfo: accountHash =>
+          getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null,
+        resolveContractPackage: packageHash => contractPackageMap[packageHash] ?? null,
       },
       [EIP712_CHAIN_NAME_KEY],
     );

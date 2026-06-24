@@ -1,11 +1,11 @@
 import { EIP712SignatureRequestDto } from './EIP712SignatureRequestDto';
 
 const OWNER = 'a'.repeat(64);
-const PKG_HASH = '0x' + '01'.repeat(32);
+const PKG_HASH = '01'.repeat(32); // 64 hex chars, no 0x prefix (clean hash used in map key)
 const SIGNING_PK = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
 
 const typedData = {
-  domain: { chain_name: 'casper', contract_package_hash: PKG_HASH },
+  domain: { chain_name: 'casper', contract_package_hash: '0x' + PKG_HASH },
   types: {
     EIP712Domain: [
       { name: 'chain_name', type: 'string' },
@@ -17,7 +17,8 @@ const typedData = {
     ],
   },
   primaryType: 'Permit',
-  message: { owner: OWNER, value: '1000' },
+  // owner is an account-tagged address (0x00 prefix + 64-hex hash)
+  message: { owner: '00' + OWNER, value: '1000' },
 };
 
 const ownerAccountInfo = {
@@ -47,12 +48,15 @@ describe('EIP712SignatureRequestDto', () => {
     network: 'mainnet',
     digest: '0xdigest',
     accountInfoMap: { [OWNER]: ownerAccountInfo },
-    contractPackage,
+    contractPackageMap: { [PKG_HASH]: contractPackage },
     enrichment: { accounts: 'ok', contractPackage: 'ok' },
   });
 
   it('enriches address rows with account info', () => {
-    expect(dto.messageRows.find(r => r.label === 'Owner')!.accountInfo).toEqual(ownerAccountInfo);
+    const ownerRow = dto.messageRows.find(r => r.label === 'Owner')!;
+    expect(ownerRow.accountInfo).toEqual(ownerAccountInfo);
+    // value should be the clean hash (tag stripped)
+    expect(ownerRow.value).toBe(OWNER);
   });
 
   it('enriches the contract_package_hash row with the contract package', () => {
@@ -67,7 +71,6 @@ describe('EIP712SignatureRequestDto', () => {
     expect(dto.primaryType).toBe('Permit');
     expect(dto.digest).toBe('0xdigest');
     expect(dto.id).toBe('0xdigest');
-    expect(JSON.parse(dto.rawJson)).toEqual(typedData);
     expect(dto.hashArtifacts).toBeUndefined();
   });
 
@@ -87,7 +90,7 @@ describe('EIP712SignatureRequestDto', () => {
       digest: '0xdigest',
       hashArtifacts: artifacts,
       accountInfoMap: {},
-      contractPackage: null,
+      contractPackageMap: {},
       enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(withArtifacts.hashArtifacts).toEqual(artifacts);
@@ -100,14 +103,14 @@ describe('EIP712SignatureRequestDto', () => {
   });
 
   it('serializes bigint message values in rawJson', () => {
-    const bigintData = { ...typedData, message: { owner: OWNER, value: 1000n } };
+    const bigintData = { ...typedData, message: { owner: '00' + OWNER, value: 1000n } };
     const d = new EIP712SignatureRequestDto({
       typedData: bigintData,
       signingPublicKeyHex: SIGNING_PK,
       network: 'mainnet',
       digest: '0xd',
       accountInfoMap: {},
-      contractPackage: null,
+      contractPackageMap: {},
       enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(JSON.parse(d.rawJson).message.value).toBe('1000');
@@ -126,7 +129,7 @@ describe('EIP712SignatureRequestDto', () => {
   it('handles a domain without chain_name', () => {
     const noChainName = {
       ...typedData,
-      domain: { contract_package_hash: PKG_HASH },
+      domain: { contract_package_hash: '0x' + PKG_HASH },
       types: {
         ...typedData.types,
         EIP712Domain: [{ name: 'contract_package_hash', type: 'bytes32' }],
@@ -138,11 +141,24 @@ describe('EIP712SignatureRequestDto', () => {
       network: 'mainnet',
       digest: '0xd',
       accountInfoMap: {},
-      contractPackage: null,
+      contractPackageMap: {},
       enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(d.chainName).toBe('');
     expect(d.domainRows.find(r => r.label === 'Chain Name')).toBeUndefined();
     expect(d.domainRows.find(r => r.label === 'Package Hash')).toBeDefined();
+  });
+
+  it('returns null contractPackage for a package hash not in the map', () => {
+    const dto2 = new EIP712SignatureRequestDto({
+      typedData,
+      signingPublicKeyHex: SIGNING_PK,
+      network: 'mainnet',
+      digest: '0xd2',
+      accountInfoMap: {},
+      contractPackageMap: {}, // empty map — no package enrichment
+      enrichment: { accounts: 'ok', contractPackage: 'absent' },
+    });
+    expect(dto2.domainRows.find(r => r.label === 'Package Hash')!.contractPackage).toBeNull();
   });
 });

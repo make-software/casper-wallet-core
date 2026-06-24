@@ -1,6 +1,6 @@
 import {
   getAccountHashesFromTypedDataEIP712,
-  resolveEip712AddressToAccountHash,
+  getPackageHashesFromTypedDataEIP712,
   stripHexPrefix,
 } from './common';
 import { getAccountHashFromPublicKey } from '../../../utils';
@@ -73,36 +73,52 @@ describe('stripHexPrefix', () => {
   });
 });
 
-describe('resolveEip712AddressToAccountHash', () => {
-  // valid secp256k1 (02-prefixed, 68 hex) public key
-  const SECP_PK = '0202466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27';
+const ACC = 'a'.repeat(64);
+const PKG = 'b'.repeat(64);
 
-  it('strips 0x and resolves an ed25519 public key to its account hash', () => {
-    const expected = getAccountHashFromPublicKey(SIGNING_PK);
-    expect(resolveEip712AddressToAccountHash(SIGNING_PK)).toBe(expected);
-    expect(resolveEip712AddressToAccountHash('0x' + SIGNING_PK)).toBe(expected);
+describe('getAccountHashesFromTypedDataEIP712 — account-tagged only + signer', () => {
+  const typedDataTagged = {
+    domain: {},
+    types: {
+      Transfer: [
+        { name: 'from', type: 'address' },
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+      ],
+    },
+    primaryType: 'Transfer',
+    message: { from: '00' + ACC, to: '01' + PKG, value: '1' },
+  };
+
+  it('collects only account-tagged addresses plus the signer hash', () => {
+    const hashes = getAccountHashesFromTypedDataEIP712(typedDataTagged, SIGNING_PK);
+    expect(hashes).toContain(ACC); // account-tagged `from`
+    expect(hashes).not.toContain(PKG); // package-tagged `to` excluded
+    expect(hashes.length).toBeGreaterThanOrEqual(2); // ACC + signer
   });
 
-  it('resolves a secp256k1 (02-prefixed) public key to its account hash', () => {
-    const expected = getAccountHashFromPublicKey(SECP_PK);
-    expect(resolveEip712AddressToAccountHash(SECP_PK)).toBe(expected);
-    expect(resolveEip712AddressToAccountHash('0x' + SECP_PK)).toBe(expected);
+  it('includes the signer account hash derived from the signing public key', () => {
+    const hashes = getAccountHashesFromTypedDataEIP712(typedDataTagged, SIGNING_PK);
+    expect(hashes).toContain(getAccountHashFromPublicKey(SIGNING_PK));
   });
+});
 
-  it('returns a 64-hex account-hash value unchanged (minus 0x)', () => {
-    const acct = 'c'.repeat(64);
-    expect(resolveEip712AddressToAccountHash(acct)).toBe(acct);
-    expect(resolveEip712AddressToAccountHash('0x' + acct)).toBe(acct);
-  });
-
-  it('returns null for an ETH-style 20-byte (40-hex) address', () => {
-    expect(resolveEip712AddressToAccountHash('0x' + 'ab'.repeat(20))).toBeNull();
-    expect(resolveEip712AddressToAccountHash('ab'.repeat(20))).toBeNull();
-  });
-
-  it('returns null for a non-hex / junk value', () => {
-    expect(resolveEip712AddressToAccountHash('not-an-address')).toBeNull();
-    expect(resolveEip712AddressToAccountHash('z'.repeat(64))).toBeNull();
-    expect(resolveEip712AddressToAccountHash('')).toBeNull();
+describe('getPackageHashesFromTypedDataEIP712', () => {
+  it('collects the domain package hash and package-tagged message addresses', () => {
+    const typedDataPkg = {
+      domain: { contract_package_hash: '0x' + PKG },
+      types: {
+        Transfer: [
+          { name: 'from', type: 'address' },
+          { name: 'to', type: 'address' },
+        ],
+      },
+      primaryType: 'Transfer',
+      message: { from: '00' + ACC, to: '01' + 'c'.repeat(64) },
+    };
+    const hashes = getPackageHashesFromTypedDataEIP712(typedDataPkg);
+    expect(hashes).toContain(PKG); // domain (0x stripped)
+    expect(hashes).toContain('c'.repeat(64)); // package-tagged `to`
+    expect(hashes).not.toContain(ACC); // account `from` excluded
   });
 });
