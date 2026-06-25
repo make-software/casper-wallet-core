@@ -42,7 +42,7 @@ import {
  * contract-package data over HTTP (best-effort — each lookup is isolated in its own try/catch, so a
  * flaky API never breaks the request). The other methods are synchronous pure-CPU work.
  *
- * `computeDigest`, `signDigest` and `signTypedDataEIP712` wrap unexpected failures in {@link EIP712Error}.
+ * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
  * `prepareSignatureRequest` surfaces digest/validation failures as {@link EIP712Error} (via
  * `computeDigest`) and swallows enrichment-lookup failures (best-effort). `recoverSigner` and
  * `verifySignature` surface raw library errors.
@@ -74,7 +74,7 @@ export class EIP712Repository implements IEIP712Repository {
     }
   }
 
-  signTypedDataEIP712({
+  signTypedData({
     typedData,
     privateKey,
     options,
