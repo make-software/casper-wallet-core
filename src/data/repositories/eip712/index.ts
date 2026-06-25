@@ -74,11 +74,7 @@ export class EIP712Repository implements IEIP712Repository {
     }
   }
 
-  signTypedData({
-    typedData,
-    privateKey,
-    options,
-  }: IEIP712SignTypedDataParams): IEIP712SignResult {
+  signTypedData({ typedData, privateKey, options }: IEIP712SignTypedDataParams): IEIP712SignResult {
     try {
       return signTypedDataEIP712Util(typedData, privateKey, options);
     } catch (e) {
