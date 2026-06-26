@@ -55,9 +55,9 @@ describe('EIP712Repository', () => {
     expect(result.digest).toBe(EXPECTED_DIGEST);
   });
 
-  it('signTypedDataEIP712 computes then signs', () => {
+  it('signTypedData computes then signs', () => {
     const key = PrivateKey.fromHex('11'.repeat(32), KeyAlgorithm.SECP256K1);
-    const result = repo.signTypedDataEIP712({ typedData: TYPED_DATA, privateKey: key });
+    const result = repo.signTypedData({ typedData: TYPED_DATA, privateKey: key });
     expect(result.digest).toBe(EXPECTED_DIGEST);
   });
 

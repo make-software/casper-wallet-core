@@ -54,7 +54,7 @@ export interface IEIP712Repository {
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest;
   buildDisplayModel(typedData: IEIP712TypedData): IEIP712DisplayModel;
   signDigest(params: IEIP712SignDigestParams): IEIP712SignResult;
-  signTypedDataEIP712(params: IEIP712SignTypedDataParams): IEIP712SignResult;
+  signTypedData(params: IEIP712SignTypedDataParams): IEIP712SignResult;
   recoverSigner(params: IEIP712RecoverSignerParams): string;
   verifySignature(params: IEIP712VerifySignatureParams): boolean;
   prepareSignatureRequest(
