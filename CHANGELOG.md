@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-30 — EIP-712 typed-data signing
+
+### Added
+
+- **EIP-712 typed-data signing module.** New `eip712` domain (entities, repository interface, errors), `repositories/eip712` implementation, `dto/eip712` mappers, and `utils/eip712` helpers (`address`, `digest`, `displayModel`, `recover`, `sign`, `validation`). Supports parsing, validating, building a human-readable display model for, signing, and recovering EIP-712 typed data. Wired into `setupRepositories()` as `eip712Repository`. (#41, #42)
+- EIP-712 display enrichment: decode `address` values as Casper keys, human-readable date presentation, and CAIP-2 chain identification. (#51)
+- `contractPackageHash` support for CsprTrade token URLs — `getMarketDataProviderUrl()` now deep-links to `https://cspr.trade/token-details/<hash>` instead of the site root. (#43)
+
+### Changed
+
+- Renamed EIP-712 repository methods onto the `…TypedData…` convention (`EIP712Repository.signTypedData`). (#47, #52)
+- Bumped CI workflow actions: `actions/checkout` 4→7, `actions/setup-node` 4→6, `actions/upload-artifact` 4→7, `github/codeql-action` 3→4. (#28, #29, #30, #31, #48)
+- Bumped runtime and dev dependencies, including `lint-staged` 15→17. (#37, #40, #44, #49)
+
+### Fixed
+
+- Dropped a duplicated chain-name row from the EIP-712 domain rows. (#46)
+
 ## [1.3.0] - 2026-05-18
 
 ### Added
@@ -195,7 +213,8 @@ Tag exists; no GitHub release notes were published. See the
 Tagged but not published as GitHub Releases. See the
 [tag list](https://github.com/make-software/casper-wallet-core/tags) for history.
 
-[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/make-software/casper-wallet-core/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/make-software/casper-wallet-core/compare/v1.1.8...v1.2.0
