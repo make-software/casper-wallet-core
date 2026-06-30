@@ -177,6 +177,7 @@ Each domain module exposes a repository interface (in `src/domain/<module>/repos
 | `domain/appEvents`            | `appEventsRepository`          | Wallet-wide announcements / app events                |
 | `domain/tx-signature-request` | `txSignatureRequestRepository` | Decoding & describing transactions awaiting signature |
 | `domain/contractPackage`      | `contractPackageRepository`    | Contract package metadata lookups                     |
+| `domain/eip712`               | `eip712Repository`             | EIP-712 typed-data parsing, display, signing          |
 
 > ⚠️ Note the naming asymmetry between `domain/` and `data/repositories/` (e.g. `domain/validator` ↔ `repositories/validators`, `domain/tx-signature-request` ↔ `repositories/txSignatureRequest`). Always import from the package root to avoid drift.
 
@@ -245,6 +246,7 @@ Tests live next to the code they cover (e.g. `src/utils/common.test.ts`, `src/da
 │   │   ├── constants/
 │   │   ├── contractPackage/
 │   │   ├── deploys/
+│   │   ├── eip712/
 │   │   ├── env/
 │   │   ├── nfts/
 │   │   ├── onRamp/
