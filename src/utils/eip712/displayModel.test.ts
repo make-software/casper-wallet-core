@@ -114,6 +114,7 @@ describe('buildTypedDataEIP712DisplayModel', () => {
       name: 'Alice',
       brandingLogo: null,
       csprName: null,
+      csprNameExpiresAt: null,
       explorerLink: null,
     };
     // PKG_HASH = '0x' + '01'.repeat(32); strip 0x -> '01'.repeat(32)
@@ -206,6 +207,7 @@ describe('buildTypedDataEIP712DisplayModel — address kinds', () => {
       name: 'Alice',
       brandingLogo: null,
       csprName: null,
+      csprNameExpiresAt: null,
       explorerLink: null,
     };
     const model = buildTypedDataEIP712DisplayModel(td, {

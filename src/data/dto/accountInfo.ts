@@ -19,6 +19,7 @@ export class AccountsInfoDto implements IAccountInfo {
     this.name = info.name;
     this.brandingLogo = info.brandingLogo;
     this.csprName = info.csprName;
+    this.csprNameExpiresAt = info.csprNameExpiresAt;
     this.explorerLink = info.explorerLink;
   }
 
@@ -28,6 +29,7 @@ export class AccountsInfoDto implements IAccountInfo {
   readonly name: string;
   readonly brandingLogo: Maybe<string>;
   readonly csprName: Maybe<string>;
+  readonly csprNameExpiresAt: Maybe<string>;
   readonly explorerLink: Maybe<string>;
 
   static fromGetAccountsInfoResponse(
@@ -47,6 +49,7 @@ export class AccountsInfoDto implements IAccountInfo {
         result?.centralized_account_info?.avatar_url ??
         null,
       csprName: result?.cspr_name ?? null,
+      csprNameExpiresAt: null,
       explorerLink: getBlockExplorerAccountUrl(network, publicKey || accountHash),
     });
   }
@@ -68,6 +71,7 @@ export class AccountsInfoDto implements IAccountInfo {
         result?.centralized_account_info?.avatar_url ??
         null,
       csprName: result?.name ?? null,
+      csprNameExpiresAt: result?.expires_at ?? null,
       explorerLink: getBlockExplorerAccountUrl(network, publicKey || accountHash),
     });
   }
@@ -86,6 +90,7 @@ export class AccountsInfoDto implements IAccountInfo {
         result?.centralized_account_info?.avatar_url ??
         null,
       csprName: result?.caller_cspr_name ?? null,
+      csprNameExpiresAt: null,
       explorerLink: getBlockExplorerAccountUrl(network, publicKey || accountHash),
     });
   }
@@ -110,6 +115,7 @@ export class AccountsInfoDto implements IAccountInfo {
           result?.from_purse_centralized_account_info?.avatar_url ??
           null,
         csprName: result?.from_purse_cspr_name ?? null,
+        csprNameExpiresAt: null,
         explorerLink: getBlockExplorerAccountUrl(network, fromPublicKey || fromAccountHash),
       }),
       new AccountsInfoDto({
@@ -125,6 +131,7 @@ export class AccountsInfoDto implements IAccountInfo {
           result?.to_purse_centralized_account_info?.avatar_url ??
           null,
         csprName: result?.to_purse_cspr_name ?? null,
+        csprNameExpiresAt: null,
         explorerLink: getBlockExplorerAccountUrl(network, toPublicKey || toAccountHash),
       }),
     ];
@@ -153,6 +160,7 @@ export class AccountsInfoDto implements IAccountInfo {
           result?.from_centralized_account_info?.avatar_url ??
           null,
         csprName: result?.from_cspr_name ?? null,
+        csprNameExpiresAt: null,
         explorerLink: getBlockExplorerAccountUrl(network, fromPublicKey || fromAccountHash),
       }),
       new AccountsInfoDto({
@@ -168,6 +176,7 @@ export class AccountsInfoDto implements IAccountInfo {
           result?.to_centralized_account_info?.avatar_url ??
           null,
         csprName: result?.to_cspr_name ?? null,
+        csprNameExpiresAt: null,
         explorerLink: getBlockExplorerAccountUrl(network, toPublicKey || toAccountHash),
       }),
     ];

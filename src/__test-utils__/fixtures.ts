@@ -171,6 +171,7 @@ export const makeAccountInfo = (overrides: Partial<IAccountInfo> = {}): IAccount
   name: 'Alice',
   brandingLogo: null,
   csprName: null,
+  csprNameExpiresAt: null,
   explorerLink: null,
   ...overrides,
 });

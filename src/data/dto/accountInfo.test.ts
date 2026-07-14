@@ -15,6 +15,7 @@ describe('AccountsInfoDto', () => {
       expect(dto.name).toBe('Alice');
       expect(dto.brandingLogo).toBe('https://example.com/logo.png');
       expect(dto.csprName).toBe('alice.cspr');
+      expect(dto.csprNameExpiresAt).toBeNull();
       expect(dto.explorerLink).toContain(CasperLiveUrl.mainnet);
     });
 
@@ -43,6 +44,7 @@ describe('AccountsInfoDto', () => {
       expect(dto.name).toBe('');
       expect(dto.brandingLogo).toBeNull();
       expect(dto.csprName).toBeNull();
+      expect(dto.csprNameExpiresAt).toBeNull();
     });
   });
 
@@ -61,6 +63,7 @@ describe('AccountsInfoDto', () => {
 
       expect(dto.publicKey).toBe('0202aa');
       expect(dto.csprName).toBe('bob.cspr');
+      expect(dto.csprNameExpiresAt).toBe('2099-01-01T00:00:00.000Z');
       expect(dto.brandingLogo).toBe('svg-url');
     });
   });
@@ -77,6 +80,7 @@ describe('AccountsInfoDto', () => {
       expect(dto.publicKey).toBe('0202ee');
       expect(dto.name).toBe('Caller');
       expect(dto.csprName).toBe('caller.cspr');
+      expect(dto.csprNameExpiresAt).toBeNull();
     });
   });
 
@@ -93,6 +97,8 @@ describe('AccountsInfoDto', () => {
       expect(to.publicKey).toBe('to-pk');
       expect(from.accountHash).toBe('from-hash');
       expect(to.accountHash).toBe('to-hash');
+      expect(from.csprNameExpiresAt).toBeNull();
+      expect(to.csprNameExpiresAt).toBeNull();
     });
   });
 });

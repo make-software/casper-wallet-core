@@ -93,6 +93,7 @@ describe('EIP712Repository', () => {
     name: 'Signer',
     brandingLogo: null,
     csprName: null,
+    csprNameExpiresAt: null,
     explorerLink: null,
   };
   const pkg = {
