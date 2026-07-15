@@ -28,6 +28,7 @@ const ownerAccountInfo = {
   name: 'Alice',
   brandingLogo: null,
   csprName: null,
+  csprNameExpiresAt: null,
   explorerLink: null,
 };
 
