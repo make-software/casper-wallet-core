@@ -4,8 +4,8 @@ import { ITokenMarketData } from '../contractPackage';
 import { CloudCentralizedAccountInfo, ICloudAccountInfoResult } from '../accountInfo';
 
 export enum TransactorHashType {
-  'account' = 0,
-  'hash' = 1,
+  account = 0,
+  hash = 1,
 }
 
 export interface MessageDataAccount {

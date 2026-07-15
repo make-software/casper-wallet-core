@@ -195,17 +195,10 @@ export type ITransferActionsResult = Pick<
   IEntity;
 
 export type NamedEntryPointType =
-  | CSPRMarketEntryPointType
-  | CEP18EntryPointType
-  | NFTEntryPointType
-  | AuctionEntryPointType;
+  CSPRMarketEntryPointType | CEP18EntryPointType | NFTEntryPointType | AuctionEntryPointType;
 
 export type CSPRMarketEntryPointType =
-  | 'delist_token'
-  | 'list_token'
-  | 'accept_offer'
-  | 'cancel_offer'
-  | 'make_offer';
+  'delist_token' | 'list_token' | 'accept_offer' | 'cancel_offer' | 'make_offer';
 
 export type CEP18EntryPointType = 'approve' | 'mint' | 'burn' | 'transfer';
 
@@ -217,9 +210,4 @@ export type NFTEntryPointType =
   | 'transfer_from';
 
 export type AuctionEntryPointType =
-  | 'add_bid'
-  | 'withdraw_bid'
-  | 'activate_bid'
-  | 'delegate'
-  | 'undelegate'
-  | 'redelegate';
+  'add_bid' | 'withdraw_bid' | 'activate_bid' | 'delegate' | 'undelegate' | 'redelegate';
