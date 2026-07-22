@@ -108,7 +108,7 @@ function getMinAmount(minAmount?: string) {
     return DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString();
   }
 
-  return minAmount && new Decimal(minAmount).gte(DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString())
+  return new Decimal(minAmount).gte(DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString())
     ? minAmount
     : DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString();
 }

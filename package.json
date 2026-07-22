@@ -61,7 +61,8 @@
     "typescript": "^5.9.3"
   },
   "resolutions": {
-    "axios": "^1.16.0",
+    "axios": "^1.18.1",
+    "form-data": "^4.0.6",
     "bn.js": "^5.2.3",
     "elliptic": "6.6.1"
   },
