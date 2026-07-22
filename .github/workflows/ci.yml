@@ -40,6 +40,16 @@ jobs:
       - name: Type-check + lint
         run: yarn code:check
 
+      # Enforcement gate that complements Dependabot (which only detects and opens
+      # PRs): this fails the build on new high/critical advisories so vulnerable
+      # code can't be merged. Audits the whole tree (dev + transitive); low/moderate
+      # are intentionally NOT gated (noise). Consciously-accepted, currently
+      # unfixable advisories live in .yarnrc.yml -> npmAuditIgnoreAdvisories.
+      # Runs once (node 22) since the result is node-version independent.
+      - name: Audit dependencies (fail on high/critical)
+        if: matrix.node == '22'
+        run: yarn npm audit --all --severity high --recursive
+
       - name: Run unit tests
         run: yarn test --ci --coverage
 
