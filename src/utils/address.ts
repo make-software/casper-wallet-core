@@ -12,17 +12,15 @@ export const formatAddress = (
   type: string | 'short' | 'mid' = 'short',
   chars: number = 5,
 ): string => {
-  let formattedAddress = rawAddress;
-
   if (type === 'short') {
-    formattedAddress = renderShortAddress(rawAddress, chars);
-  } else if (type === 'mid') {
-    formattedAddress = renderSlightlyLongAddress(rawAddress);
-  } else {
-    formattedAddress = rawAddress;
+    return renderShortAddress(rawAddress, chars);
   }
 
-  return formattedAddress;
+  if (type === 'mid') {
+    return renderSlightlyLongAddress(rawAddress);
+  }
+
+  return rawAddress;
 };
 
 /**
