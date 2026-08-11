@@ -1,4 +1,6 @@
-import { PrivateKey } from 'casper-js-sdk';
+// Type-only: this contract is reachable from the `domain` barrel, which sits on the wallet
+// startup path. A value import here would link the whole `casper-js-sdk` bundle.
+import type { PrivateKey } from 'casper-js-sdk';
 import {
   IEIP712Digest,
   IEIP712DisplayModel,

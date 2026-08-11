@@ -1,7 +1,11 @@
 import { CasperNetwork, IContractInfo, Network } from '../common';
-import { ICsprBalance, IToken, NftStandard } from '../../domain';
+import { ICsprBalance, IToken } from '../tokens';
+import { NftStandard } from '../nfts';
 import { IEnv } from '../env';
-import { CasperNetworkName } from 'casper-js-sdk';
+// Type-only: importing the `CasperNetworkName` enum as a value would link the whole
+// `casper-js-sdk` UMD bundle into every consumer of these constants. The chain-name strings are
+// declared locally below instead — see `casperChainNameToCasperNetwork`.
+import type { CasperNetworkName } from 'casper-js-sdk';
 
 export const CSPR_DECIMALS = 9;
 
@@ -241,11 +245,17 @@ export const AssociatedKeysContractInfo: Record<CasperNetwork, IContractInfo> = 
   },
 };
 
+/**
+ * Chain name → {@link CasperNetwork}. Keys are the `CasperNetworkName` values spelled out
+ * literally so this module carries no runtime dependency on `casper-js-sdk`; the
+ * `Record<CasperNetworkName, …>` annotation keeps them checked against the SDK enum, so a key
+ * added to or renamed in the SDK fails the build here rather than silently going unmapped.
+ */
 export const casperChainNameToCasperNetwork: Record<CasperNetworkName, CasperNetwork> = {
-  [CasperNetworkName.Mainnet]: 'mainnet',
-  [CasperNetworkName.Testnet]: 'testnet',
-  [CasperNetworkName.DevNet]: 'devnet',
-  [CasperNetworkName.Integration]: 'integration',
+  casper: 'mainnet',
+  'casper-test': 'testnet',
+  'dev-net': 'devnet',
+  'integration-test': 'integration',
 };
 
 export const CEP_18_ACTION_ENTRY_POINTS = [

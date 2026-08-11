@@ -2,7 +2,8 @@ import { IAccountInfo } from './entities';
 import { CasperNetwork, Network } from '../common';
 import { Maybe } from '../../typings';
 import { ICsprBalance } from '../tokens';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../data/repositories';
+// Type-only: `domain` must not link `data` at runtime — the data barrel reaches `casper-js-sdk`.
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../data/repositories';
 
 export interface IGetAccountsInfoParams {
   accountHashes: string[];

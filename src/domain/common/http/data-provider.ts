@@ -1,5 +1,8 @@
 import { IDomainError } from '../errors';
-import {
+// Type-only: these are all type aliases, and a value import of the `domain` barrel from here
+// would pull the whole repository graph — including `casper-js-sdk` — into every module that
+// touches the HTTP contracts.
+import type {
   AccountInfoErrorType,
   DeploysErrorType,
   NftsErrorType,

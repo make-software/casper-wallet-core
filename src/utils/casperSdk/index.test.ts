@@ -11,18 +11,10 @@ import { CasperLiveUrl } from '../../domain';
 const VALID_PUBLIC_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
 
 describe('casperSdk helpers', () => {
-  describe('getAccountHashFromPublicKey', () => {
-    it('returns a deterministic hex string for a valid public key', () => {
-      const a = getAccountHashFromPublicKey(VALID_PUBLIC_KEY);
-      const b = getAccountHashFromPublicKey(VALID_PUBLIC_KEY);
-      expect(a).toBe(b);
-      expect(a).toMatch(/^[0-9a-f]+$/);
-      expect(a.length).toBeGreaterThan(0);
-    });
-
-    it('throws on an invalid public key', () => {
-      expect(() => getAccountHashFromPublicKey('not-hex')).toThrow();
-    });
+  // The barrel now only re-exports; behaviour lives with each module. `getAccountHashFromPublicKey`
+  // is covered in depth (SDK parity) by `./accountHash.test.ts`.
+  it('re-exports getAccountHashFromPublicKey from ./accountHash', () => {
+    expect(getAccountHashFromPublicKey(VALID_PUBLIC_KEY)).toMatch(/^[0-9a-f]{64}$/);
   });
 
   describe('getCasperNetworkByChainName', () => {
