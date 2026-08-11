@@ -15,9 +15,13 @@
  * The package declares `"sideEffects": false`, so a bundler that tree-shakes will also drop the
  * unused halves when importing through this barrel or the package root — the deep paths are the
  * guarantee for builds that do not.
+ *
+ * `./cep-nft-transfer` is deliberately NOT re-exported here: this barrel is reached from the
+ * `utils` barrel, which most of `src/data` imports, so re-exporting it made every DTO a
+ * transitive SDK importer for builds that do not shake. It is re-exported from the package root
+ * instead, so the public API is unchanged (WALLET-1421).
  */
 
 export * from './accountHash';
 export * from './network';
 export * from './blockExplorer';
-export * from './cep-nft-transfer';

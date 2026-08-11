@@ -18,7 +18,7 @@ import {
   getNftActionsResult,
   getTransferActionsResult,
 } from './ActionResults';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getCsprFiatAmount } from '../common';
 import Decimal from 'decimal.js';

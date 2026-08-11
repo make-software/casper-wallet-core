@@ -1,5 +1,27 @@
+import {
+  DEFAULT_MAXIMUM_DELEGATION_AMOUNT,
+  DEFAULT_MINIMUM_DELEGATION_AMOUNT,
+} from 'casper-js-sdk';
+
 import { ValidatorDto, ValidatorWithStateDto } from './validators';
 import { makeApiValidator } from '../../__test-utils__';
+
+// `validators.ts` declares these locally so it does not link the SDK for two numbers. The SDK
+// is the oracle: if it ever changes them, this fails instead of the wallet silently defaulting
+// a validator's delegation bounds to stale values.
+describe('delegation defaults stay in step with casper-js-sdk', () => {
+  it('uses the SDK minimum when the API omits one', () => {
+    expect(
+      new ValidatorDto({ ...makeApiValidator(), minimum_delegation_amount: undefined }).minAmount,
+    ).toBe(DEFAULT_MINIMUM_DELEGATION_AMOUNT.toString());
+  });
+
+  it('uses the SDK maximum when the API omits one', () => {
+    expect(
+      new ValidatorDto({ ...makeApiValidator(), maximum_delegation_amount: undefined }).maxAmount,
+    ).toBe(DEFAULT_MAXIMUM_DELEGATION_AMOUNT.toString());
+  });
+});
 
 describe('ValidatorDto', () => {
   it('builds with stake formatting and minimum delegation defaults', () => {

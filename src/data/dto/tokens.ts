@@ -10,7 +10,7 @@ import {
   SupportedFiatCurrencies,
   SupportedMarketDataProviders,
 } from '../../domain';
-import { ApiToken, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from '../repositories';
+import type { ApiToken, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from '../repositories';
 import { Maybe } from '../../typings';
 import {
   dexIdToMarketDataProviderMap,

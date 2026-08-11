@@ -14,8 +14,8 @@ import {
   CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { CsprBalanceDto, TokenDto, TokenFiatRateDto } from '../../dto';
-import { getAccountHashFromPublicKey } from '../../../utils';
+import { CsprBalanceDto, TokenDto, TokenFiatRateDto } from '../../dto/tokens';
+import { getAccountHashFromPublicKey } from '../../../utils/casperSdk/accountHash';
 import { Erc20Token, IGetCsprBalanceResponse, IGetCurrencyRateResponse } from './types';
 
 export * from './types';

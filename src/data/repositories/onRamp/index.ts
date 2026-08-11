@@ -10,7 +10,7 @@ import {
   OnRampError,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { OnRampDto, OnRampProvidersDto } from '../../dto';
+import { OnRampDto, OnRampProvidersDto } from '../../dto/onRamp';
 import { IGetOnRampResponse, IOnRampProvidersResponse } from './types';
 
 export * from './types';

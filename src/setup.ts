@@ -1,97 +1,37 @@
-import { HttpDataProvider } from './data/data-providers';
-import {
-  DeploysRepository,
-  TokensRepository,
-  NftsRepository,
-  ValidatorsRepository,
-  OnRampRepository,
-  AccountInfoRepository,
-  AppEventsRepository,
-  TxSignatureRequestRepository,
-  ContractPackageRepository,
-  EIP712Repository,
-} from './data/repositories';
-import { Logger } from './utils';
-import {
-  CasperNetwork,
-  CasperWalletApiByNetworkUrl,
-  CasperWalletApiByEnvUrl,
-  GrpcUrl,
-  ILogger,
-} from './domain';
-import { IEnv } from './domain/env';
+import { CasperWalletApiByEnvUrl, GrpcUrl } from './domain';
+import { setupDataRepositories } from './setupData';
+import { setupSigningRepositories } from './setupSigning';
+import type { ISetupDataRepositoriesParams } from './setupData';
+import type { CasperNetwork } from './domain';
 
-export interface ISetupRepositoriesParams {
-  debug?: boolean;
-  logger?: ILogger;
-  casperWalletApiByNetworkUrl?: Record<CasperNetwork, string>;
-  /** Environment-based url for Casper Wallet Api. Some API network agnostic and do not belong to any {@link CasperWalletApiByNetworkUrl}. Default env is PRODUCTION (in all places where it is used) */
-  casperWalletApiByEnvUrl?: Record<IEnv, string>;
+export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
   grpcUrl?: Record<CasperNetwork, string>;
-  httpAuthorizationHeader?: string;
 }
 
+/**
+ * Every repository, signing included.
+ *
+ * Importing this module links `casper-js-sdk` (~900 KB, one prebuilt UMD bundle that cannot be
+ * tree-shaken), because the signing repositories do. A client that only renders balances and
+ * account lists should call {@link setupDataRepositories} from `src/setupData` instead and pay
+ * nothing for the SDK — see WALLET-1421.
+ */
 export const setupRepositories = ({
-  logger,
-  debug,
-  casperWalletApiByNetworkUrl = CasperWalletApiByNetworkUrl,
-  casperWalletApiByEnvUrl = CasperWalletApiByEnvUrl,
   grpcUrl = GrpcUrl,
-  httpAuthorizationHeader,
+  ...dataParams
 }: ISetupRepositoriesParams = {}) => {
-  const log = logger ?? new Logger();
-  const httpDataProvider = new HttpDataProvider(debug ? log : null);
+  const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories(dataParams);
 
-  if (httpAuthorizationHeader) {
-    httpDataProvider.setAuthHeader(httpAuthorizationHeader);
-  }
-
-  const accountInfoRepository = new AccountInfoRepository(
+  const signingRepositories = setupSigningRepositories({
     httpDataProvider,
-    casperWalletApiByNetworkUrl,
-  );
-  const tokensRepository = new TokensRepository(httpDataProvider, casperWalletApiByNetworkUrl);
-  const onRampRepository = new OnRampRepository(httpDataProvider);
-  const nftsRepository = new NftsRepository(httpDataProvider, casperWalletApiByNetworkUrl);
-  const validatorsRepository = new ValidatorsRepository(
-    httpDataProvider,
-    casperWalletApiByNetworkUrl,
-  );
-  const deploysRepository = new DeploysRepository(
-    httpDataProvider,
-    accountInfoRepository,
-    casperWalletApiByNetworkUrl,
-  );
-  const appEventsRepository = new AppEventsRepository(httpDataProvider, casperWalletApiByEnvUrl);
-  const contractPackageRepository = new ContractPackageRepository(
-    httpDataProvider,
-    casperWalletApiByNetworkUrl,
-  );
-  const txSignatureRequestRepository = new TxSignatureRequestRepository(
-    httpDataProvider,
-    accountInfoRepository,
-    tokensRepository,
-    contractPackageRepository,
-    casperWalletApiByEnvUrl,
+    accountInfoRepository: dataRepositories.accountInfoRepository,
+    tokensRepository: dataRepositories.tokensRepository,
+    contractPackageRepository: dataRepositories.contractPackageRepository,
+    casperWalletApiByEnvUrl: dataParams.casperWalletApiByEnvUrl ?? CasperWalletApiByEnvUrl,
     grpcUrl,
-    httpAuthorizationHeader,
-  );
-  const eip712Repository = new EIP712Repository(
-    accountInfoRepository,
-    contractPackageRepository,
+    httpAuthorizationHeader: dataParams.httpAuthorizationHeader,
     log,
-  );
+  });
 
-  return {
-    accountInfoRepository,
-    tokensRepository,
-    onRampRepository,
-    nftsRepository,
-    validatorsRepository,
-    deploysRepository,
-    appEventsRepository,
-    txSignatureRequestRepository,
-    contractPackageRepository,
-    eip712Repository,
-  };
+  return { ...dataRepositories, ...signingRepositories };
 };

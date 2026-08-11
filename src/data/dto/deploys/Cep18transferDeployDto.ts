@@ -28,7 +28,7 @@ import {
 } from '../common';
 import { getCsprFiatAmount } from '../common';
 import { Maybe } from '../../../typings';
-import { IErc20TokensTransferResponse } from '../../repositories';
+import type { IErc20TokensTransferResponse } from '../../repositories';
 
 export class Cep18TransferDeployDto implements ICep18Deploy {
   constructor(

@@ -15,7 +15,7 @@ import {
   SupportedMarketDataProviders,
 } from '../../domain';
 import { Maybe } from '../../typings';
-import { ITokenMarketData } from '../repositories';
+import type { ITokenMarketData } from '../repositories';
 
 export function getCsprFiatAmount(amount: string | number, rate?: string | number) {
   const isZeroRate = Number(rate ?? 0) === 0;

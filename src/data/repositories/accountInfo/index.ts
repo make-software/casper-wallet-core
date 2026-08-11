@@ -14,10 +14,11 @@ import {
   CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { AccountsInfoDto, CsprBalanceDto } from '../../dto';
+import { AccountsInfoDto } from '../../dto/accountInfo';
+import { CsprBalanceDto } from '../../dto/tokens';
 import { ICloudResolveFromCsprNameResponse, IGetAccountsInfoResponse } from './types';
 
-import { isExpired } from '../../../utils';
+import { isExpired } from '../../../utils/date';
 import { Maybe } from '../../../typings';
 import { IGetCsprBalanceResponse } from '../tokens';
 import { ICloudTransactionFeedItem } from '../deploys';

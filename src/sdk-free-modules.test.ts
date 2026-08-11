@@ -25,6 +25,9 @@ const SDK_FREE_ENTRY_POINTS = [
   // The whole domain layer: entities, contracts and constants only. Both wallet clients
   // deep-import this barrel from render-path modules.
   'src/domain/index.ts',
+  // The data repositories a home screen renders from. `src/setup.ts` builds the signing
+  // repositories too and links the SDK by design; this is the half that must not.
+  'src/setupData.ts',
 ];
 
 interface Import {

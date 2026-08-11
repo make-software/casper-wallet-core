@@ -18,7 +18,7 @@ import {
 import { getAccountInfoFromMap } from '../common';
 import { getCsprFiatAmount } from '../common';
 import { Maybe } from '../../../typings';
-import { ICsprTransferResponse } from '../../repositories';
+import type { ICsprTransferResponse } from '../../repositories';
 
 export class CsprTransferDeployDto implements INativeCsprDeploy {
   constructor(

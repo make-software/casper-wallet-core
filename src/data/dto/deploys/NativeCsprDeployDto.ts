@@ -8,7 +8,7 @@ import {
 } from '../../../domain';
 import { derivePublicKeyFromTransfersActionResults, getDeployAmount } from './common';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getAccountInfoFromMap, getCsprFiatAmount } from '../common';
 

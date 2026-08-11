@@ -1,5 +1,5 @@
 import { CasperNetwork, IAccountInfo } from '../../domain';
-import {
+import type {
   DeployTransferResult,
   FTActionsResult,
   ICloudAccountInfoResult,
@@ -9,7 +9,8 @@ import {
   NftCloudActionsResult,
 } from '../repositories';
 import { Maybe } from '../../typings';
-import { getAccountHashFromPublicKey, getBlockExplorerAccountUrl } from '../../utils';
+import { getAccountHashFromPublicKey } from '../../utils/casperSdk/accountHash';
+import { getBlockExplorerAccountUrl } from '../../utils/casperSdk/blockExplorer';
 
 export class AccountsInfoDto implements IAccountInfo {
   constructor(info: IAccountInfo) {

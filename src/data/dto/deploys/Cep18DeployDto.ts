@@ -13,7 +13,7 @@ import {
   isNotEmpty,
 } from '../../../utils';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import {
   AccountKeyType,
   CEP18EntryPointType,

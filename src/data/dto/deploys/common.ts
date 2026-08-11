@@ -19,7 +19,7 @@ import {
   Network,
 } from '../../../domain';
 
-import {
+import type {
   ExtendedCloudDeploy,
   ExtendedDeployArgsResult,
   IApiDeployArgs,

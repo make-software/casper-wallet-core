@@ -7,7 +7,7 @@ import {
   guardedDeriveSplitDataFromArguments,
 } from './common';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { isKeysEqual } from '../../../utils';
 import {
   AccountKeyType,

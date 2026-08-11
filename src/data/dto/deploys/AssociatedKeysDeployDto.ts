@@ -1,6 +1,6 @@
 import { DeployDto } from './DeployDto';
 import { getEntryPoint } from './common';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { IAccountInfo, IAssociatedKeysDeploy, Network } from '../../../domain';
 import { Maybe } from '../../../typings';
 

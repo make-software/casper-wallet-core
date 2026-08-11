@@ -200,8 +200,22 @@ This package declares `"sideEffects": false`, so a bundler with tree shaking ena
 | `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                            | no            |
 | `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`              | no            |
 | `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants        | no            |
+| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the eight read repositories    | no            |
 | `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, … | **yes**       |
 | `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                          | **yes**       |
+| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712 | **yes**       |
+
+### Repositories
+
+`setupRepositories()` still constructs all ten repositories and its return shape is unchanged, but it links the SDK, because two of them do. A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing pair separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three repositories it depends on, so both halves still talk through one provider:
+
+```typescript
+import { setupDataRepositories } from 'casper-wallet-core/src/setupData';
+
+const { httpDataProvider, log, ...repositories } = setupDataRepositories();
+```
+
+Note that the SDK-linked modules are re-exported from the package root but **not** from the `utils`, `casperSdk` or `eip712` barrels. Most of `src/data` imports those barrels, so a re-export there made every DTO a transitive SDK importer on builds that do not tree-shake. Import them by path.
 
 `getAccountHashFromPublicKey` derives the account hash with `@noble/hashes` — `blake2b-256(algorithmName ‖ 0x00 ‖ publicKeyBytes)` — instead of `PublicKey.fromHex(...).accountHash()`. It is byte-for-byte identical to the SDK, including which malformed inputs it rejects and the error messages it throws; `src/utils/casperSdk/accountHash.test.ts` asserts that against the SDK itself.
 

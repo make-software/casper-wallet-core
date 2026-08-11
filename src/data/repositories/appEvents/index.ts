@@ -13,9 +13,9 @@ import {
   isAppEventsError,
 } from '../../../domain';
 import { IMarketingEventApiResponse, IReleaseEventApiResponse } from './types';
-import { AppMarketingEventDto, AppReleaseEventDto } from '../../dto';
+import { AppMarketingEventDto, AppReleaseEventDto } from '../../dto/appEvents';
 import { Maybe } from '../../../typings';
-import { isAppEventActive } from '../../../utils';
+import { isAppEventActive } from '../../../utils/date';
 import { IEnv } from '../../../domain/env';
 
 export * from './types';
