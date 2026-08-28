@@ -14,7 +14,7 @@ import {
   ValidatorsError,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { ValidatorDto, ValidatorWithStateDto } from '../../dto';
+import { ValidatorDto, ValidatorWithStateDto } from '../../dto/validators';
 import { IApiValidator, IApiValidatorWithStake, IAuctionMetricsResponse } from './types';
 
 export * from './types';

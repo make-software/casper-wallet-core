@@ -1,7 +1,9 @@
 import { ApiResponse, Monitor } from 'apisauce';
 
-import { getCurrentTime } from '../../../utils';
-import { ILogger } from '../../../domain';
+// Deep imports, not the `utils` / `domain` barrels: those re-export the SDK-backed transfer
+// builders and EIP-712 signer, which would put `casper-js-sdk` behind every HTTP call.
+import { getCurrentTime } from '../../../utils/date';
+import type { ILogger } from '../../../domain/common/logger';
 
 const logRequestResult = (
   { config, status, originalError, ok, data }: ApiResponse<unknown>,

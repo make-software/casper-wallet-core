@@ -10,7 +10,7 @@ import {
   isContractPackageError,
 } from '../../../domain';
 import { IContractPackageCloudResponse } from './types';
-import { ContractPackageDto } from '../../dto';
+import { ContractPackageDto } from '../../dto/contractPackage';
 
 export * from './types';
 

@@ -18,7 +18,7 @@ import {
   Network,
 } from '../../../domain';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getAccountInfoFromMap, getCsprFiatAmount, getNftTokenUrlsMap } from '../common';
 

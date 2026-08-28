@@ -7,13 +7,21 @@ import {
   isHighStakeValidator,
 } from '../../utils';
 import { CSPR_DECIMALS, IValidator } from '../../domain';
-import { IApiValidator, IApiValidatorWithStake } from '../repositories';
+import type { IApiValidator, IApiValidatorWithStake } from '../repositories';
 import { Maybe } from '../../typings';
-import {
-  DEFAULT_MAXIMUM_DELEGATION_AMOUNT,
-  DEFAULT_MINIMUM_DELEGATION_AMOUNT,
-} from 'casper-js-sdk';
 import Decimal from 'decimal.js';
+
+/**
+ * The SDK's `DEFAULT_MINIMUM_DELEGATION_AMOUNT` / `DEFAULT_MAXIMUM_DELEGATION_AMOUNT`, in motes,
+ * declared locally.
+ *
+ * Importing them from `casper-js-sdk` links its whole ~900 KB prebuilt UMD bundle — for two
+ * numeric constants — and `ValidatorDto` is reachable from a wallet's validator list, which is
+ * one of the surfaces WALLET-1421 is keeping SDK-free. `validators.test.ts` asserts these stay
+ * equal to the SDK's, so a change upstream fails the build here rather than silently drifting.
+ */
+const DEFAULT_MINIMUM_DELEGATION_AMOUNT = BigInt(500) * BigInt(1_000_000_000);
+const DEFAULT_MAXIMUM_DELEGATION_AMOUNT = BigInt(1_000_000_000) * BigInt(1_000_000_000);
 
 export class ValidatorDto implements IValidator {
   constructor(apiValidator?: Partial<IApiValidator>) {

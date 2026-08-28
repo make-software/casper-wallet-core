@@ -13,8 +13,8 @@ import {
   CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider } from '../../../domain';
-import { getAccountHashFromPublicKey } from '../../../utils';
-import { NftDto } from '../../dto';
+import { getAccountHashFromPublicKey } from '../../../utils/casperSdk/accountHash';
+import { NftDto } from '../../dto/nfts';
 import { IApiNft } from './types';
 
 export * from './types';

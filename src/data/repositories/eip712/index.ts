@@ -26,10 +26,14 @@ import {
   computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
   recoverTypedDataEIP712SignerAddress,
-  signTypedDataEIP712 as signTypedDataEIP712Util,
-  signTypedDataEIP712DigestWithKey,
   verifyTypedDataEIP712Signature,
 } from '../../../utils';
+// By path: the `utils` barrel no longer re-exports the signer, so that the DTO layer can import
+// the barrel without linking `casper-js-sdk`. This repository links it either way.
+import {
+  signTypedDataEIP712 as signTypedDataEIP712Util,
+  signTypedDataEIP712DigestWithKey,
+} from '../../../utils/eip712/sign';
 import {
   EIP712_CHAIN_NAME_KEY,
   EIP712SignatureRequestDto,

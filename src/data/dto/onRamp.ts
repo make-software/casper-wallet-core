@@ -5,7 +5,11 @@ import {
   IOnRampProvider,
   IOnRampProvidersOptions,
 } from '../../domain';
-import { IGetOnRampResponse, IOnRampProvidersResponse, IResponseCountry } from '../repositories';
+import type {
+  IGetOnRampResponse,
+  IOnRampProvidersResponse,
+  IResponseCountry,
+} from '../repositories';
 import { Maybe } from '../../typings';
 
 export class OnRampDto implements IOnRampOptions {

@@ -1,5 +1,5 @@
 import { IAppMarketingEvent, IAppReleaseEvent } from '../../domain';
-import { IMarketingEventApiResponse, IReleaseEventApiResponse } from '../repositories';
+import type { IMarketingEventApiResponse, IReleaseEventApiResponse } from '../repositories';
 
 export class AppReleaseEventDto implements IAppReleaseEvent {
   constructor(apiEvent?: Partial<IReleaseEventApiResponse>) {

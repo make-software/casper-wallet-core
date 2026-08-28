@@ -16,7 +16,7 @@ import {
   NFTEntryPointType,
 } from '../../../domain';
 import { getAccountInfoFromMap, getNftTokenUrlsMap } from '../common';
-import {
+import type {
   ExtendedCloudDeploy,
   FTActionsResult,
   ICloudTransactionFeedItem,

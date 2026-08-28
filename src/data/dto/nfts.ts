@@ -8,7 +8,7 @@ import {
   NftTokenIdType,
   RETINA_SCALE,
 } from '../../domain';
-import { IApiNft, ImageProxyUrlProps, NFtMetadataEntry } from '../repositories';
+import type { IApiNft, ImageProxyUrlProps, NFtMetadataEntry } from '../repositories';
 import { Maybe } from '../../typings';
 
 export class NftDto implements INft {

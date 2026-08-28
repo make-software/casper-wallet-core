@@ -19,6 +19,7 @@
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Repositories](#repositories)
+- [Bundle size](#bundle-size)
 - [Development](#development)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
@@ -186,6 +187,46 @@ Each domain module exposes a repository interface (in `src/domain/<module>/repos
 - **Financial math:** always use `Decimal` from `decimal.js`. Never use native JS numbers for balances or amounts.
 - **HTTP:** all network access flows through `IHttpDataProvider`. Repositories receive it via constructor injection — easy to mock in tests.
 - **Errors:** domain errors implement the `IDomainError` interface and are re-exported from each module.
+
+## Bundle size
+
+`casper-js-sdk` ships a single prebuilt UMD bundle (`dist/lib.web.js` — no `module` field, no `import` condition in `exports`, no `sideEffects` flag). One value import of it costs the whole ~900 KB parsed, and nothing can be shaken back out. Anything a wallet client evaluates while rendering its first screen should therefore avoid it.
+
+This package declares `"sideEffects": false`, so a bundler with tree shaking enabled drops the unused half even when you import from the package root. For builds where that cannot be relied on, the SDK-free helpers also have stable deep-import paths:
+
+| Import path                                               | Exports                                                  | Links the SDK |
+| --------------------------------------------------------- | -------------------------------------------------------- | ------------- |
+| `casper-wallet-core/src/utils/casperSdk/accountHash`      | `getAccountHashFromPublicKey`                            | no            |
+| `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                            | no            |
+| `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`              | no            |
+| `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants        | no            |
+| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the eight read repositories    | no            |
+| `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, … | **yes**       |
+| `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                          | **yes**       |
+| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712 | **yes**       |
+
+### Repositories
+
+`setupRepositories()` still constructs all ten repositories and its return shape is unchanged, but it links the SDK, because two of them do. A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing pair separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three repositories it depends on, so both halves still talk through one provider:
+
+```typescript
+import { setupDataRepositories } from 'casper-wallet-core/src/setupData';
+
+const { httpDataProvider, log, ...repositories } = setupDataRepositories();
+```
+
+Note that the SDK-linked modules are re-exported from the package root but **not** from the `utils`, `casperSdk` or `eip712` barrels. Most of `src/data` imports those barrels, so a re-export there made every DTO a transitive SDK importer on builds that do not tree-shake. Import them by path.
+
+`getAccountHashFromPublicKey` derives the account hash with `@noble/hashes` — `blake2b-256(algorithmName ‖ 0x00 ‖ publicKeyBytes)` — instead of `PublicKey.fromHex(...).accountHash()`. It is byte-for-byte identical to the SDK, including which malformed inputs it rejects and the error messages it throws; `src/utils/casperSdk/accountHash.test.ts` asserts that against the SDK itself.
+
+Two guards keep this from regressing, both in `yarn test`:
+
+- `src/utils/casperSdk/accountHash.test.ts` — property-based parity against `casper-js-sdk` for both key algorithms.
+- `src/sdk-free-modules.test.ts` — walks the static import graph of each SDK-free entry point and fails if any runtime import reaches `casper-js-sdk`. `import type` is ignored, since it is erased at compile time.
+
+When adding code to the `domain` layer or to the SDK-free `utils` modules, prefer `import type` for anything used only in type position, and import from the specific module rather than a barrel.
+
+> ⚠️ `"sideEffects": false` fails silently: a module imported for what it does on evaluation, rather than for its exports, would be dropped. The package has no such module today — keep it that way.
 
 ## Development
 

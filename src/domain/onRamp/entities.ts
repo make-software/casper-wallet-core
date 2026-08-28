@@ -1,4 +1,5 @@
-import {
+// Type-only: `domain` must not link `data` at runtime — the data barrel reaches `casper-js-sdk`.
+import type {
   IGetOnRampResponse,
   IOnRampProvidersResponse,
   IResponseCountry,

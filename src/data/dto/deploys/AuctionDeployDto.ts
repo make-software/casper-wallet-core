@@ -10,7 +10,7 @@ import { getDeployAmount, getEntryPoint } from './common';
 import { deriveKeyType, getAccountInfoFromMap } from '../common';
 import { formatTokenBalance, getDecimalTokenBalance } from '../../../utils';
 import { DeployDto } from './DeployDto';
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { Maybe } from '../../../typings';
 import { getCsprFiatAmount } from '../common';
 

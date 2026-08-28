@@ -1,4 +1,4 @@
-import { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
+import type { ExtendedCloudDeploy, ICloudTransactionFeedItem } from '../../repositories';
 import { NativeCsprDeployDto } from './NativeCsprDeployDto';
 import { Cep18DeployDto } from './Cep18DeployDto';
 import { NftDeployDto } from './NftDeployDto';

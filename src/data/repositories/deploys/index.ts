@@ -15,8 +15,8 @@ import {
   CasperNetwork,
 } from '../../../domain';
 import type { IHttpDataProvider, IAccountInfoRepository } from '../../../domain';
-import { getAccountHashFromPublicKey } from '../../../utils';
-import { CsprTransferDeployDto, processDeploy, Cep18TransferDeployDto } from '../../dto';
+import { getAccountHashFromPublicKey } from '../../../utils/casperSdk/accountHash';
+import { CsprTransferDeployDto, processDeploy, Cep18TransferDeployDto } from '../../dto/deploys';
 import {
   ExtendedCloudDeploy,
   ICloudTransactionFeedItem,
