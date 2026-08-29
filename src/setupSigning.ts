@@ -1,7 +1,12 @@
-import { EIP712Repository, TxSignatureRequestRepository } from './data/repositories';
-import { GrpcUrl } from './domain';
+import {
+  DexContractRepository,
+  EIP712Repository,
+  TxSignatureRequestRepository,
+} from './data/repositories';
+import { GrpcUrl, TradeContractPackageHash, WrappedCsprContractPackageHash } from './domain';
 import type { IDataRepositories } from './setupData';
 import type { CasperNetwork, ILogger } from './domain';
+import type { IDexConfig } from './domain';
 import type { IEnv } from './domain/env';
 
 /**
@@ -22,6 +27,8 @@ export interface ISetupSigningRepositoriesParams extends Pick<
   casperWalletApiByEnvUrl: Record<IEnv, string>;
   grpcUrl?: Record<CasperNetwork, string>;
   httpAuthorizationHeader?: string;
+  /** DEX contract-package hashes, gas price and the proxy WASM loader; all optional, defaulted. */
+  dexConfig?: IDexConfig;
   log: ILogger;
 }
 
@@ -33,6 +40,7 @@ export const setupSigningRepositories = ({
   casperWalletApiByEnvUrl,
   grpcUrl = GrpcUrl,
   httpAuthorizationHeader,
+  dexConfig = {},
   log,
 }: ISetupSigningRepositoriesParams) => {
   const txSignatureRequestRepository = new TxSignatureRequestRepository(
@@ -49,6 +57,17 @@ export const setupSigningRepositories = ({
     contractPackageRepository,
     log,
   );
+  const dexContractRepository = new DexContractRepository(
+    grpcUrl,
+    {
+      tradeContractPackageHash: dexConfig.tradeContractPackageHash ?? TradeContractPackageHash,
+      wrappedCsprContractPackageHash:
+        dexConfig.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash,
+      gasPriceTolerance: dexConfig.gasPriceTolerance ?? 1,
+      getProxyWasm: dexConfig.getProxyWasm,
+    },
+    httpAuthorizationHeader,
+  );
 
-  return { txSignatureRequestRepository, eip712Repository };
+  return { txSignatureRequestRepository, eip712Repository, dexContractRepository };
 };

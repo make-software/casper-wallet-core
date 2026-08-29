@@ -2,10 +2,11 @@ import { CasperWalletApiByEnvUrl, GrpcUrl } from './domain';
 import { setupDataRepositories } from './setupData';
 import { setupSigningRepositories } from './setupSigning';
 import type { ISetupDataRepositoriesParams } from './setupData';
-import type { CasperNetwork } from './domain';
+import type { CasperNetwork, IDexConfig } from './domain';
 
 export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
   grpcUrl?: Record<CasperNetwork, string>;
+  dexConfig?: IDexConfig;
 }
 
 /**
@@ -18,6 +19,7 @@ export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
  */
 export const setupRepositories = ({
   grpcUrl = GrpcUrl,
+  dexConfig,
   ...dataParams
 }: ISetupRepositoriesParams = {}) => {
   const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories(dataParams);
@@ -30,6 +32,7 @@ export const setupRepositories = ({
     casperWalletApiByEnvUrl: dataParams.casperWalletApiByEnvUrl ?? CasperWalletApiByEnvUrl,
     grpcUrl,
     httpAuthorizationHeader: dataParams.httpAuthorizationHeader,
+    dexConfig,
     log,
   });
 

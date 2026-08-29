@@ -5,6 +5,7 @@ import { ContractPackageRepository } from './data/repositories/contractPackage';
 import { DeploysRepository } from './data/repositories/deploys';
 import { NftsRepository } from './data/repositories/nfts';
 import { OnRampRepository } from './data/repositories/onRamp';
+import { SwapRepository } from './data/repositories/swap';
 import { TokensRepository } from './data/repositories/tokens';
 import { ValidatorsRepository } from './data/repositories/validators';
 import { Logger } from './utils/logger';
@@ -12,6 +13,7 @@ import {
   CasperWalletApiByNetworkUrl,
   CasperWalletApiByEnvUrl,
 } from './domain/constants/casperNetwork';
+import { TradeApiUrl, WrappedCsprContractPackageHash } from './domain/constants/dex';
 import type { CasperNetwork } from './domain/common/common';
 import type { ILogger } from './domain/common/logger';
 import type { IEnv } from './domain/env';
@@ -39,6 +41,8 @@ export interface ISetupDataRepositoriesParams {
   /** Environment-based url for Casper Wallet Api. Some API network agnostic and do not belong to any {@link CasperWalletApiByNetworkUrl}. Default env is PRODUCTION (in all places where it is used) */
   casperWalletApiByEnvUrl?: Record<IEnv, string>;
   httpAuthorizationHeader?: string;
+  tradeApiByNetworkUrl?: Record<CasperNetwork, string>;
+  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>;
 }
 
 export const setupDataRepositories = ({
@@ -47,6 +51,8 @@ export const setupDataRepositories = ({
   casperWalletApiByNetworkUrl = CasperWalletApiByNetworkUrl,
   casperWalletApiByEnvUrl = CasperWalletApiByEnvUrl,
   httpAuthorizationHeader,
+  tradeApiByNetworkUrl = TradeApiUrl,
+  wrappedCsprContractPackageHash = WrappedCsprContractPackageHash,
 }: ISetupDataRepositoriesParams = {}) => {
   const log = logger ?? new Logger();
   const httpDataProvider = new HttpDataProvider(debug ? log : null);
@@ -76,6 +82,11 @@ export const setupDataRepositories = ({
     httpDataProvider,
     casperWalletApiByNetworkUrl,
   );
+  const swapRepository = new SwapRepository(
+    httpDataProvider,
+    tradeApiByNetworkUrl,
+    wrappedCsprContractPackageHash,
+  );
 
   return {
     accountInfoRepository,
@@ -86,6 +97,7 @@ export const setupDataRepositories = ({
     deploysRepository,
     appEventsRepository,
     contractPackageRepository,
+    swapRepository,
     /** Shared with {@link setupSigningRepositories} so both halves talk through one provider. */
     httpDataProvider,
     /** Shared with {@link setupSigningRepositories}; the resolved logger, never `undefined`. */
