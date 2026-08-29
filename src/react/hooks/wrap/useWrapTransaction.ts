@@ -1,10 +1,7 @@
 import { useCallback } from 'react';
 
-import { useRepositories } from '../context/useRepositories';
-import { useSigner } from '../context/useSigner';
-
 import type { WrapDirection } from '../../../domain/dex';
-import type { ITransactionCallbacks } from '../../types';
+import type { ISwapDependencies, ITransactionCallbacks } from '../../types';
 
 export interface IUseWrapTransactionParams {
   direction: WrapDirection;
@@ -12,14 +9,20 @@ export interface IUseWrapTransactionParams {
   publicKey: string;
 }
 
+export interface IUseWrapTransactionDeps extends Pick<
+  ISwapDependencies,
+  'network' | 'dexContractRepository' | 'signer'
+> {}
+
 /**
  * Builds a wrap or unwrap transaction from the direction — TransactionV1 only when the signer
  * reports support for it — and hands it to `signer.send`.
  */
-export const useWrapTransaction = () => {
-  const { network, dexContractRepository } = useRepositories();
-  const signer = useSigner();
-
+export const useWrapTransaction = ({
+  network,
+  dexContractRepository,
+  signer,
+}: IUseWrapTransactionDeps) => {
   const execute = useCallback(
     async (
       { direction, rawAmount, publicKey }: IUseWrapTransactionParams,

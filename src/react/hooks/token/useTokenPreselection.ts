@@ -3,8 +3,12 @@ import { useEffect, useRef } from 'react';
 import { useFetchToken } from '../api/useFetchToken';
 
 import type { IDexToken } from '../../../domain/swap';
+import type { ISwapDependencies } from '../../types';
 
-interface IUseTokenPreselectionParams {
+export interface IUseTokenPreselectionParams extends Pick<
+  ISwapDependencies,
+  'network' | 'swapRepository'
+> {
   tokenInHash?: string; // deep-link token hashes; router/URL parsing is the consumer's job
   tokenOutHash?: string;
   tokens: IDexToken[];
@@ -15,6 +19,8 @@ interface IUseTokenPreselectionParams {
 }
 
 export const useTokenPreselection = ({
+  network,
+  swapRepository,
   tokenInHash = '',
   tokenOutHash = '',
   tokens,
@@ -27,12 +33,16 @@ export const useTokenPreselection = ({
   const tokenInInListed = tokens ? tokens.some(t => t.packageHash === tokenInHash) : null;
   const tokenOutInListed = tokens ? tokens.some(t => t.packageHash === tokenOutHash) : null;
 
-  const { token: customTokenIn } = useFetchToken(
-    tokenInHash && tokenInInListed === false ? tokenInHash : '',
-  );
-  const { token: customTokenOut } = useFetchToken(
-    tokenOutHash && tokenOutInListed === false ? tokenOutHash : '',
-  );
+  const { token: customTokenIn } = useFetchToken({
+    network,
+    swapRepository,
+    contractPackageHash: tokenInHash && tokenInInListed === false ? tokenInHash : '',
+  });
+  const { token: customTokenOut } = useFetchToken({
+    network,
+    swapRepository,
+    contractPackageHash: tokenOutHash && tokenOutInListed === false ? tokenOutHash : '',
+  });
 
   useEffect(() => {
     if (hasSetRef.current || !tokens) return;

@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 
 import { useFetchAccountTokenOwnership } from './useFetchAccountTokenOwnership';
 
-interface IUseFetchTokenBalanceParams {
+import type { ISwapDependencies } from '../../types';
+
+export interface IUseFetchTokenBalanceParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'tokensRepository'
+> {
   contractPackageHash: string;
   enabled?: boolean;
 }
@@ -14,12 +19,18 @@ interface IUseFetchTokenBalanceParams {
  * Returns `data` as a raw balance string (smallest unit), or `undefined` while unresolved.
  */
 export const useFetchTokenBalance = ({
+  network,
+  activePublicKey,
+  tokensRepository,
   contractPackageHash,
   enabled = true,
 }: IUseFetchTokenBalanceParams) => {
   const contractPackageHashes = useMemo(() => [contractPackageHash], [contractPackageHash]);
 
   const { data, isLoading, error, refetch, isFetching, isError } = useFetchAccountTokenOwnership({
+    network,
+    activePublicKey,
+    tokensRepository,
     contractPackageHashes,
     enabled: Boolean(contractPackageHash) && enabled,
   });

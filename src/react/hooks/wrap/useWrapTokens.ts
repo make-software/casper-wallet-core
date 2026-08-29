@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useFetchDexTokens } from '../api/useFetchDexTokens';
 import { useFetchTokenBalance } from '../api/useFetchTokenBalance';
-import { useRepositories } from '../context/useRepositories';
 import { useCsprFeeValidation } from '../token/useCsprFeeValidation';
 import { useTokenBalances } from '../token/useTokenBalances';
 import { useTokenPairBalances } from '../token/useTokenPairBalances';
@@ -20,6 +19,7 @@ import type { WrapDirection } from '../../../domain/dex';
 import type { IDexToken } from '../../../domain/swap';
 import { isAmountInputValid, isPositiveAmount } from '../../../utils/amounts';
 import { getBlockchainAmount, getDecimalTokenBalance } from '../../../utils/common';
+import type { ISwapDependencies } from '../../types';
 
 const buildNativeCsprToken = (csprFromList: IDexToken | undefined): IDexToken => ({
   id: CSPR_NATIVE_TOKEN_ID,
@@ -52,17 +52,26 @@ const buildWcsprToken = (
   volume24h: null,
 });
 
+export interface IUseWrapTokensParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'swapRepository' | 'tokensRepository'
+> {}
+
 /**
  * WCSPR page orchestrator: wrap/unwrap direction, amount, both legs' balances and the review
  * modal.
  */
-export const useWrapTokens = () => {
-  const { network, activePublicKey } = useRepositories();
+export const useWrapTokens = ({
+  network,
+  activePublicKey,
+  swapRepository,
+  tokensRepository,
+}: IUseWrapTokensParams) => {
   const isWalletConnected = Boolean(activePublicKey);
 
   const wrappedCsprPackageHash = WrappedCsprContractPackageHash[network];
 
-  const { data: tokens } = useFetchDexTokens();
+  const { data: tokens } = useFetchDexTokens({ network, swapRepository });
 
   const [direction, setDirection] = useState<WrapDirection>('wrap');
   const [amount, setAmount] = useState<string>('0');
@@ -87,17 +96,27 @@ export const useWrapTokens = () => {
   const sourceRawAmount = useMemo(() => getBlockchainAmount(amount, CSPR_DECIMALS, '0'), [amount]);
 
   const { firstTokenFiatAmount: sourceTokenFiatAmount } = useTokenPairFiatAmounts({
+    network,
+    tokensRepository,
     firstToken: sourceToken,
     secondToken: destinationToken,
     firstTokenAmount: amount,
     secondTokenAmount: amount,
   });
 
-  const { getFormattedBalance, getRawBalance, refetchCsprBalance } = useTokenBalances();
+  const { getFormattedBalance, getRawBalance, refetchCsprBalance } = useTokenBalances({
+    network,
+    activePublicKey,
+    tokensRepository,
+    swapRepository,
+  });
 
   // Wrapping and unwrapping both move this balance, so the WCSPR leg gets its own fetch and a
   // refetch handle to run right after the transaction.
   const { data: wcsprBalance, refetch: refetchWcsprBalance } = useFetchTokenBalance({
+    network,
+    activePublicKey,
+    tokensRepository,
     contractPackageHash: wrappedCsprPackageHash,
     enabled: isWalletConnected,
   });

@@ -2,17 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFetchAccountTokenOwnership } from '../api/useFetchAccountTokenOwnership';
 import { useFetchDexTokens } from '../api/useFetchDexTokens';
-import { useRepositories } from '../context/useRepositories';
 
 import { CSPR_DECIMALS, CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import { getDecimalTokenBalance } from '../../../utils/common';
+import type { ISwapDependencies } from '../../types';
 
 export interface ITokenBalances {
   formatted: Record<string, string>;
   raw: Record<string, string>;
 }
 
-interface IUseTokenBalancesParams {
+export interface IUseTokenBalancesParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'tokensRepository' | 'swapRepository'
+> {
   additionalContractPackageHashes?: string[];
 }
 
@@ -26,16 +29,18 @@ interface IUseTokenBalancesReturn {
 }
 
 export const useTokenBalances = ({
+  network,
+  activePublicKey,
+  tokensRepository,
+  swapRepository,
   additionalContractPackageHashes,
-}: IUseTokenBalancesParams = {}): IUseTokenBalancesReturn => {
-  const { network, activePublicKey, tokensRepository } = useRepositories();
-
+}: IUseTokenBalancesParams): IUseTokenBalancesReturn => {
   const [tokenBalances, setTokenBalances] = useState<ITokenBalances>({
     formatted: {},
     raw: {},
   });
 
-  const { data: tokens } = useFetchDexTokens();
+  const { data: tokens } = useFetchDexTokens({ network, swapRepository });
 
   const contractPackageHashes = useMemo(
     () => [
@@ -50,6 +55,9 @@ export const useTokenBalances = ({
   );
 
   const { data: ownershipData, refetch: refetchOwnership } = useFetchAccountTokenOwnership({
+    network,
+    activePublicKey,
+    tokensRepository,
     contractPackageHashes,
     enabled: contractPackageHashes.length > 0,
   });

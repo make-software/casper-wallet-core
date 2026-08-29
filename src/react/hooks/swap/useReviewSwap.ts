@@ -3,18 +3,28 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSwapStates } from './useSwapStates';
 import { useSwapTransaction, type IUseSwapTransactionParams } from './useSwapTransaction';
 
-import { useContractSettings } from '../context/useContractSettings';
-import { useRepositories } from '../context/useRepositories';
 import { useTokenApprovalFlow } from '../token/useTokenApprovalFlow';
 
 import { CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
 import { calculateApprovalAmount, calculateMaxAmountWithSlippage } from '../../../utils/amounts';
-import type { ApprovalState, ITransactionCallbacks, TransactionStatus } from '../../types';
+import type {
+  ApprovalState,
+  ISwapDependencies,
+  ITransactionCallbacks,
+  TransactionStatus,
+} from '../../types';
 
 type SwapStep = 'confirm' | 'signing' | 'success';
 
-export interface IUseReviewSwapParams {
+export interface IUseReviewSwapParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'dexContractRepository' | 'signer'
+> {
+  /** Max slippage in percent — the same value passed to the swap build. */
+  slippage: number;
+  /** Transaction deadline in minutes. */
+  deadline: number;
   firstToken: IDexTokenWithAmount;
   secondToken: IDexTokenWithAmount;
   firstRawTokenBalance?: string;
@@ -35,6 +45,12 @@ export interface ISwapTransactionState {
  * UI's "checking" state; `checkAndApprove` then performs the real check and execution.
  */
 export const useReviewSwap = ({
+  network,
+  activePublicKey,
+  dexContractRepository,
+  signer,
+  slippage,
+  deadline,
   firstToken,
   secondToken,
   firstRawTokenBalance = '0',
@@ -48,9 +64,19 @@ export const useReviewSwap = ({
   const [error, setError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
-  const { activePublicKey } = useRepositories();
-  const { swapTokens } = useSwapTransaction();
-  const { checkApprovalRequired, checkAndApprove } = useTokenApprovalFlow();
+  const { swapTokens } = useSwapTransaction({
+    network,
+    dexContractRepository,
+    signer,
+    slippage,
+    deadline,
+  });
+  const { checkApprovalRequired, checkAndApprove } = useTokenApprovalFlow({
+    network,
+    activePublicKey,
+    dexContractRepository,
+    signer,
+  });
   const {
     transactionStates,
     approvalRequirements,
@@ -58,7 +84,6 @@ export const useReviewSwap = ({
     updateTransactionState,
     resetStates,
   } = useSwapStates();
-  const { slippage } = useContractSettings();
 
   const resetForm = useCallback(() => {
     setStep('confirm');

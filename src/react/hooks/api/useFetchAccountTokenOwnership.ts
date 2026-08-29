@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { useRepositories } from '../context/useRepositories';
-
 import type { ITokensError, ITokenWithFiatBalance } from '../../../domain/tokens';
+import type { ISwapDependencies } from '../../types';
 
-interface IUseFetchAccountTokenOwnershipParams {
+export interface IUseFetchAccountTokenOwnershipParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'tokensRepository'
+> {
   contractPackageHashes?: string[];
   enabled?: boolean;
 }
@@ -14,16 +16,22 @@ interface IUseFetchAccountTokenOwnershipParams {
  * so a balance never depends on which screen asked for it.
  */
 export const useFetchAccountTokenOwnership = ({
+  network,
+  activePublicKey,
+  tokensRepository,
   contractPackageHashes,
   enabled = true,
-}: IUseFetchAccountTokenOwnershipParams = {}) => {
-  const { network, activePublicKey, tokensRepository } = useRepositories();
-
+}: IUseFetchAccountTokenOwnershipParams) => {
   const { data, isLoading, error, refetch, isFetching, isError } = useQuery<
     ITokenWithFiatBalance[],
     ITokensError
   >({
-    queryKey: ['accountTokenOwnership', activePublicKey, contractPackageHashes?.join(',') ?? 'all'],
+    queryKey: [
+      'accountTokenOwnership',
+      network,
+      activePublicKey,
+      contractPackageHashes?.join(',') ?? 'all',
+    ],
     enabled: Boolean(activePublicKey) && enabled,
     queryFn: () => {
       if (!activePublicKey) {

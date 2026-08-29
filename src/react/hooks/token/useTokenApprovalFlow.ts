@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
-import { useRepositories } from '../context/useRepositories';
-
-import type { ITransactionCallbacks } from '../../types';
+import type { ISwapDependencies, ITransactionCallbacks } from '../../types';
 
 interface IApprovalCheckConfig {
   contractPackageHash: string;
@@ -14,13 +12,21 @@ interface IApprovalExecuteConfig {
   balance: string;
 }
 
+export interface IUseTokenApprovalFlowParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'dexContractRepository' | 'signer'
+> {}
+
 /**
  * Hook that handles checking approval requirements and executing approval transactions
  * for a single CEP-18 token/contract.
  */
-export const useTokenApprovalFlow = () => {
-  const { network, activePublicKey, dexContractRepository, signer } = useRepositories();
-
+export const useTokenApprovalFlow = ({
+  network,
+  activePublicKey,
+  dexContractRepository,
+  signer,
+}: IUseTokenApprovalFlowParams) => {
   const checkApprovalRequired = useCallback(
     async (config: IApprovalCheckConfig): Promise<boolean> => {
       if (!activePublicKey) {

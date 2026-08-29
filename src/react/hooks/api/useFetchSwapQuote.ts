@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import { useRepositories } from '../context/useRepositories';
-
 import type {
   FetchQuoteErrorCodes,
   IDexToken,
@@ -11,8 +9,12 @@ import type {
   SwapQuoteType,
 } from '../../../domain/swap';
 import { getMillisecondsUntilNextBlock } from '../../../utils/swap';
+import type { ISwapDependencies } from '../../types';
 
-export interface IUseFetchSwapQuoteParams {
+export interface IUseFetchSwapQuoteParams extends Pick<
+  ISwapDependencies,
+  'network' | 'swapRepository' | 'dexContractRepository'
+> {
   typeId: SwapQuoteType;
   amount: string;
   tokenIn: IDexToken | null;
@@ -39,6 +41,9 @@ const extractFetchQuoteErrorCode = (error: ISwapError | null): FetchQuoteErrorCo
 };
 
 export const useFetchSwapQuote = ({
+  network,
+  swapRepository,
+  dexContractRepository,
   typeId,
   amount,
   tokenIn,
@@ -48,16 +53,14 @@ export const useFetchSwapQuote = ({
   const isFirstRefetch = useRef(true);
   const prevQueryKeyRef = useRef<string>('');
 
-  const { network, swapRepository, dexContractRepository } = useRepositories();
-
   const { data: latestBlockTimestamp } = useQuery({
-    queryKey: ['latestBlock'],
+    queryKey: ['latestBlock', network],
     queryFn: () => dexContractRepository.getLatestBlockTime({ network }),
     staleTime: Infinity,
     retry: false,
   });
 
-  const queryKey = ['quote', typeId, amount, tokenIn, tokenOut] as const;
+  const queryKey = ['quote', network, typeId, amount, tokenIn, tokenOut] as const;
   const currentQueryKeyString = JSON.stringify(queryKey);
 
   useEffect(() => {

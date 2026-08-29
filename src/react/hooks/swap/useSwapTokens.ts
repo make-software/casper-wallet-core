@@ -4,8 +4,6 @@ import { useSwapRouteTokens } from './useSwapRouteTokens';
 
 import { useFetchDexTokens } from '../api/useFetchDexTokens';
 import { useFetchSwapQuote } from '../api/useFetchSwapQuote';
-import { useContractSettings } from '../context/useContractSettings';
-import { useRepositories } from '../context/useRepositories';
 import { useCsprFeeValidation } from '../token/useCsprFeeValidation';
 import { useTokenBalances } from '../token/useTokenBalances';
 import { useTokenPairBalances } from '../token/useTokenPairBalances';
@@ -30,9 +28,16 @@ import {
   handleTokenSelection,
   type TokenPosition,
 } from '../../../utils/swap';
+import type { ISwapDependencies } from '../../types';
 
-export interface IUseSwapTokensParams {
-  tokenInHash?: string; // deep-link token hashes; router/URL parsing is the consumer's job
+export interface IUseSwapTokensParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'swapRepository' | 'dexContractRepository' | 'tokensRepository'
+> {
+  /** Max slippage in percent, shown as `maxSlippage`. Clamp with `clampSlippageValue`. */
+  slippage: number;
+  /** Deep-link token hashes; router/URL parsing is the consumer's job. */
+  tokenInHash?: string;
   tokenOutHash?: string;
 }
 
@@ -40,12 +45,19 @@ export interface IUseSwapTokensParams {
  * Trade-page orchestrator: composes token-pair state, balances, quote fetching and the review
  * modal into one form API. Return-field names are public API for the apps consuming this library.
  */
-export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParams = {}) => {
-  const { activePublicKey } = useRepositories();
-  const { slippage } = useContractSettings();
+export const useSwapTokens = ({
+  network,
+  activePublicKey,
+  swapRepository,
+  dexContractRepository,
+  tokensRepository,
+  slippage,
+  tokenInHash,
+  tokenOutHash,
+}: IUseSwapTokensParams) => {
   const isWalletConnected = Boolean(activePublicKey);
 
-  const { data: tokens } = useFetchDexTokens();
+  const { data: tokens } = useFetchDexTokens({ network, swapRepository });
 
   const {
     selectedTokens,
@@ -70,12 +82,20 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     resetBalances,
     refetchCsprBalance,
     refetchTokenBalances,
-  } = useTokenBalances({ additionalContractPackageHashes: customTokenHashes });
+  } = useTokenBalances({
+    network,
+    activePublicKey,
+    tokensRepository,
+    swapRepository,
+    additionalContractPackageHashes: customTokenHashes,
+  });
 
   const quoteType =
     activeTokenPosition === 'first' ? SwapQuoteType.ExactIn : SwapQuoteType.ExactOut;
 
   const { firstTokenFiatAmount, secondTokenFiatAmount, csprFiatRates } = useTokenPairFiatAmounts({
+    network,
+    tokensRepository,
     firstToken: selectedTokens.first,
     secondToken: selectedTokens.second,
     firstTokenAmount: tokenAmounts.first.formatted || '0',
@@ -97,6 +117,9 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
   }, [activeTokenPosition, debouncedTokenAmounts, selectedTokens.first, selectedTokens.second]);
 
   const quoteData = useFetchSwapQuote({
+    network,
+    swapRepository,
+    dexContractRepository,
     tokenIn: tokenSelectorModal.isOpen ? null : selectedTokens.first,
     tokenOut: tokenSelectorModal.isOpen ? null : selectedTokens.second,
     amount: rawAmount,
@@ -326,7 +349,12 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     USD_CURRENCY_CODE,
   );
   const maxSlippage = `${slippage}`;
-  const swapRoutes = useSwapRouteTokens(quoteData.data?.path ?? [], tokens ?? []);
+  const swapRoutes = useSwapRouteTokens({
+    network,
+    swapRepository,
+    path: quoteData.data?.path ?? [],
+    tokens: tokens ?? [],
+  });
   const path = quoteData.data?.path ?? [];
 
   // `setInitialTokens` takes `(first, second)`; `useTokenPreselection` passes a single
@@ -341,6 +369,8 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
   );
 
   useTokenPreselection({
+    network,
+    swapRepository,
     tokenInHash,
     tokenOutHash,
     tokens: tokens ?? [],

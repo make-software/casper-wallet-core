@@ -1,12 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { useRepositories } from '../context/useRepositories';
-
 import type { IDexToken, ISwapError } from '../../../domain/swap';
+import type { ISwapDependencies } from '../../types';
 
-export const useFetchToken = (tokenContractPackageHash: string) => {
-  const { network, swapRepository } = useRepositories();
+export interface IUseFetchTokenParams extends Pick<
+  ISwapDependencies,
+  'network' | 'swapRepository'
+> {
+  contractPackageHash: string;
+}
 
+export const useFetchToken = ({
+  contractPackageHash,
+  network,
+  swapRepository,
+}: IUseFetchTokenParams) => {
   const {
     data: token,
     isLoading,
@@ -15,13 +23,13 @@ export const useFetchToken = (tokenContractPackageHash: string) => {
     isFetching,
     isError,
   } = useQuery<IDexToken, ISwapError>({
-    queryKey: ['token', tokenContractPackageHash, network],
+    queryKey: ['token', contractPackageHash, network],
     queryFn: () =>
       swapRepository.getDexToken({
         network,
-        contractPackageHash: tokenContractPackageHash,
+        contractPackageHash,
       }),
-    enabled: Boolean(tokenContractPackageHash),
+    enabled: Boolean(contractPackageHash),
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   });

@@ -18,31 +18,16 @@ export interface ISigner {
   send(built: IBuiltDexTransaction, callbacks: ITransactionCallbacks): Promise<void>;
 }
 
-export interface IKeyValueStorage {
-  get(key: string): string | null | Promise<string | null>;
-  set(key: string, value: string): void | Promise<void>;
-}
-
-/** Storage keys for the persisted contract settings — named by the host app, not this library. */
-export interface IContractSettingsStorageKeys {
-  slippage: string;
-  deadline: string;
-}
-
-export interface IRepositoriesContextValue {
+/** Everything the React hooks need from the host app. Each hook takes only the subset it uses. */
+export interface ISwapDependencies {
   swapRepository: ISwapRepository;
   dexContractRepository: IDexContractRepository;
   tokensRepository: ITokensRepository;
   network: CasperNetwork;
+  /** The signing adapter for the connected account, or `null` when no wallet is connected. */
   signer: ISigner | null;
+  /** The connected account's public key, or `null` when no wallet is connected. */
   activePublicKey: string | null;
-}
-
-export interface IContractSettings {
-  slippage: number; // percent
-  deadline: number; // minutes
-  updateSlippage: (slippage: number) => void; // clamped via clampSlippageValue
-  updateDeadline: (deadline: number) => void; // clamped via clampDeadlineValue
 }
 
 export type TransactionStatus = 'idle' | 'pending' | 'awaiting' | 'success' | 'error';

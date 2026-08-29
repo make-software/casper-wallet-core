@@ -2,19 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useWrapTransaction, type IUseWrapTransactionParams } from './useWrapTransaction';
 
-import { useRepositories } from '../context/useRepositories';
 import { useTransactionStatuses } from '../ui/useTransactionStatuses';
 
 import type { WrapDirection } from '../../../domain/dex';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
 import { getTransactionErrorMessage } from '../../../utils/swap';
-import type { ITransactionCallbacks } from '../../types';
+import type { ISwapDependencies, ITransactionCallbacks } from '../../types';
 
 type WrapStep = 'confirm' | 'signing' | 'success';
 
 const WRAP_STATUS_KEYS = ['wrap'] as const;
 
-export interface IUseReviewWrapParams {
+export interface IUseReviewWrapParams extends Pick<
+  ISwapDependencies,
+  'network' | 'activePublicKey' | 'dexContractRepository' | 'signer'
+> {
   direction: WrapDirection;
   sourceToken: IDexTokenWithAmount;
   isOpen: boolean;
@@ -27,14 +29,17 @@ export interface IUseReviewWrapParams {
  * no slippage/deadline and needs no approval (`withdraw` burns the caller's own balance).
  */
 export const useReviewWrap = ({
+  network,
+  activePublicKey,
+  dexContractRepository,
+  signer,
   direction,
   sourceToken,
   isOpen,
   onWrapSuccess,
   onClose,
 }: IUseReviewWrapParams) => {
-  const { activePublicKey } = useRepositories();
-  const { execute } = useWrapTransaction();
+  const { execute } = useWrapTransaction({ network, dexContractRepository, signer });
   const { transactionStates, updateTransactionState, resetStates } =
     useTransactionStatuses(WRAP_STATUS_KEYS);
 

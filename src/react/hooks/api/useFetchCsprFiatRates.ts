@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { useRepositories } from '../context/useRepositories';
-
 import type { ITokensError } from '../../../domain/tokens';
+import type { ISwapDependencies } from '../../types';
 
-export const useFetchCsprFiatRates = () => {
-  const { network, tokensRepository } = useRepositories();
+export interface IUseFetchCsprFiatRatesParams extends Pick<
+  ISwapDependencies,
+  'network' | 'tokensRepository'
+> {}
 
+export const useFetchCsprFiatRates = ({
+  network,
+  tokensRepository,
+}: IUseFetchCsprFiatRatesParams) => {
   const {
     data: csprFiatRates,
     isLoading,
