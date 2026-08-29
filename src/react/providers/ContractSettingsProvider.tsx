@@ -1,27 +1,32 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { IContractSettings, IKeyValueStorage } from '../types';
+import type { IContractSettings, IContractSettingsStorageKeys, IKeyValueStorage } from '../types';
 
-import {
-  DEADLINE_STORAGE_KEY,
-  DEFAULT_DEADLINE,
-  DEFAULT_SLIPPAGE,
-  SLIPPAGE_STORAGE_KEY,
-} from '../../domain/constants/dex';
+import { DEFAULT_DEADLINE, DEFAULT_SLIPPAGE } from '../../domain/constants';
 import { clampDeadlineValue, clampSlippageValue } from '../../utils/swap';
 
 export const ContractSettingsContext = createContext<IContractSettings | null>(null);
 
+/** Persistence is all-or-nothing: an adapter is only usable together with the keys to store under. */
+export type IContractSettingsProviderProps =
+  | { storage?: undefined; storageKeys?: undefined }
+  | { storage: IKeyValueStorage; storageKeys: IContractSettingsStorageKeys };
+
 export const ContractSettingsProvider: React.FC<
-  React.PropsWithChildren<{ storage?: IKeyValueStorage }>
-> = ({ children, storage }) => {
+  React.PropsWithChildren<IContractSettingsProviderProps>
+> = ({ children, storage, storageKeys }) => {
   const [slippage, setSlippage] = useState(DEFAULT_SLIPPAGE);
   const [deadline, setDeadline] = useState(DEFAULT_DEADLINE);
+
+  // Depend on the key strings rather than the object so an inline `storageKeys` literal does not
+  // re-hydrate on every render.
+  const slippageKey = storageKeys?.slippage;
+  const deadlineKey = storageKeys?.deadline;
 
   // Defaults hold until storage (if any) resolves; consumers without a storage adapter
   // keep in-memory-only settings.
   useEffect(() => {
-    if (!storage) {
+    if (!storage || slippageKey == null || deadlineKey == null) {
       return;
     }
 
@@ -29,8 +34,8 @@ export const ContractSettingsProvider: React.FC<
 
     const hydrate = async () => {
       const [storedSlippage, storedDeadline] = await Promise.all([
-        storage.get(SLIPPAGE_STORAGE_KEY),
-        storage.get(DEADLINE_STORAGE_KEY),
+        storage.get(slippageKey),
+        storage.get(deadlineKey),
       ]);
 
       if (cancelled) {
@@ -51,24 +56,30 @@ export const ContractSettingsProvider: React.FC<
     return () => {
       cancelled = true;
     };
-  }, [storage]);
+  }, [storage, slippageKey, deadlineKey]);
 
   const updateSlippage = useCallback(
     (value: number) => {
       const clamped = clampSlippageValue(value);
       setSlippage(clamped);
-      storage?.set(SLIPPAGE_STORAGE_KEY, String(clamped));
+
+      if (slippageKey != null) {
+        storage?.set(slippageKey, String(clamped));
+      }
     },
-    [storage],
+    [storage, slippageKey],
   );
 
   const updateDeadline = useCallback(
     (value: number) => {
       const clamped = clampDeadlineValue(value);
       setDeadline(clamped);
-      storage?.set(DEADLINE_STORAGE_KEY, String(clamped));
+
+      if (deadlineKey != null) {
+        storage?.set(deadlineKey, String(clamped));
+      }
     },
-    [storage],
+    [storage, deadlineKey],
   );
 
   const value = useMemo<IContractSettings>(

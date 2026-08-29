@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from '../ui/useDebounce';
 import { useModalState } from '../ui/useModalState';
 
-import { CSPR_TOKEN } from '../../../domain/constants/dex';
+import { CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import type { TokenPosition } from '../../../utils/swap';
 
@@ -30,7 +30,7 @@ interface IUseTokenPairStateParams {
 
 export const useTokenPairState = ({
   tokens,
-  defaultTokenId = CSPR_TOKEN.id,
+  defaultTokenId = CSPR_NATIVE_TOKEN_ID,
 }: IUseTokenPairStateParams = {}) => {
   const tokenSelectorModal = useModalState(false);
   const reviewModal = useModalState(false);

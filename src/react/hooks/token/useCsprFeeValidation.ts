@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import type { ISelectedTokensState, ITokenAmountsState } from './useTokenPairState';
 
-import { CSPR_TOKEN } from '../../../domain/constants/dex';
+import { CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import { hasEnoughCSPRBalance } from '../../../utils/amounts';
 
 interface IUseCsprFeeValidationParams {
@@ -29,11 +29,13 @@ export const useCsprFeeValidation = ({
   return useCallback((): boolean => {
     if (!isWalletConnected) return false;
 
-    const csprRawBalance = getRawBalance(CSPR_TOKEN.id);
+    const csprRawBalance = getRawBalance(CSPR_NATIVE_TOKEN_ID);
 
     const amountInMotes =
       csprAmountInMotes ??
-      (selectedTokens?.first?.id === CSPR_TOKEN.id ? (tokenAmounts?.first?.raw ?? '0') : '0');
+      (selectedTokens?.first?.id === CSPR_NATIVE_TOKEN_ID
+        ? (tokenAmounts?.first?.raw ?? '0')
+        : '0');
 
     return !hasEnoughCSPRBalance(csprRawBalance, amountInMotes, feeInMotes);
   }, [

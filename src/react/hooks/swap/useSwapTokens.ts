@@ -13,7 +13,7 @@ import { useTokenPairFiatAmounts } from '../token/useTokenPairFiatAmounts';
 import { useTokenPairState } from '../token/useTokenPairState';
 import { useTokenPreselection } from '../token/useTokenPreselection';
 
-import { CSPR_TOKEN, DEX_PAYMENT_AMOUNT } from '../../../domain/constants/dex';
+import { CSPR_NATIVE_TOKEN_ID, DEX_PAYMENT_AMOUNT } from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import { SwapQuoteType } from '../../../domain/swap';
 import { formattedToRawSafe, isAmountValid, isValidAmount } from '../../../utils/amounts';
@@ -124,7 +124,8 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
 
   const transactionFeeInMotes = useMemo(() => {
     const isSwappingTokenForToken =
-      selectedTokens.first?.id !== CSPR_TOKEN.id && selectedTokens.second?.id !== CSPR_TOKEN.id;
+      selectedTokens.first?.id !== CSPR_NATIVE_TOKEN_ID &&
+      selectedTokens.second?.id !== CSPR_NATIVE_TOKEN_ID;
     const swapFee = isSwappingTokenForToken
       ? DEX_PAYMENT_AMOUNT.swapTokenForToken
       : DEX_PAYMENT_AMOUNT.swapCsprForToken;

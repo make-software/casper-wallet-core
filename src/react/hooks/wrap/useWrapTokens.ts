@@ -10,10 +10,12 @@ import { useTokenPairFiatAmounts } from '../token/useTokenPairFiatAmounts';
 import { useModalState } from '../ui/useModalState';
 
 import {
-  CSPR_TOKEN,
+  CSPR_COIN,
+  CSPR_DECIMALS,
+  CSPR_NATIVE_TOKEN_ID,
   DEX_PAYMENT_AMOUNT,
   WrappedCsprContractPackageHash,
-} from '../../../domain/constants/dex';
+} from '../../../domain/constants';
 import type { WrapDirection } from '../../../domain/dex';
 import type { IDexToken } from '../../../domain/swap';
 import {
@@ -24,11 +26,11 @@ import {
 } from '../../../utils/amounts';
 
 const buildNativeCsprToken = (csprFromList: IDexToken | undefined): IDexToken => ({
-  id: CSPR_TOKEN.id,
-  name: 'Casper',
-  symbol: CSPR_TOKEN.symbol,
+  id: CSPR_NATIVE_TOKEN_ID,
+  name: CSPR_COIN.name,
+  symbol: CSPR_COIN.symbol,
   icon: csprFromList?.icon ?? null,
-  decimals: CSPR_TOKEN.decimals,
+  decimals: CSPR_DECIMALS,
   packageHash: '',
   isWhitelisted: true,
   isBlacklisted: false,
@@ -45,7 +47,7 @@ const buildWcsprToken = (
   name: 'Wrapped Casper',
   symbol: 'WCSPR',
   icon: csprFromList?.icon ?? null,
-  decimals: CSPR_TOKEN.decimals,
+  decimals: CSPR_DECIMALS,
   packageHash: wrappedCsprPackageHash,
   isWhitelisted: true,
   isBlacklisted: false,
@@ -73,7 +75,10 @@ export const useWrapTokens = () => {
 
   // The token list maps the WCSPR API record to a virtual CSPR token (id='cspr'), so both legs
   // are rebuilt here to let the form target native CSPR and the real WCSPR contract separately.
-  const csprFromList = useMemo(() => tokens?.find(token => token.id === CSPR_TOKEN.id), [tokens]);
+  const csprFromList = useMemo(
+    () => tokens?.find(token => token.id === CSPR_NATIVE_TOKEN_ID),
+    [tokens],
+  );
   const csprToken = useMemo(() => buildNativeCsprToken(csprFromList), [csprFromList]);
   const wcsprToken = useMemo(
     () => buildWcsprToken(csprFromList, wrappedCsprPackageHash),
@@ -83,7 +88,7 @@ export const useWrapTokens = () => {
   const sourceToken = direction === 'wrap' ? csprToken : wcsprToken;
   const destinationToken = direction === 'wrap' ? wcsprToken : csprToken;
 
-  const sourceRawAmount = useMemo(() => formattedToRawSafe(amount, CSPR_TOKEN.decimals), [amount]);
+  const sourceRawAmount = useMemo(() => formattedToRawSafe(amount, CSPR_DECIMALS), [amount]);
 
   const { firstTokenFiatAmount: sourceTokenFiatAmount } = useTokenPairFiatAmounts({
     firstToken: sourceToken,
@@ -104,7 +109,7 @@ export const useWrapTokens = () => {
   const wcsprRawBalance = useMemo(() => wcsprBalance || '0', [wcsprBalance]);
 
   const wcsprFormattedBalance = useMemo(
-    () => rawToFormattedSafe(wcsprRawBalance, CSPR_TOKEN.decimals, '0'),
+    () => rawToFormattedSafe(wcsprRawBalance, CSPR_DECIMALS, '0'),
     [wcsprRawBalance],
   );
 
@@ -162,7 +167,7 @@ export const useWrapTokens = () => {
   );
 
   const updateAmount = useCallback((value: string) => {
-    if (value !== '' && !isAmountValid(value, CSPR_TOKEN.decimals)) {
+    if (value !== '' && !isAmountValid(value, CSPR_DECIMALS)) {
       return;
     }
 

@@ -7,7 +7,7 @@ import { useContractSettings } from '../context/useContractSettings';
 import { useRepositories } from '../context/useRepositories';
 import { useTokenApprovalFlow } from '../token/useTokenApprovalFlow';
 
-import { CSPR_TOKEN } from '../../../domain/constants/dex';
+import { CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
 import { calculateApprovalAmount, calculateMaxAmountWithSlippage } from '../../../utils/amounts';
 import type { ApprovalState, ITransactionCallbacks, TransactionStatus } from '../../types';
@@ -133,7 +133,7 @@ export const useReviewSwap = ({
     setError(null);
 
     try {
-      const isFirstTokenNative = firstToken.id === CSPR_TOKEN.id;
+      const isFirstTokenNative = firstToken.id === CSPR_NATIVE_TOKEN_ID;
       const firstTokenAmountRaw = firstToken.amountRaw;
 
       const requiredAmount = isFirstTokenNative

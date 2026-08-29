@@ -22,6 +22,12 @@ export interface IKeyValueStorage {
   set(key: string, value: string): void | Promise<void>;
 }
 
+/** Storage keys for the persisted contract settings — named by the host app, not this library. */
+export interface IContractSettingsStorageKeys {
+  slippage: string;
+  deadline: string;
+}
+
 export interface IRepositoriesContextValue {
   swapRepository: ISwapRepository;
   dexContractRepository: IDexContractRepository;

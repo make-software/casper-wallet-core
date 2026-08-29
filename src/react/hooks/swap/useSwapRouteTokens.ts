@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { useRepositories } from '../context/useRepositories';
 
-import { WrappedCsprContractPackageHash } from '../../../domain/constants/dex';
+import { WrappedCsprContractPackageHash } from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import { getSwapRoutes, type WcsprDisplay } from '../../../utils/swap';
 

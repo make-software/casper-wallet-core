@@ -13,7 +13,7 @@ import {
   CasperWalletApiByNetworkUrl,
   CasperWalletApiByEnvUrl,
 } from './domain/constants/casperNetwork';
-import { TradeApiUrl, WrappedCsprContractPackageHash } from './domain/constants/dex';
+import { TradeApiUrl, WrappedCsprContractPackageHash } from './domain/constants';
 import type { CasperNetwork } from './domain/common/common';
 import type { ILogger } from './domain/common/logger';
 import type { IEnv } from './domain/env';

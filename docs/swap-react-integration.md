@@ -117,7 +117,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoriesProvider value={repositoriesValue}>
-        <ContractSettingsProvider storage={settingsStorage}>
+        <ContractSettingsProvider storage={settingsStorage} storageKeys={settingsStorageKeys}>
           <TradePage />
         </ContractSettingsProvider>
       </RepositoriesProvider>
@@ -132,6 +132,7 @@ other context value. This library holds no live wallet-account state itself; `ac
 and `signer` are exactly what the host app currently has selected.
 
 `ContractSettingsProvider`'s `storage` prop is optional — see "Settings storage adapter" below.
+When you pass it, `storageKeys` is required alongside it (the two are typed as a pair).
 
 ## 3. Implement `ISigner`
 
@@ -228,13 +229,25 @@ lifecycle: submitted (`onSent`), confirmed (`onProcessed`), rejected by the user
 ## 4. Settings storage adapter
 
 `ContractSettingsProvider` persists `slippage` (percent) and `deadline` (minutes) through an
-optional `IKeyValueStorage`:
+optional `IKeyValueStorage`, under keys you choose — this library does not name storage keys:
 
 ```ts
 export interface IKeyValueStorage {
   get(key: string): string | null | Promise<string | null>;
   set(key: string, value: string): void | Promise<void>;
 }
+
+export interface IContractSettingsStorageKeys {
+  slippage: string;
+  deadline: string;
+}
+```
+
+```ts
+const settingsStorageKeys: IContractSettingsStorageKeys = {
+  slippage: 'swap.slippage',
+  deadline: 'swap.deadline',
+};
 ```
 
 ```ts
@@ -253,7 +266,7 @@ const asyncStorageAdapter: IKeyValueStorage = {
 
 Without a `storage` prop, settings stay in-memory only (defaults: `DEFAULT_SLIPPAGE = 3`,
 `DEFAULT_DEADLINE = 20`), reset on remount. Values are clamped on both read and write
-(`MIN_SLIPPAGE`/`MAX_SLIPPAGE`, `MIN_DEADLINE`/`MAX_DEADLINE` from `domain/constants/dex`).
+(`MIN_SLIPPAGE`/`MAX_SLIPPAGE`, `MIN_DEADLINE`/`MAX_DEADLINE` from `domain/constants/config`).
 
 ## Error shape: `SwapError`
 
@@ -345,8 +358,9 @@ modal, approval + swap).
 - `src/react/types.ts` — the full `ISigner`, `ITransactionCallbacks`, `IKeyValueStorage`,
   `IRepositoriesContextValue`, `IContractSettings` contracts.
 - `src/domain/swap/`, `src/domain/dex/` — entities, repository interfaces, errors.
-- `src/domain/constants/dex.ts` — per-network defaults, fee/slippage/deadline constants,
-  storage keys.
+- `src/domain/constants/config.ts` — fee/slippage/deadline constants and DEX gas amounts;
+  `src/domain/constants/casperNetwork.ts` — the per-network trade API url and contract package
+  hashes.
 - `src/react/hooks/` — `context/` (provider accessors), `ui/` (debounce, modal state,
   transaction status tracking), `api/` (TanStack Query hooks over `swapRepository`/
   `dexContractRepository`), `token/` (balance, approval, pair-state helpers shared by swap and

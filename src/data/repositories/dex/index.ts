@@ -1,7 +1,7 @@
 import {
   CasperNetwork,
   CasperSdkNetworkName,
-  CSPR_TOKEN,
+  CSPR_NATIVE_TOKEN_ID,
   DEX_PAYMENT_AMOUNT,
   DexError,
   DexErrorType,
@@ -238,8 +238,8 @@ export class DexContractRepository implements IDexContractRepository {
         slippage,
       );
 
-      const isFirstTokenNative = firstToken.id === CSPR_TOKEN.id;
-      const isSecondTokenNative = secondToken.id === CSPR_TOKEN.id;
+      const isFirstTokenNative = firstToken.id === CSPR_NATIVE_TOKEN_ID;
+      const isSecondTokenNative = secondToken.id === CSPR_NATIVE_TOKEN_ID;
       const isBothTokensNotNative = !isFirstTokenNative && !isSecondTokenNative;
 
       // A CSPR-for-CSPR swap is invalid, and has to be rejected before the chain below —

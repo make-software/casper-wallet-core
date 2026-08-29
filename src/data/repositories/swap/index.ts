@@ -1,7 +1,7 @@
 import {
   CasperNetwork,
   CloudPaginatedResponse,
-  CSPR_TOKEN,
+  CSPR_NATIVE_TOKEN_ID,
   DataResponse,
   IAccountTokenOwnershipItem,
   IDexToken,
@@ -50,8 +50,8 @@ export class SwapRepository implements ISwapRepository {
       const resp = await this._httpProvider.get<DataResponse<RawSwapQuote>>({
         url: `${baseUrl}/quote`,
         params: {
-          token_in: tokenIn.id === CSPR_TOKEN.id ? ZERO_HASH : tokenIn.packageHash,
-          token_out: tokenOut.id === CSPR_TOKEN.id ? ZERO_HASH : tokenOut.packageHash,
+          token_in: tokenIn.id === CSPR_NATIVE_TOKEN_ID ? ZERO_HASH : tokenIn.packageHash,
+          token_out: tokenOut.id === CSPR_NATIVE_TOKEN_ID ? ZERO_HASH : tokenOut.packageHash,
           amount,
           type_id: typeId,
         },

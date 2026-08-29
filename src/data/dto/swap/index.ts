@@ -1,20 +1,21 @@
 import type { IDexToken, ISwapQuote, SwapQuoteType } from '../../../domain';
+import { CSPR_COIN, CSPR_NATIVE_TOKEN_ID } from '../../../domain';
 import { calculateSwapRate, divideCEP18Balance } from '../../../utils';
 import type { DexTokenApiResponse, RawSwapQuote } from '../../repositories/swap/types';
 
 /**
- * Maps the WCSPR API record to a synthetic native token (id='cspr', symbol='CSPR',
- * name='Casper') while keeping the real on-chain `packageHash` — this is what makes
- * `token.id === 'cspr'` the native-token check everywhere else in the swap domain.
+ * Maps the WCSPR API record to a synthetic native token while keeping the real on-chain
+ * `packageHash` — this is what makes `token.id === CSPR_NATIVE_TOKEN_ID` the native-token check
+ * everywhere else in the swap domain.
  */
 export class DexTokenDto implements IDexToken {
   constructor(resp: DexTokenApiResponse, wrappedCsprPackageHash: string) {
     const { contract_package: contractPackage, contract_package_hash: contractPackageHash } = resp;
     const isWrappedCspr = contractPackageHash === wrappedCsprPackageHash;
 
-    this.id = isWrappedCspr ? 'cspr' : contractPackageHash;
-    this.name = isWrappedCspr ? 'Casper' : contractPackage.metadata.name;
-    this.symbol = isWrappedCspr ? 'CSPR' : contractPackage.metadata.symbol;
+    this.id = isWrappedCspr ? CSPR_NATIVE_TOKEN_ID : contractPackageHash;
+    this.name = isWrappedCspr ? CSPR_COIN.name : contractPackage.metadata.name;
+    this.symbol = isWrappedCspr ? CSPR_COIN.symbol : contractPackage.metadata.symbol;
     this.icon = contractPackage.icon_url;
     this.decimals = contractPackage.metadata.decimals;
     this.packageHash = contractPackageHash;

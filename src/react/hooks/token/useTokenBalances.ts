@@ -4,7 +4,7 @@ import { useFetchAccountTokenOwnership } from '../api/useFetchAccountTokenOwners
 import { useFetchDexTokens } from '../api/useFetchDexTokens';
 import { useRepositories } from '../context/useRepositories';
 
-import { CSPR_TOKEN } from '../../../domain/constants/dex';
+import { CSPR_DECIMALS, CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import { rawToFormattedSafe } from '../../../utils/amounts';
 
 export interface ITokenBalances {
@@ -40,7 +40,7 @@ export const useTokenBalances = ({
   const contractPackageHashes = useMemo(
     () => [
       ...(tokens ?? [])
-        .filter(token => token.id !== CSPR_TOKEN.id && token.packageHash)
+        .filter(token => token.id !== CSPR_NATIVE_TOKEN_ID && token.packageHash)
         .map(token => token.packageHash),
       ...(additionalContractPackageHashes ?? []).filter(
         h => !(tokens ?? []).some(t => t.packageHash === h),
@@ -58,7 +58,7 @@ export const useTokenBalances = ({
     setTokenBalances(prev => ({
       formatted: {
         ...prev.formatted,
-        cspr: rawToFormattedSafe(rawBalance, CSPR_TOKEN.decimals),
+        cspr: rawToFormattedSafe(rawBalance, CSPR_DECIMALS),
       },
       raw: {
         ...prev.raw,

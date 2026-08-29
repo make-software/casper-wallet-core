@@ -1,5 +1,18 @@
 import Decimal from 'decimal.js';
 
+import {
+  BLOCK_INTERVAL_MS,
+  CSPR_DECIMALS,
+  CSPR_NATIVE_TOKEN_ID,
+  DEX_PAYMENT_AMOUNT,
+  MAX_DEADLINE,
+  MAX_SLIPPAGE,
+  MIN_DEADLINE,
+  MIN_SLIPPAGE,
+  NO_FIAT_RATE_LABEL,
+  POSSIBLE_QUOTE_LATENCY_MS,
+  SWAP_PROTOCOL_FEE,
+} from '../domain/constants';
 import type { IDexToken } from '../domain/swap/entities';
 import { SwapQuoteType } from '../domain/swap/entities';
 
@@ -8,25 +21,6 @@ import { SwapQuoteType } from '../domain/swap/entities';
  * `utils/amounts.ts`: never mutate shared config, and keep full precision through div/mul chains.
  */
 const D = Decimal.clone({ precision: 50, toExpNeg: -50, toExpPos: 50 });
-
-const SWAP_PROTOCOL_FEE = 0.003;
-const BLOCK_INTERVAL_MS = 8000;
-const POSSIBLE_QUOTE_LATENCY_MS = 500;
-const NO_FIAT_RATE_LABEL = 'N/A';
-
-// The synthetic native token: detection everywhere in the swap domain is `token.id === 'cspr'`.
-const CSPR_NATIVE_TOKEN_ID = 'cspr';
-
-const MIN_SLIPPAGE = 0.01;
-const MAX_SLIPPAGE = 50;
-const MIN_DEADLINE = 1;
-const MAX_DEADLINE = 120;
-
-// Gas attached to each contract call, in motes.
-const APPROVE_PAYMENT_MOTES = 5_000_000_000;
-const SWAP_CSPR_FOR_TOKEN_PAYMENT_MOTES = 30_000_000_000;
-const SWAP_TOKEN_FOR_TOKEN_PAYMENT_MOTES = 30_000_000_000;
-const WRAP_PAYMENT_MOTES = 5_000_000_000;
 
 export type TokenPosition = 'first' | 'second';
 export type WcsprDisplay = 'wrapped' | 'native';
@@ -249,8 +243,8 @@ export const calculateSwapPaymentAmount = (
 
   const amount =
     token1.id === CSPR_NATIVE_TOKEN_ID || token2.id === CSPR_NATIVE_TOKEN_ID
-      ? divideCEP18Balance(SWAP_CSPR_FOR_TOKEN_PAYMENT_MOTES.toString(), 9)
-      : divideCEP18Balance(SWAP_TOKEN_FOR_TOKEN_PAYMENT_MOTES.toString(), 9);
+      ? divideCEP18Balance(DEX_PAYMENT_AMOUNT.swapCsprForToken, CSPR_DECIMALS)
+      : divideCEP18Balance(DEX_PAYMENT_AMOUNT.swapTokenForToken, CSPR_DECIMALS);
 
   return csprFiatRate
     ? formatSmallFiatAmount(new D(amount ?? 0).mul(csprFiatRate).toFixed(), currencyCode, 2)
@@ -265,11 +259,11 @@ const calculateAvailableCsprBalance = (balance: string, context: 'swap' | 'wrap'
     switch (context) {
       case 'swap':
         totalPaymentAmount = totalPaymentAmount
-          .plus(APPROVE_PAYMENT_MOTES)
-          .plus(SWAP_CSPR_FOR_TOKEN_PAYMENT_MOTES);
+          .plus(DEX_PAYMENT_AMOUNT.approve)
+          .plus(DEX_PAYMENT_AMOUNT.swapCsprForToken);
         break;
       case 'wrap':
-        totalPaymentAmount = totalPaymentAmount.plus(WRAP_PAYMENT_MOTES);
+        totalPaymentAmount = totalPaymentAmount.plus(DEX_PAYMENT_AMOUNT.wrap);
         break;
     }
 
