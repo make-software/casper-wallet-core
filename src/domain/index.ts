@@ -10,3 +10,5 @@ export * from './appEvents';
 export * from './tx-signature-request';
 export * from './contractPackage';
 export * from './eip712';
+export * from './swap';
+export * from './dex';
