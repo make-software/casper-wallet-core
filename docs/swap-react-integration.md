@@ -9,7 +9,7 @@ Casper Wallet browser extension and the mobile app). It covers the pieces added 
 or React onto a consumer that only needs the data layer. Import it by its deep path:
 
 ```ts
-import { RepositoriesProvider, useSwapTokens } from 'casper-wallet-core/src/react';
+import { useSwapTokens, type ISwapDependencies } from 'casper-wallet-core/src/react';
 ```
 
 ## Install
@@ -91,50 +91,65 @@ const getProxyWasm = async () => {
 };
 ```
 
-## 2. Mount the providers
+## 2. Build the dependency object
 
-`src/react/` hooks read from two contexts. Mount both above anything that uses
-`useRepositories`, `useSigner`, `useContractSettings`, or any hook built on them:
+Every hook in `src/react/` takes its dependencies as fields on its single object parameter —
+there is no context to mount. The only provider still required above the hooks is
+`QueryClientProvider`, for the hooks in `src/react/hooks/api` and `src/react/hooks/token` that
+are built on `@tanstack/react-query`:
 
 ```tsx
-import {
-  RepositoriesProvider,
-  ContractSettingsProvider,
-  type IRepositoriesContextValue,
-} from 'casper-wallet-core/src/react';
+import { useMemo } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type ISwapDependencies } from 'casper-wallet-core/src/react';
 
 const queryClient = new QueryClient();
 
-const repositoriesValue: IRepositoriesContextValue = {
-  swapRepository,
-  dexContractRepository,
-  tokensRepository,
-  network: CasperNetwork.Mainnet,
-  signer, // ISigner | null — see below
-  activePublicKey, // string | null — the connected account, or null when disconnected
-};
+function TradeScreen() {
+  const network = useSelector(selectNetwork);
+  const activePublicKey = useSelector(selectActivePublicKey);
 
+  const deps = useMemo<ISwapDependencies>(
+    () => ({
+      swapRepository,
+      dexContractRepository,
+      tokensRepository,
+      network,
+      signer,
+      activePublicKey,
+    }),
+    [network, signer, activePublicKey],
+  );
+
+  const swap = useSwapTokens({ ...deps, slippage });
+  // ...
+}
+```
+
+Note that each hook takes only the subset it needs, so spreading a full `ISwapDependencies` is a
+convenience, not a requirement — a hook can equally be given its three fields by hand. This
+library holds no live wallet-account state itself; `activePublicKey` and `signer` are exactly
+what the host app currently has selected.
+
+**Repositories must be stable references.** These hooks put dependency objects in
+`useCallback`/`useEffect` dependency arrays, so a dependency that gets a new identity on every
+render re-triggers those effects — `useTokenBalances`'s CSPR refetch loops indefinitely if
+`tokensRepository` is rebuilt on every render instead of held as a stable singleton. Keep
+`swapRepository`, `dexContractRepository`, and `tokensRepository` as module-level singletons
+(the way `setupRepositories()` in step 1 already returns them), and memoize the `deps` object
+itself, as in the example above.
+
+Above `TradeScreen`, only `QueryClientProvider` is required:
+
+```tsx
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RepositoriesProvider value={repositoriesValue}>
-        <ContractSettingsProvider storage={settingsStorage} storageKeys={settingsStorageKeys}>
-          <TradePage />
-        </ContractSettingsProvider>
-      </RepositoriesProvider>
+      <TradeScreen />
     </QueryClientProvider>
   );
 }
 ```
-
-`RepositoriesProvider`'s `value` is a plain object, not built internally — re-render it (e.g.
-via `useMemo`) whenever `activePublicKey`, `signer`, or `network` changes, the way you would any
-other context value. This library holds no live wallet-account state itself; `activePublicKey`
-and `signer` are exactly what the host app currently has selected.
-
-`ContractSettingsProvider`'s `storage` prop is optional — see "Settings storage adapter" below.
-When you pass it, `storageKeys` is required alongside it (the two are typed as a pair).
 
 ## 3. Implement `ISigner`
 
@@ -228,47 +243,34 @@ Neither needs the CSPR.click-specific JSON envelope — only the observed transa
 lifecycle: submitted (`onSent`), confirmed (`onProcessed`), rejected by the user
 (`onCancelled`), or failed (`onError`).
 
-## 4. Settings storage adapter
+## 4. Slippage and deadline
 
-`ContractSettingsProvider` persists `slippage` (percent) and `deadline` (minutes) through an
-optional `IKeyValueStorage`, under keys you choose — this library does not name storage keys:
+The library keeps no settings state of its own. `slippage` (percent) and `deadline` (minutes)
+are required parameters of `useSwapTokens`, `useSwapTransaction`, and `useReviewSwap` — where
+that state lives (in-memory, `localStorage`, `AsyncStorage`, redux-persist, ...) and how it
+survives a remount is entirely up to the host app.
 
-```ts
-export interface IKeyValueStorage {
-  get(key: string): string | null | Promise<string | null>;
-  set(key: string, value: string): void | Promise<void>;
-}
-
-export interface IContractSettingsStorageKeys {
-  slippage: string;
-  deadline: string;
-}
-```
+The library exports the clamp helpers and bounds it used to apply internally, so a consumer can
+apply the same limits before persisting or passing a value in:
 
 ```ts
-const settingsStorageKeys: IContractSettingsStorageKeys = {
-  slippage: 'swap.slippage',
-  deadline: 'swap.deadline',
-};
+import {
+  clampSlippageValue,
+  clampDeadlineValue,
+  DEFAULT_SLIPPAGE,
+  DEFAULT_DEADLINE,
+  MIN_SLIPPAGE,
+  MAX_SLIPPAGE,
+  MIN_DEADLINE,
+  MAX_DEADLINE,
+} from 'casper-wallet-core';
 ```
 
-```ts
-// Web extension:
-const localStorageAdapter: IKeyValueStorage = {
-  get: key => localStorage.getItem(key),
-  set: (key, value) => localStorage.setItem(key, value),
-};
-
-// React Native:
-const asyncStorageAdapter: IKeyValueStorage = {
-  get: key => AsyncStorage.getItem(key),
-  set: (key, value) => AsyncStorage.setItem(key, value),
-};
-```
-
-Without a `storage` prop, settings stay in-memory only (defaults: `DEFAULT_SLIPPAGE = 3`,
-`DEFAULT_DEADLINE = 20`), reset on remount. Values are clamped on both read and write
-(`MIN_SLIPPAGE`/`MAX_SLIPPAGE`, `MIN_DEADLINE`/`MAX_DEADLINE` from `domain/constants/config`).
+`clampSlippageValue`/`clampDeadlineValue` clamp to `MIN_SLIPPAGE`/`MAX_SLIPPAGE` and
+`MIN_DEADLINE`/`MAX_DEADLINE` respectively (also falling back to the minimum for `NaN`).
+`DEFAULT_SLIPPAGE = 3` and `DEFAULT_DEADLINE = 20` are the values to start a fresh consumer's
+state with. Clamping is the consumer's call — the hooks take whatever `slippage`/`deadline`
+number they're given, unclamped.
 
 ## Error shape: `SwapError`
 
@@ -296,7 +298,7 @@ can rely on the same `data`/`status` fields being present on `SwapError`.
 ## CSPR balance refresh
 
 `useTokenBalances` fetches the native CSPR balance itself, on mount and whenever
-`activePublicKey` changes — this library has no live wallet-account context to push balance
+`activePublicKey` changes — this library has no live wallet-account state to push balance
 updates from. CEP-18 token balances still auto-refresh
 every 30 seconds via `useFetchAccountTokenOwnership`'s `refetchInterval`, but the CSPR leg does
 not poll. If your flow needs a fresher CSPR balance than "on account switch" (for example,
@@ -312,6 +314,18 @@ burns the caller's own WCSPR balance) and no slippage/deadline:
 import { useWrapTokens, useReviewWrap } from 'casper-wallet-core/src/react';
 
 function WrapPage() {
+  const deps = useMemo<ISwapDependencies>(
+    () => ({
+      swapRepository,
+      dexContractRepository,
+      tokensRepository,
+      network,
+      signer,
+      activePublicKey,
+    }),
+    [network, signer, activePublicKey],
+  );
+
   const {
     direction,
     amount,
@@ -325,9 +339,10 @@ function WrapPage() {
     switchDirection,
     onWrapSuccess,
     ...rest
-  } = useWrapTokens();
+  } = useWrapTokens(deps);
 
   const { step, status, error, confirmWrap, handleCloseSuccessModal } = useReviewWrap({
+    ...deps,
     direction,
     sourceToken: {
       ...sourceToken,
@@ -351,19 +366,24 @@ function WrapPage() {
   rather than on modal close, and `onCancelled` maps to the `'error'` status like any other
   failure.
 
-For swap (approval-then-swap, with slippage/deadline from `useContractSettings`), the
-equivalent entry points are `useSwapTokens` (form orchestration) and `useReviewSwap` (review
-modal, approval + swap).
+For swap (approval-then-swap, with slippage/deadline as consumer-owned parameters — see
+"Slippage and deadline" above), the equivalent entry points are `useSwapTokens` (form
+orchestration) and `useReviewSwap` (review modal, approval + swap).
+
+Every hook shown in this guide takes a single object parameter whose dependency fields
+(`network`, `activePublicKey`, `swapRepository`, `dexContractRepository`, `tokensRepository`,
+`signer`) are required — there is no default or optional fallback for them, and each hook's
+params type `Pick`s only the subset it needs from `ISwapDependencies`.
 
 ## Further reading
 
-- `src/react/types.ts` — the full `ISigner`, `ITransactionCallbacks`, `IKeyValueStorage`,
-  `IRepositoriesContextValue`, `IContractSettings` contracts.
+- `src/react/types.ts` — the full `ISigner`, `ITransactionCallbacks`, and `ISwapDependencies`
+  contracts.
 - `src/domain/swap/`, `src/domain/dex/` — entities, repository interfaces, errors.
 - `src/domain/constants/config.ts` — fee/slippage/deadline constants and DEX gas amounts;
   `src/domain/constants/casperNetwork.ts` — the per-network trade API url and contract package
   hashes.
-- `src/react/hooks/` — `context/` (provider accessors), `ui/` (debounce, modal state,
-  transaction status tracking), `api/` (TanStack Query hooks over `swapRepository`/
-  `dexContractRepository`), `token/` (balance, approval, pair-state helpers shared by swap and
-  wrap), `swap/`, `wrap/` (the two page-level flows).
+- `src/react/hooks/` — `ui/` (debounce, modal state, transaction status tracking), `api/`
+  (TanStack Query hooks over `swapRepository`/`dexContractRepository`), `token/` (balance,
+  approval, pair-state helpers shared by swap and wrap), `swap/`, `wrap/` (the two page-level
+  flows).
