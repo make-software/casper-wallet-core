@@ -82,7 +82,7 @@ describe('date utils', () => {
         startAt: '2024-01-01T00:00:00.000Z',
         endAt: '2099-01-01T00:00:00.000Z',
         url: '',
-        image_url: null,
+        imageUrl: null,
         ...overrides,
       }) as IAppMarketingEvent;
 

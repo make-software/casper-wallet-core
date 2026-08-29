@@ -41,14 +41,14 @@ export class DexTokenDto implements IDexToken {
 
 export class SwapQuoteDto implements ISwapQuote {
   constructor(resp: RawSwapQuote, tokenIn: IDexToken, tokenOut: IDexToken, typeId: SwapQuoteType) {
-    this.amount_in = resp.amount_in;
-    this.amount_out = resp.amount_out;
-    this.execution_price = resp.execution_price;
-    this.mid_price = resp.mid_price;
+    this.amountIn = resp.amount_in;
+    this.amountOut = resp.amount_out;
+    this.executionPrice = resp.execution_price;
+    this.midPrice = resp.mid_price;
     this.path = resp.path;
-    this.price_impact = resp.price_impact;
-    this.recommended_slippage_bps = resp.recommended_slippage_bps;
-    this.type_id = typeId;
+    this.priceImpact = resp.price_impact;
+    this.recommendedSlippageBps = resp.recommended_slippage_bps;
+    this.typeId = typeId;
 
     this.amountInDecimal = getDecimalTokenBalance(resp.amount_in, tokenIn.decimals, '0');
     this.amountOutDecimal = getDecimalTokenBalance(resp.amount_out, tokenOut.decimals, '0');
@@ -61,14 +61,14 @@ export class SwapQuoteDto implements ISwapQuote {
     );
   }
 
-  readonly amount_in: string;
-  readonly amount_out: string;
-  readonly execution_price: string;
-  readonly mid_price: string;
+  readonly amountIn: string;
+  readonly amountOut: string;
+  readonly executionPrice: string;
+  readonly midPrice: string;
   readonly path: string[];
-  readonly price_impact: string;
-  readonly recommended_slippage_bps: string;
-  readonly type_id: SwapQuoteType;
+  readonly priceImpact: string;
+  readonly recommendedSlippageBps: string;
+  readonly typeId: SwapQuoteType;
   readonly amountInDecimal: string;
   readonly amountOutDecimal: string;
   readonly rate: string;

@@ -24,14 +24,14 @@ export enum SwapQuoteType {
 }
 
 export interface ISwapQuote {
-  readonly amount_in: string;
-  readonly amount_out: string;
-  readonly execution_price: string;
-  readonly mid_price: string;
+  readonly amountIn: string;
+  readonly amountOut: string;
+  readonly executionPrice: string;
+  readonly midPrice: string;
   readonly path: string[];
-  readonly price_impact: string;
-  readonly recommended_slippage_bps: string;
-  readonly type_id: SwapQuoteType;
+  readonly priceImpact: string;
+  readonly recommendedSlippageBps: string;
+  readonly typeId: SwapQuoteType;
   readonly amountInDecimal: string; // derived client-side, not an API field
   readonly amountOutDecimal: string; // derived client-side
   readonly rate: string; // derived client-side

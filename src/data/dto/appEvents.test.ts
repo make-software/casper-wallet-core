@@ -9,7 +9,7 @@ describe('AppMarketingEventDto', () => {
     expect(dto.endAt).toBe('2099-01-01T00:00:00.000Z');
     expect(dto.startAt).toBe('2024-01-01T00:00:00.000Z');
     expect(dto.url).toBe('https://example.com/promo');
-    expect(dto.image_url).toBeNull();
+    expect(dto.imageUrl).toBeNull();
   });
 
   it('falls back to defaults', () => {

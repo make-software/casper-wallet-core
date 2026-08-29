@@ -100,7 +100,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     tokenIn: tokenSelectorModal.isOpen ? null : selectedTokens.first,
     tokenOut: tokenSelectorModal.isOpen ? null : selectedTokens.second,
     amount: rawAmount,
-    type_id: quoteType,
+    typeId: quoteType,
   });
 
   const { getTokenBalance, getRawTokenBalance, isAmountExceedsBalance } = useTokenPairBalances({
@@ -312,8 +312,8 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
       ? `1 ${quoteFirstSymbol} = ${formatTokenBalance(quoteData.data.rate, 0, TOKEN_DISPLAY_DECIMALS, '0', true)} ${quoteSecondSymbol}`
       : null;
 
-  const priceImpact = quoteData.data?.price_impact
-    ? Number(quoteData.data.price_impact).toFixed(2)
+  const priceImpact = quoteData.data?.priceImpact
+    ? Number(quoteData.data.priceImpact).toFixed(2)
     : null;
   const protocolFee = selectedTokens.first
     ? `${calculateSwapFee(tokenAmounts.first.formatted)} ${selectedTokens.first.symbol}`

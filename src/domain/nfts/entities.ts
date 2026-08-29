@@ -11,7 +11,7 @@ export interface INft extends IEntity {
   readonly contractPackageHash: string;
   readonly contractPackageIcon: Maybe<string>;
   readonly contactName: string;
-  readonly owner_reverse_lookup_mode: boolean;
+  readonly ownerReverseLookupMode: boolean;
 
   readonly metadata: INftMetadata;
   readonly previewUrl: Maybe<string>;

@@ -1,11 +1,18 @@
-import { IOnRampCurrencyItem, IOnRampProvider } from '../../../domain';
+import { IOnRampProvider } from '../../../domain';
 
 export interface IGetOnRampResponse {
   countries: IResponseCountry[];
   defaultCountry: string;
-  currencies: IOnRampCurrencyItem[];
+  currencies: IOnRampCurrencyItemResponse[];
   defaultCurrency: string;
   defaultAmount: string;
+}
+
+export interface IOnRampCurrencyItemResponse {
+  id: number;
+  code: string;
+  type_id: string;
+  rate: number;
 }
 
 export interface IResponseCountry {
@@ -15,7 +22,7 @@ export interface IResponseCountry {
 
 export interface IOnRampProvidersResponse {
   availableProviders: IOnRampProvider[];
-  currencies: IOnRampCurrencyItem[];
+  currencies: IOnRampCurrencyItemResponse[];
   fiatAmount: number;
   fiatCurrency: string;
   cryptoAmount: number;

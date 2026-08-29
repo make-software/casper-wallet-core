@@ -13,7 +13,7 @@ import type {
 import { getMillisecondsUntilNextBlock } from '../../../utils/swap';
 
 export interface IUseFetchSwapQuoteParams {
-  type_id: SwapQuoteType;
+  typeId: SwapQuoteType;
   amount: string;
   tokenIn: IDexToken | null;
   tokenOut: IDexToken | null;
@@ -39,7 +39,7 @@ const extractFetchQuoteErrorCode = (error: ISwapError | null): FetchQuoteErrorCo
 };
 
 export const useFetchSwapQuote = ({
-  type_id,
+  typeId,
   amount,
   tokenIn,
   tokenOut,
@@ -57,7 +57,7 @@ export const useFetchSwapQuote = ({
     retry: false,
   });
 
-  const queryKey = ['quote', type_id, amount, tokenIn, tokenOut] as const;
+  const queryKey = ['quote', typeId, amount, tokenIn, tokenOut] as const;
   const currentQueryKeyString = JSON.stringify(queryKey);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export const useFetchSwapQuote = ({
         amount,
         tokenIn: tokenIn as IDexToken, // cast to IDexToken because enabled only with tokenIn and tokenOut not null
         tokenOut: tokenOut as IDexToken,
-        typeId: type_id,
+        typeId,
       }),
     enabled: Boolean(tokenIn && tokenOut && amount && amount !== '0'),
     refetchInterval: withAutoRefresh

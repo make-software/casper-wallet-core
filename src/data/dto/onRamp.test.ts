@@ -20,6 +20,18 @@ describe('OnRampDto', () => {
     expect(dto.defaultAmount).toBe('100');
   });
 
+  it('maps currency type_id to typeId', () => {
+    const dto = new OnRampDto({
+      countries: [],
+      defaultCountry: 'US',
+      currencies: [{ id: 1, code: 'USD', type_id: 'fiat', rate: 1.5 }],
+      defaultCurrency: 'USD',
+      defaultAmount: '100',
+    });
+
+    expect(dto.currencies).toEqual([{ id: 1, code: 'USD', typeId: 'fiat', rate: 1.5 }]);
+  });
+
   it('falls back to empty defaults', () => {
     const dto = new OnRampDto();
     expect(dto.countries).toEqual([]);
@@ -47,6 +59,20 @@ describe('OnRampProvidersDto', () => {
     expect(dto.cryptoAmount).toBe(1000);
     expect(dto.isCryptoChanged).toBe(true);
     expect(dto.cryptoCurrency).toBe('CSPR');
+  });
+
+  it('maps the selected currency type_id to typeId', () => {
+    const dto = new OnRampProvidersDto({
+      availableProviders: [],
+      currencies: [{ id: 1, code: 'USD', type_id: 'fiat', rate: 1.5 }],
+      fiatAmount: 100,
+      cryptoAmount: 1000,
+      cryptoCurrency: 'CSPR',
+      isCryptoChanged: false,
+      fiatCurrency: 'USD',
+    });
+
+    expect(dto.currency).toEqual({ id: 1, code: 'USD', typeId: 'fiat', rate: 1.5 });
   });
 
   it('falls back to defaults', () => {
