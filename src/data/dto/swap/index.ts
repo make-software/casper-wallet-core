@@ -1,7 +1,9 @@
 import type { IDexToken, ISwapQuote, SwapQuoteType } from '../../../domain';
 import { CSPR_COIN, CSPR_NATIVE_TOKEN_ID } from '../../../domain';
+import type { Maybe } from '../../../typings';
 import { calculateSwapRate, getDecimalTokenBalance } from '../../../utils';
 import type { DexTokenApiResponse, RawSwapQuote } from '../../repositories/swap/types';
+import { getPreferredTokenMarketData } from '../common';
 
 /**
  * Maps the WCSPR API record to a synthetic native token while keeping the real on-chain
@@ -12,6 +14,7 @@ export class DexTokenDto implements IDexToken {
   constructor(resp: DexTokenApiResponse, wrappedCsprPackageHash: string) {
     const { contract_package: contractPackage, contract_package_hash: contractPackageHash } = resp;
     const isWrappedCspr = contractPackageHash === wrappedCsprPackageHash;
+    const tokenMarketData = getPreferredTokenMarketData(contractPackage.token_market_data);
 
     this.id = isWrappedCspr ? CSPR_NATIVE_TOKEN_ID : contractPackageHash;
     this.name = isWrappedCspr ? CSPR_COIN.name : contractPackage.metadata.name;
@@ -21,22 +24,22 @@ export class DexTokenDto implements IDexToken {
     this.packageHash = contractPackageHash;
     this.isWhitelisted = resp.is_whitelisted;
     this.isBlacklisted = resp.is_blacklisted;
-    this.fiatRates = contractPackage.token_market_data?.[0]?.latest_rate ?? null;
+    this.fiatRates = tokenMarketData?.latest_rate ?? null;
     this.totalValueLocked = resp.total_value_locked ?? null;
-    this.volume24h = contractPackage.token_market_data?.[0]?.volume_24h ?? null;
+    this.volume24h = tokenMarketData?.volume_24h ?? null;
   }
 
   readonly id: string;
   readonly name: string;
   readonly symbol: string;
-  readonly icon: string | null;
+  readonly icon: Maybe<string>;
   readonly decimals: number;
   readonly packageHash: string;
   readonly isWhitelisted: boolean;
   readonly isBlacklisted: boolean;
-  readonly fiatRates: number | null;
-  readonly totalValueLocked: string | null;
-  readonly volume24h: string | null;
+  readonly fiatRates: Maybe<number>;
+  readonly totalValueLocked: Maybe<string>;
+  readonly volume24h: Maybe<string>;
 }
 
 export class SwapQuoteDto implements ISwapQuote {

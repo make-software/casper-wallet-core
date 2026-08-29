@@ -2,42 +2,24 @@ import { SwapRepository } from './index';
 import { createMockHttpProvider } from '../../../__test-utils__';
 import {
   HttpClientError,
-  IDexContractPackage,
   SwapError,
   SwapQuoteType,
   TradeApiUrl,
   WrappedCsprContractPackageHash,
 } from '../../../domain';
-import type { DexTokenApiResponse, RawSwapQuote } from './types';
+import type { DexContractPackage, DexTokenApiResponse, RawSwapQuote } from './types';
 
 const WCSPR_HASH = WrappedCsprContractPackageHash.mainnet;
 
-const makeContractPackage = (
-  overrides: Partial<IDexContractPackage> = {},
-): IDexContractPackage => ({
+const makeContractPackage = (overrides: Partial<DexContractPackage> = {}): DexContractPackage => ({
   contract_package_hash: 'cph_' + 'a'.repeat(60),
-  owner_public_key: 'pk_' + 'a'.repeat(60),
-  owner_hash: 'oh_' + 'a'.repeat(60),
   name: 'Sample Token',
-  description: null,
   metadata: {
-    balances_uref: '',
     decimals: 9,
     name: 'Sample Token',
     symbol: 'STK',
-    total_supply_uref: '',
   },
-  latest_version_contract_type_id: 2,
-  timestamp: '2024-01-01T00:00:00.000Z',
   icon_url: 'https://example.com/icon.png',
-  website_url: null,
-  coingecko_id: null,
-  latest_version_contract_hash: null,
-  account_info: null,
-  centralized_account_info: null,
-  coingecko_data: null,
-  friendlymarket_data: null,
-  csprtrade_data: null,
   token_market_data: [
     {
       currency_id: 1,
@@ -210,11 +192,9 @@ describe('SwapRepository', () => {
             contract_package: makeContractPackage({
               contract_package_hash: cph,
               metadata: {
-                balances_uref: '',
                 decimals: 6,
                 name: 'Other Token',
                 symbol: 'OTK',
-                total_supply_uref: '',
               },
             }),
           }),
@@ -231,6 +211,46 @@ describe('SwapRepository', () => {
         decimals: 6,
         packageHash: cph,
       });
+    });
+
+    it('picks the lowest dex_id token_market_data entry for fiatRates and volume24h', async () => {
+      const http = createMockHttpProvider();
+      const cph = 'cph_' + 'd'.repeat(60);
+      http.get.mockResolvedValueOnce({
+        data: [
+          makeDexTokenApiResponse({
+            contract_package_hash: cph,
+            contract_package: makeContractPackage({
+              contract_package_hash: cph,
+              token_market_data: [
+                {
+                  currency_id: 1,
+                  dex_id: 3,
+                  latest_rate: 9,
+                  timestamp: '2024-01-01T00:00:00.000Z',
+                  token_contract_package_hash: cph,
+                  token_volume_24h: '30',
+                  volume_24h: '300',
+                },
+                {
+                  currency_id: 1,
+                  dex_id: 1,
+                  latest_rate: 7,
+                  timestamp: '2024-01-01T00:00:00.000Z',
+                  token_contract_package_hash: cph,
+                  token_volume_24h: '10',
+                  volume_24h: '100',
+                },
+              ],
+            }),
+          }),
+        ],
+      });
+      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
+
+      const [token] = await repo.getDexTokens({ network: 'mainnet' });
+
+      expect(token).toMatchObject({ fiatRates: 7, volume24h: '100' });
     });
   });
 

@@ -3,7 +3,7 @@ import type { Deploy, Transaction } from 'casper-js-sdk'; // type-only — the s
 import type { CasperNetwork } from '../common/common';
 
 export type DexTransactionKind = 'approve' | 'swap' | 'wrap' | 'unwrap';
-export type WrapDirection = 'wrap' | 'unwrap';
+export type WrapDirection = Extract<DexTransactionKind, 'wrap' | 'unwrap'>;
 
 export interface IBuiltDexTransaction {
   readonly kind: DexTransactionKind;
