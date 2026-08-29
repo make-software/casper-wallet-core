@@ -38,7 +38,7 @@ repositories:
 ```ts
 import { setupRepositories, CasperNetwork } from 'casper-wallet-core';
 
-const { swapRepository, dexContractRepository } = setupRepositories({
+const { swapRepository, dexContractRepository, tokensRepository } = setupRepositories({
   dexConfig: {
     // All fields optional; shipped defaults cover mainnet/testnet.
     getProxyWasm: () => loadProxyCallerWasm(), // see "Supplying the proxy WASM" below
@@ -46,14 +46,17 @@ const { swapRepository, dexContractRepository } = setupRepositories({
 });
 ```
 
-- `swapRepository` (`ISwapRepository`) is HTTP-only and SDK-free — quotes, DEX token listings,
-  fiat rates, account token ownership, swap history.
-- `dexContractRepository` (`IDexContractRepository`) links `casper-js-sdk` — on-chain balance
-  reads and the four unsigned-transaction builders (`buildApprovalTransaction`,
-  `buildSwapTransaction`, `buildWrapTransaction`, `buildUnwrapTransaction`).
+- `swapRepository` (`ISwapRepository`) is HTTP-only and SDK-free — quotes and DEX token
+  listings, from the trade API.
+- `tokensRepository` (`ITokensRepository`) is HTTP-only and SDK-free — every balance and fiat
+  rate the swap UI shows, from the same wallet API that backs the wallet's own token list.
+- `dexContractRepository` (`IDexContractRepository`) links `casper-js-sdk` — allowance reads,
+  the latest block time, and the four unsigned-transaction builders (`buildApprovalTransaction`,
+  `buildSwapTransaction`, `buildWrapTransaction`, `buildUnwrapTransaction`). Balances never go
+  through it: every balance in the library is read from the API.
 
 If your app already splits `setupDataRepositories()` / `setupSigningRepositories()` to keep the
-SDK out of a balances-only bundle, `swapRepository` comes back from
+SDK out of a balances-only bundle, `swapRepository` and `tokensRepository` come back from
 `setupDataRepositories()` and `dexContractRepository` from `setupSigningRepositories({ dexConfig, ... })`
 — `dexConfig` moved there, alongside the SDK-linked half.
 
@@ -106,9 +109,8 @@ const queryClient = new QueryClient();
 const repositoriesValue: IRepositoriesContextValue = {
   swapRepository,
   dexContractRepository,
+  tokensRepository,
   network: CasperNetwork.Mainnet,
-  currencyId: 1, // trade-API currency id; 1 = USD
-  currencyCode: 'USD',
   signer, // ISigner | null — see below
   activePublicKey, // string | null — the connected account, or null when disconnected
 };

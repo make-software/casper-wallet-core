@@ -169,7 +169,7 @@ describe('SwapRepository', () => {
       http.get.mockResolvedValueOnce({ data: [makeDexTokenApiResponse()] });
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      await repo.getDexTokens({ network: 'mainnet', currencyId: 1 });
+      await repo.getDexTokens({ network: 'mainnet' });
 
       const arg = http.get.mock.calls[0][0];
       expect(arg.url).toBe(
@@ -190,7 +190,7 @@ describe('SwapRepository', () => {
       });
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      const [token] = await repo.getDexTokens({ network: 'mainnet', currencyId: 1 });
+      const [token] = await repo.getDexTokens({ network: 'mainnet' });
 
       expect(token).toMatchObject({
         id: 'cspr',
@@ -222,7 +222,7 @@ describe('SwapRepository', () => {
       });
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      const [token] = await repo.getDexTokens({ network: 'mainnet', currencyId: 1 });
+      const [token] = await repo.getDexTokens({ network: 'mainnet' });
 
       expect(token).toMatchObject({
         id: cph,
@@ -249,7 +249,6 @@ describe('SwapRepository', () => {
       const token = await repo.getDexToken({
         network: 'mainnet',
         contractPackageHash: cph,
-        currencyId: 1,
       });
 
       const arg = http.get.mock.calls[0][0];
@@ -260,134 +259,15 @@ describe('SwapRepository', () => {
     });
   });
 
-  describe('getAccountTokenOwnership', () => {
-    it('requests ownership and forwards contract package hashes as given', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({ data: [] });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      await repo.getAccountTokenOwnership({
-        network: 'mainnet',
-        publicKey: 'pub-key',
-        contractPackageHashes: ['hash-1', 'hash-2'],
-      });
-
-      const arg = http.get.mock.calls[0][0];
-      expect(arg.url).toBe('https://api.cspr.trade/accounts/pub-key/ft-token-ownership');
-      expect(arg.params?.contract_package_hash).toBe('hash-1,hash-2');
-    });
-  });
-
-  describe('getCsprFiatRate', () => {
-    it('resolves to the numeric rate', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({
-        data: { amount: 0.07, created: '2024-01-01T00:00:00.000Z', currency_id: 1 },
-      });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      const rate = await repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 });
-
-      expect(rate).toBe(0.07);
-      const arg = http.get.mock.calls[0][0];
-      expect(arg.url).toBe('https://api.cspr.trade/rates/1/latest');
-    });
-
-    it('throws a SwapError typed getCsprFiatRate when the amount is missing/non-numeric', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({ data: { amount: 'nope' } });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      await expect(
-        repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 }),
-      ).rejects.toBeInstanceOf(SwapError);
-      await expect(
-        repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 }),
-      ).rejects.toMatchObject({ type: 'getCsprFiatRate' });
-    });
-  });
-
-  describe('getTokenFiatRate', () => {
-    it('resolves to the numeric token fiat rate', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({
-        data: {
-          amount: '0.5',
-          currency_id: 1,
-          dex_id: 1,
-          timestamp: '2024-01-01T00:00:00.000Z',
-          token_contract_package_hash: 'cph',
-          transaction_hash: 'tx',
-        },
-      });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      const rate = await repo.getTokenFiatRate({
-        network: 'mainnet',
-        contractPackageHash: 'cph',
-        currencyId: 1,
-      });
-
-      expect(rate).toBe(0.5);
-      const arg = http.get.mock.calls[0][0];
-      expect(arg.url).toBe('https://api.cspr.trade/ft/cph/rates/latest');
-    });
-
-    it('resolves to null when the API has no rate', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({ data: undefined });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      const rate = await repo.getTokenFiatRate({
-        network: 'mainnet',
-        contractPackageHash: 'cph',
-        currencyId: 1,
-      });
-
-      expect(rate).toBeNull();
-    });
-  });
-
-  describe('getSwapsHistory', () => {
-    it('requests /swaps with order/pagination params and returns paginated entries', async () => {
-      const http = createMockHttpProvider();
-      http.get.mockResolvedValueOnce({
-        data: [],
-        item_count: 0,
-        page_count: 0,
-        pages: [],
-      });
-      const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
-
-      const result = await repo.getSwapsHistory({
-        network: 'mainnet',
-        pagination: { page: 2, pageSize: 25 },
-        orderBy: 'timestamp',
-        orderDirection: 'ASC',
-        currencyId: 1,
-      });
-
-      const arg = http.get.mock.calls[0][0];
-      expect(arg.url).toBe('https://api.cspr.trade/swaps');
-      expect(arg.params).toMatchObject({
-        page: 2,
-        page_size: 25,
-        order_by: 'timestamp',
-        order_direction: 'ASC',
-      });
-      expect(result).toEqual({ data: [], itemCount: 0, pageCount: 0, pages: [] });
-    });
-  });
-
   describe('error wrapping', () => {
     it('wraps a non-domain rejection in a SwapError typed after the failing method', async () => {
       const http = createMockHttpProvider();
       http.get.mockRejectedValueOnce(new Error('boom'));
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      await expect(
-        repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 }),
-      ).rejects.toMatchObject({ type: 'getCsprFiatRate' });
+      await expect(repo.getDexTokens({ network: 'mainnet' })).rejects.toMatchObject({
+        type: 'getDexTokens',
+      });
     });
 
     it('carries the response envelope and status over from a wrapped HttpError', async () => {
@@ -401,10 +281,8 @@ describe('SwapRepository', () => {
       );
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      await expect(
-        repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 }),
-      ).rejects.toMatchObject({
-        type: 'getCsprFiatRate',
+      await expect(repo.getDexTokens({ network: 'mainnet' })).rejects.toMatchObject({
+        type: 'getDexTokens',
         status: 400,
         data: expect.stringContaining('invalid_input'),
       });
@@ -412,13 +290,11 @@ describe('SwapRepository', () => {
 
     it('rethrows an inner SwapError as-is instead of wrapping it again', async () => {
       const http = createMockHttpProvider();
-      const innerError = new SwapError(new Error('already a swap error'), 'getDexTokens');
+      const innerError = new SwapError(new Error('already a swap error'), 'getQuote');
       http.get.mockRejectedValueOnce(innerError);
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      await expect(repo.getCsprFiatRate({ network: 'mainnet', currencyId: 1 })).rejects.toBe(
-        innerError,
-      );
+      await expect(repo.getDexTokens({ network: 'mainnet' })).rejects.toBe(innerError);
     });
   });
 
@@ -427,9 +303,7 @@ describe('SwapRepository', () => {
       const http = createMockHttpProvider();
       const repo = new SwapRepository(http, TradeApiUrl, WrappedCsprContractPackageHash);
 
-      await expect(
-        repo.getCsprFiatRate({ network: 'devnet', currencyId: 1 }),
-      ).rejects.toBeInstanceOf(SwapError);
+      await expect(repo.getDexTokens({ network: 'devnet' })).rejects.toBeInstanceOf(SwapError);
       expect(http.get).not.toHaveBeenCalled();
     });
   });

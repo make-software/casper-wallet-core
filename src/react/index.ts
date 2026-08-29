@@ -10,7 +10,6 @@ export * from './hooks/ui/useTransactionStatuses';
 export * from './hooks/api/useFetchSwapQuote';
 export * from './hooks/api/useFetchDexTokens';
 export * from './hooks/api/useFetchCsprFiatRates';
-export * from './hooks/api/useFetchTokenFiatRates';
 export * from './hooks/api/useFetchAccountTokenOwnership';
 export * from './hooks/api/useFetchToken';
 export * from './hooks/api/useFetchTokenBalance';

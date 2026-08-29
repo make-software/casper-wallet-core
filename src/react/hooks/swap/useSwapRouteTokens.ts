@@ -10,7 +10,7 @@ import { getSwapRoutes, type WcsprDisplay } from '../../../utils/swap';
 /**
  * Resolves the token objects for a quote's `path` hashes: known tokens (`tokens`) are used
  * as-is, anything missing (e.g. a route hop outside the listed-token set) is fetched
- * individually. The per-hash query key `['token', hash, currencyId]` must stay identical to
+ * individually. The per-hash query key `['token', hash]` must stay identical to
  * `useFetchToken`'s — the two share the cache entry.
  */
 export const useSwapRouteTokens = (
@@ -19,7 +19,7 @@ export const useSwapRouteTokens = (
   options: { enabled?: boolean; wcsprDisplay?: WcsprDisplay } = {},
 ): IDexToken[] => {
   const { enabled = true, wcsprDisplay = 'native' } = options;
-  const { network, currencyId, swapRepository } = useRepositories();
+  const { network, swapRepository } = useRepositories();
 
   const wrappedCsprPackageHash = WrappedCsprContractPackageHash[network];
 
@@ -35,8 +35,8 @@ export const useSwapRouteTokens = (
 
   const queries = useQueries({
     queries: missingHashes.map(hash => ({
-      queryKey: ['token', hash, currencyId],
-      queryFn: () => swapRepository.getDexToken({ network, contractPackageHash: hash, currencyId }),
+      queryKey: ['token', hash, network],
+      queryFn: () => swapRepository.getDexToken({ network, contractPackageHash: hash }),
       enabled: enabled && Boolean(hash),
       retry: 3,
       retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),

@@ -1,8 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import { useRepositories } from '../context/useRepositories';
-
-import type { IDexError } from '../../../domain/dex';
+import { useFetchAccountTokenOwnership } from './useFetchAccountTokenOwnership';
 
 interface IUseFetchTokenBalanceParams {
   contractPackageHash: string;
@@ -10,36 +8,31 @@ interface IUseFetchTokenBalanceParams {
 }
 
 /**
- * Fetches a CEP-18 token balance directly from RPC (dictionary lookup).
- * Unlike useFetchAccountTokenOwnership (which goes through the backend indexer),
- * this returns the on-chain state immediately — no block-indexing lag.
+ * Single CEP-18 token balance from the wallet API. Narrows {@link useFetchAccountTokenOwnership}
+ * to one contract package so every balance in the library resolves against one source of truth.
  *
- * Returns `data` as a raw balance string (motes / smallest unit).
+ * Returns `data` as a raw balance string (smallest unit), or `undefined` while unresolved.
  */
 export const useFetchTokenBalance = ({
   contractPackageHash,
   enabled = true,
 }: IUseFetchTokenBalanceParams) => {
-  const { network, activePublicKey, dexContractRepository } = useRepositories();
+  const contractPackageHashes = useMemo(() => [contractPackageHash], [contractPackageHash]);
 
-  const { data, isLoading, error, refetch, isFetching, isError } = useQuery<string, IDexError>({
-    queryKey: ['tokenBalance', activePublicKey, contractPackageHash],
-    enabled: Boolean(activePublicKey) && Boolean(contractPackageHash) && enabled,
-    queryFn: () => {
-      if (!activePublicKey) {
-        throw new Error('Public key is required');
-      }
-
-      return dexContractRepository.getTokenBalance({
-        network,
-        contractPackageHash,
-        publicKey: activePublicKey,
-      });
-    },
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-    refetchInterval: 30000, // 30 seconds
+  const { data, isLoading, error, refetch, isFetching, isError } = useFetchAccountTokenOwnership({
+    contractPackageHashes,
+    enabled: Boolean(contractPackageHash) && enabled,
   });
 
-  return { data, error, isLoading, refetch, isFetching, isError };
+  // An account that has never held the token has no ownership row, which is a zero balance
+  // rather than missing data.
+  const balance = useMemo(
+    () =>
+      data
+        ? (data.find(token => token.contractPackageHash === contractPackageHash)?.balance ?? '0')
+        : undefined,
+    [data, contractPackageHash],
+  );
+
+  return { data: balance, error, isLoading, refetch, isFetching, isError };
 };

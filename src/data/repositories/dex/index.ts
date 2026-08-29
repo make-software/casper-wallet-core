@@ -20,11 +20,9 @@ import {
   CLTypeKey,
   CLTypeUInt8,
   CLValue,
-  Conversions,
   HttpHandler,
   Key,
   PublicKey,
-  PurseIdentifier,
   RpcClient,
 } from 'casper-js-sdk';
 import { hexToBytes } from '@noble/hashes/utils';
@@ -54,46 +52,6 @@ export class DexContractRepository implements IDexContractRepository {
       Pick<IDexConfig, 'getProxyWasm'>,
     private _httpAuthorizationHeader?: string,
   ) {}
-
-  async getTokenBalance(params: {
-    network: CasperNetwork;
-    contractPackageHash: string;
-    publicKey: string;
-  }): Promise<string> {
-    const { network, contractPackageHash, publicKey } = params;
-
-    try {
-      const client = this._getClient(network);
-      const { contractHash } = await getContractHash(contractPackageHash, client);
-      const key = CLValue.newCLKey(
-        Key.newKey(PublicKey.fromHex(publicKey).accountHash().toPrefixedString()),
-      );
-      const dictKey = Conversions.encodeBase64(key.bytes());
-
-      const balanceResult = await getDictionaryValue(client, contractHash, 'balances', dictKey);
-
-      return balanceResult?.toString() ?? '';
-    } catch {
-      // An unreadable balance resolves to '' rather than rejecting: callers treat it as
-      // "no balance yet".
-      return '';
-    }
-  }
-
-  async getCsprBalance(params: { network: CasperNetwork; publicKey: string }): Promise<string> {
-    const { network, publicKey } = params;
-
-    try {
-      const client = this._getClient(network);
-      const resp = await client.queryLatestBalance(
-        PurseIdentifier.fromPublicKey(PublicKey.fromHex(publicKey)),
-      );
-
-      return resp?.balance?.toString() ?? '';
-    } catch (e) {
-      this._processError(e, 'getCsprBalance');
-    }
-  }
 
   async getAllowance(params: {
     network: CasperNetwork;

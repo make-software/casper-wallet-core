@@ -33,6 +33,44 @@ describe('TokensRepository', () => {
       expect(tokens).toHaveLength(2);
     });
 
+    it('narrows the request to the given contract packages', async () => {
+      const http = createMockHttpProvider();
+      http.get.mockResolvedValueOnce({ data: [] });
+      const repo = new TokensRepository(http, CasperWalletApiByNetworkUrl);
+
+      await repo.getTokens({
+        network: 'mainnet',
+        publicKey: PUBLIC_KEY,
+        contractPackageHashes: ['cph-1', 'cph-2'],
+      });
+
+      expect(http.get.mock.calls[0][0].params?.contract_package_hash).toBe('cph-1,cph-2');
+    });
+
+    it('asks for every held token when no contract packages are given', async () => {
+      const http = createMockHttpProvider();
+      http.get.mockResolvedValueOnce({ data: [] });
+      const repo = new TokensRepository(http, CasperWalletApiByNetworkUrl);
+
+      await repo.getTokens({ network: 'mainnet', publicKey: PUBLIC_KEY });
+
+      expect(http.get.mock.calls[0][0].params).not.toHaveProperty('contract_package_hash');
+    });
+
+    it('treats an empty contract-package list as no filter, not as "match nothing"', async () => {
+      const http = createMockHttpProvider();
+      http.get.mockResolvedValueOnce({ data: [] });
+      const repo = new TokensRepository(http, CasperWalletApiByNetworkUrl);
+
+      await repo.getTokens({
+        network: 'mainnet',
+        publicKey: PUBLIC_KEY,
+        contractPackageHashes: [],
+      });
+
+      expect(http.get.mock.calls[0][0].params).not.toHaveProperty('contract_package_hash');
+    });
+
     it('omits proxy header when withProxyHeader is false', async () => {
       const http = createMockHttpProvider();
       http.get.mockResolvedValueOnce({ data: [] });

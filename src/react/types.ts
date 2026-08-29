@@ -1,6 +1,7 @@
 import type { CasperNetwork } from '../domain/common/common';
 import type { IBuiltDexTransaction, IDexContractRepository } from '../domain/dex';
 import type { ISwapRepository } from '../domain/swap';
+import type { ITokensRepository } from '../domain/tokens';
 
 export interface ITransactionCallbacks {
   onSent?: (transactionHash: string) => void;
@@ -31,9 +32,8 @@ export interface IContractSettingsStorageKeys {
 export interface IRepositoriesContextValue {
   swapRepository: ISwapRepository;
   dexContractRepository: IDexContractRepository;
+  tokensRepository: ITokensRepository;
   network: CasperNetwork;
-  currencyId: number; // trade-API currency id; 1 = USD
-  currencyCode: string; // ISO code for fiat display, e.g. 'USD'
   signer: ISigner | null;
   activePublicKey: string | null;
 }

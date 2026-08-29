@@ -12,6 +12,8 @@ export interface IGetTokensParams {
   publicKey: string;
   network: CasperNetwork;
   withProxyHeader?: boolean;
+  /** Restricts the response to these contract packages; omit for every token the account holds. */
+  contractPackageHashes?: string[];
 }
 
 export interface IGetCsprBalanceParams {

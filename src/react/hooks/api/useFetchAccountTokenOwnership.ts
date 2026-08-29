@@ -2,22 +2,26 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useRepositories } from '../context/useRepositories';
 
-import type { IAccountTokenOwnershipItem, ISwapError } from '../../../domain/swap';
+import type { ITokensError, ITokenWithFiatBalance } from '../../../domain/tokens';
 
 interface IUseFetchAccountTokenOwnershipParams {
   contractPackageHashes?: string[];
   enabled?: boolean;
 }
 
+/**
+ * CEP-18 holdings from the wallet API — the same source that backs the wallet's own token list,
+ * so a balance never depends on which screen asked for it.
+ */
 export const useFetchAccountTokenOwnership = ({
   contractPackageHashes,
   enabled = true,
 }: IUseFetchAccountTokenOwnershipParams = {}) => {
-  const { network, activePublicKey, swapRepository } = useRepositories();
+  const { network, activePublicKey, tokensRepository } = useRepositories();
 
   const { data, isLoading, error, refetch, isFetching, isError } = useQuery<
-    IAccountTokenOwnershipItem[],
-    ISwapError
+    ITokenWithFiatBalance[],
+    ITokensError
   >({
     queryKey: ['accountTokenOwnership', activePublicKey, contractPackageHashes?.join(',') ?? 'all'],
     enabled: Boolean(activePublicKey) && enabled,
@@ -26,7 +30,7 @@ export const useFetchAccountTokenOwnership = ({
         throw new Error('Public key is required');
       }
 
-      return swapRepository.getAccountTokenOwnership({
+      return tokensRepository.getTokens({
         network,
         publicKey: activePublicKey,
         contractPackageHashes,

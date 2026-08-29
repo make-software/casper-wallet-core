@@ -45,50 +45,6 @@ const makeQueryLatestGlobalState = (contractHashHex: string) =>
   });
 
 describe('DexContractRepository', () => {
-  describe('getTokenBalance', () => {
-    it('reads the balances dictionary', async () => {
-      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
-      const getDictionaryItemByIdentifier = jest
-        .fn()
-        .mockResolvedValue({ storedValue: { clValue: { toString: () => '12345' } } });
-      stubClient(
-        repo,
-        makeClient({
-          queryLatestGlobalState: makeQueryLatestGlobalState('abc123'),
-          getDictionaryItemByIdentifier,
-        }),
-      );
-
-      const result = await repo.getTokenBalance({
-        network: 'mainnet',
-        contractPackageHash: 'cph',
-        publicKey: PUBLIC_KEY,
-      });
-
-      expect(result).toBe('12345');
-      const identifier = getDictionaryItemByIdentifier.mock.calls[0][1];
-      expect(identifier.contractNamedKey.dictionaryName).toBe('balances');
-    });
-
-    it('mirrors source behavior: resolves "" on RPC failure', async () => {
-      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
-      stubClient(
-        repo,
-        makeClient({
-          queryLatestGlobalState: jest.fn().mockRejectedValue(new Error('rpc down')),
-        }),
-      );
-
-      await expect(
-        repo.getTokenBalance({
-          network: 'mainnet',
-          contractPackageHash: 'cph',
-          publicKey: PUBLIC_KEY,
-        }),
-      ).resolves.toBe('');
-    });
-  });
-
   describe('getAllowance', () => {
     it('reads the allowances dictionary with a key derived from both keys (keysToHex)', async () => {
       const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
@@ -228,26 +184,12 @@ describe('DexContractRepository', () => {
   });
 
   describe('error wrapping', () => {
-    it("wraps a plain RPC failure into a DexError typed by the method's name", async () => {
-      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
-      stubClient(
-        repo,
-        makeClient({ queryLatestBalance: jest.fn().mockRejectedValue(new Error('rpc down')) }),
-      );
-
-      await expect(
-        repo.getCsprBalance({ network: 'mainnet', publicKey: PUBLIC_KEY }),
-      ).rejects.toMatchObject({ name: 'DexRepositoryError', type: 'getCsprBalance' });
-    });
-
     it('rethrows an inner DexError as-is, without re-wrapping its type', async () => {
       const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
-      const inner = new DexError(new Error('inner failure'), 'getLatestBlockTime');
-      stubClient(repo, makeClient({ queryLatestBalance: jest.fn().mockRejectedValue(inner) }));
+      const inner = new DexError(new Error('inner failure'), 'getAllowance');
+      stubClient(repo, makeClient({ getLatestBlock: jest.fn().mockRejectedValue(inner) }));
 
-      await expect(repo.getCsprBalance({ network: 'mainnet', publicKey: PUBLIC_KEY })).rejects.toBe(
-        inner,
-      );
+      await expect(repo.getLatestBlockTime({ network: 'mainnet' })).rejects.toBe(inner);
     });
   });
 });

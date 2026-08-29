@@ -21,20 +21,3 @@ export interface RawSwapQuote {
   recommended_slippage_bps: string;
   type_id: number;
 }
-
-/** Raw GET /rates/{currencyId}/latest response. */
-export interface CsprFiatRateApiResponse {
-  amount: number;
-  created: string;
-  currency_id: number;
-}
-
-/** Raw GET /ft/{hash}/rates/latest response. */
-export interface TokenFiatRateApiResponse {
-  amount: string;
-  currency_id: number;
-  dex_id: number;
-  timestamp: string;
-  token_contract_package_hash: string;
-  transaction_hash: string;
-}

@@ -4,12 +4,6 @@ import type { CasperNetwork } from '../common/common';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../swap';
 
 export interface IDexContractRepository {
-  getTokenBalance(params: {
-    network: CasperNetwork;
-    contractPackageHash: string;
-    publicKey: string;
-  }): Promise<string>;
-  getCsprBalance(params: { network: CasperNetwork; publicKey: string }): Promise<string>;
   getAllowance(params: {
     network: CasperNetwork;
     contractPackageHash: string;

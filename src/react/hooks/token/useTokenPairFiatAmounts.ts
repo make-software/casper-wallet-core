@@ -1,6 +1,6 @@
 import { useFetchCsprFiatRates } from '../api/useFetchCsprFiatRates';
-import { useRepositories } from '../context/useRepositories';
 
+import { USD_CURRENCY_CODE } from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import { calculateTokenFiatAmount } from '../../../utils/swap';
 
@@ -20,12 +20,11 @@ export const useTokenPairFiatAmounts = ({
   secondTokenAmount,
 }: IUseTokenPairFiatAmountsParams) => {
   const { csprFiatRates } = useFetchCsprFiatRates();
-  const { currencyCode } = useRepositories();
 
   const firstTokenFiatAmount = calculateTokenFiatAmount(
     firstToken as IDexToken | null,
     firstTokenAmount,
-    currencyCode,
+    USD_CURRENCY_CODE,
     firstToken?.fiatRates,
     csprFiatRates,
   );
@@ -33,7 +32,7 @@ export const useTokenPairFiatAmounts = ({
   const secondTokenFiatAmount = calculateTokenFiatAmount(
     secondToken as IDexToken | null,
     secondTokenAmount,
-    currencyCode,
+    USD_CURRENCY_CODE,
     secondToken?.fiatRates,
     csprFiatRates,
   );

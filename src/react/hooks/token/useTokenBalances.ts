@@ -28,7 +28,7 @@ interface IUseTokenBalancesReturn {
 export const useTokenBalances = ({
   additionalContractPackageHashes,
 }: IUseTokenBalancesParams = {}): IUseTokenBalancesReturn => {
-  const { network, activePublicKey, dexContractRepository } = useRepositories();
+  const { network, activePublicKey, tokensRepository } = useRepositories();
 
   const [tokenBalances, setTokenBalances] = useState<ITokenBalances>({
     formatted: {},
@@ -69,18 +69,21 @@ export const useTokenBalances = ({
 
   // Pull-based: the library exposes only `activePublicKey`, not a live account object, so the
   // CSPR balance has to be fetched rather than pushed in from a wallet context.
+  //
+  // `liquidBalance`, not `totalBalance`: staked and undelegating motes cannot be spent, and
+  // offering them as swappable would build transactions the chain rejects.
   const refetchCsprBalance = useCallback(async () => {
     if (!activePublicKey) {
       return;
     }
 
-    const balance = await dexContractRepository.getCsprBalance({
+    const { liquidBalance } = await tokensRepository.getCsprBalance({
       network,
       publicKey: activePublicKey,
     });
 
-    updateCSPRBalance(balance);
-  }, [network, activePublicKey, dexContractRepository, updateCSPRBalance]);
+    updateCSPRBalance(liquidBalance);
+  }, [network, activePublicKey, tokensRepository, updateCSPRBalance]);
 
   useEffect(() => {
     setTokenBalances({
@@ -105,18 +108,15 @@ export const useTokenBalances = ({
     const nextRaw: Record<string, string> = {};
     const nextFormatted: Record<string, string> = {};
 
-    ownershipData.forEach(item => {
-      const decimals = item.contract_package?.metadata?.decimals;
+    ownershipData.forEach(token => {
+      const rawBalance = token.balance || '0';
 
-      if (typeof decimals !== 'number') {
-        return;
-      }
-
-      const rawBalance = item.balance || '0';
-      const formattedBalance = rawToFormattedSafe(rawBalance, decimals, '0');
-
-      nextRaw[item.contract_package_hash] = rawBalance;
-      nextFormatted[item.contract_package_hash] = formattedBalance;
+      nextRaw[token.contractPackageHash] = rawBalance;
+      nextFormatted[token.contractPackageHash] = rawToFormattedSafe(
+        rawBalance,
+        token.decimals,
+        '0',
+      );
     });
 
     setTokenBalances(prev => ({

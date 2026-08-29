@@ -13,7 +13,11 @@ import { useTokenPairFiatAmounts } from '../token/useTokenPairFiatAmounts';
 import { useTokenPairState } from '../token/useTokenPairState';
 import { useTokenPreselection } from '../token/useTokenPreselection';
 
-import { CSPR_NATIVE_TOKEN_ID, DEX_PAYMENT_AMOUNT } from '../../../domain/constants';
+import {
+  CSPR_NATIVE_TOKEN_ID,
+  DEX_PAYMENT_AMOUNT,
+  USD_CURRENCY_CODE,
+} from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import { SwapQuoteType } from '../../../domain/swap';
 import { formattedToRawSafe, isAmountValid, isValidAmount } from '../../../utils/amounts';
@@ -36,7 +40,7 @@ export interface IUseSwapTokensParams {
  * modal into one form API. Return-field names are public API for the apps consuming this library.
  */
 export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParams = {}) => {
-  const { activePublicKey, currencyCode } = useRepositories();
+  const { activePublicKey } = useRepositories();
   const { slippage } = useContractSettings();
   const isWalletConnected = Boolean(activePublicKey);
 
@@ -318,7 +322,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     selectedTokens.first,
     selectedTokens.second,
     csprFiatRates ?? null,
-    currencyCode,
+    USD_CURRENCY_CODE,
   );
   const maxSlippage = `${slippage}`;
   const swapRoutes = useSwapRouteTokens(quoteData.data?.path ?? [], tokens ?? []);

@@ -5,7 +5,7 @@ import { useRepositories } from '../context/useRepositories';
 import type { IDexToken, ISwapError } from '../../../domain/swap';
 
 export const useFetchToken = (tokenContractPackageHash: string) => {
-  const { network, currencyId, swapRepository } = useRepositories();
+  const { network, swapRepository } = useRepositories();
 
   const {
     data: token,
@@ -15,12 +15,11 @@ export const useFetchToken = (tokenContractPackageHash: string) => {
     isFetching,
     isError,
   } = useQuery<IDexToken, ISwapError>({
-    queryKey: ['token', tokenContractPackageHash, currencyId],
+    queryKey: ['token', tokenContractPackageHash, network],
     queryFn: () =>
       swapRepository.getDexToken({
         network,
         contractPackageHash: tokenContractPackageHash,
-        currencyId,
       }),
     enabled: Boolean(tokenContractPackageHash),
     retry: 3,
