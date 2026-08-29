@@ -16,16 +16,17 @@ import { useTokenPreselection } from '../token/useTokenPreselection';
 import {
   CSPR_NATIVE_TOKEN_ID,
   DEX_PAYMENT_AMOUNT,
+  TOKEN_DISPLAY_DECIMALS,
   USD_CURRENCY_CODE,
 } from '../../../domain/constants';
 import type { IDexToken } from '../../../domain/swap';
 import { SwapQuoteType } from '../../../domain/swap';
-import { formattedToRawSafe, isAmountValid, isValidAmount } from '../../../utils/amounts';
+import { isAmountInputValid, isPositiveAmount } from '../../../utils/amounts';
+import { formatTokenBalance, getBlockchainAmount } from '../../../utils/common';
 import {
   calculateMaxUsableBalance,
   calculateSwapFee,
   calculateSwapPaymentAmount,
-  formatTokenAmount,
   handleTokenSelection,
   type TokenPosition,
 } from '../../../utils/swap';
@@ -91,7 +92,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     if (!token) return '0';
 
     return formatted && typeof token.decimals === 'number'
-      ? formattedToRawSafe(formatted, token.decimals)
+      ? getBlockchainAmount(formatted, token.decimals, '0')
       : '0';
   }, [activeTokenPosition, debouncedTokenAmounts, selectedTokens.first, selectedTokens.second]);
 
@@ -145,15 +146,15 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
     isWalletConnected,
   });
 
-  const isAmountEntered = isValidAmount(tokenAmounts.first.formatted);
+  const isAmountEntered = isPositiveAmount(tokenAmounts.first.formatted);
 
   const isFormValid = Boolean(
     selectedTokens.first &&
     selectedTokens.second &&
     !selectedTokens.first.isBlacklisted &&
     !selectedTokens.second.isBlacklisted &&
-    isValidAmount(tokenAmounts.first.formatted) &&
-    isValidAmount(tokenAmounts.second.formatted) &&
+    isPositiveAmount(tokenAmounts.first.formatted) &&
+    isPositiveAmount(tokenAmounts.second.formatted) &&
     !isAmountExceedsBalance('first') &&
     !isInsufficientCsprForFees() &&
     quoteData.data,
@@ -201,7 +202,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
       first: {
         formatted: prev.first.formatted,
         raw: nextFirstToken?.decimals
-          ? formattedToRawSafe(prev.first.formatted, nextFirstToken.decimals)
+          ? getBlockchainAmount(prev.first.formatted, nextFirstToken.decimals, '0')
           : prev.first.raw,
       },
       second: { formatted: '0', raw: '0' },
@@ -213,7 +214,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
       const currentToken = selectedTokens[position];
       const currentDecimals = currentToken?.decimals;
 
-      if (amount !== '' && !isAmountValid(amount, currentDecimals)) {
+      if (amount !== '' && !isAmountInputValid(amount, currentDecimals)) {
         return;
       }
 
@@ -221,7 +222,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
         const formatted = amount;
         const raw =
           amount && typeof currentDecimals === 'number'
-            ? formattedToRawSafe(formatted, currentDecimals)
+            ? getBlockchainAmount(formatted, currentDecimals, '0')
             : '0';
 
         const next = { ...prev, [position]: { formatted, raw } };
@@ -252,7 +253,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
         const formatted = quoteData.data.amountOutDecimal;
         const raw =
           typeof selectedTokens.second.decimals === 'number'
-            ? formattedToRawSafe(formatted, selectedTokens.second.decimals)
+            ? getBlockchainAmount(formatted, selectedTokens.second.decimals, '0')
             : '0';
 
         setTokenAmounts(prev => ({ ...prev, second: { formatted, raw } }));
@@ -260,7 +261,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
         const formatted = quoteData.data.amountInDecimal;
         const raw =
           typeof selectedTokens.first.decimals === 'number'
-            ? formattedToRawSafe(formatted, selectedTokens.first.decimals)
+            ? getBlockchainAmount(formatted, selectedTokens.first.decimals, '0')
             : '0';
 
         setTokenAmounts(prev => ({ ...prev, first: { formatted, raw } }));
@@ -308,7 +309,7 @@ export const useSwapTokens = ({ tokenInHash, tokenOutHash }: IUseSwapTokensParam
 
   const quote =
     selectedTokens.first && selectedTokens.second && quoteData.data?.rate
-      ? `1 ${quoteFirstSymbol} = ${formatTokenAmount(quoteData.data.rate)} ${quoteSecondSymbol}`
+      ? `1 ${quoteFirstSymbol} = ${formatTokenBalance(quoteData.data.rate, 0, TOKEN_DISPLAY_DECIMALS, '0', true)} ${quoteSecondSymbol}`
       : null;
 
   const priceImpact = quoteData.data?.price_impact

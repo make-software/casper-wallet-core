@@ -3,32 +3,74 @@ import Decimal from 'decimal.js';
 import { v4 } from 'uuid';
 import { FIAT_DECIMALS, HIGH_STAKE_THRESHOLD, IValidator, TOKEN_DISPLAY_DECIMALS } from '../domain';
 import { Maybe } from '../typings';
+import { shiftDecimal } from './decimal';
 
 export const noop = () => undefined;
 
 export const capitalizeFirstLetter = (str: string): string =>
   str.charAt(0).toUpperCase() + str.slice(1);
 
+export interface IFormatFiatBalanceOptions {
+  /** ISO 4217 code. Defaults to USD. */
+  currencyCode?: string;
+  /** Pads short amounts — 2 renders `$5` as `$5.00`. */
+  minFractionDigits?: number;
+}
+
+const MIN_DISPLAYED_FIAT_AMOUNT = new Decimal('0.01');
+
+/**
+ * Format a fiat amount. Anything under one cent renders as `<$0.01`, whatever `decimals` is.
+ *
+ * `defaultBalance` covers an absent balance; pass `null` to render zero in `currencyCode`
+ * instead of a fixed label.
+ */
 export const formatFiatBalance = (
   balance?: string | number,
-  defaultBalance = '$0.00',
+  defaultBalance: Maybe<string> = '$0.00',
   decimals = FIAT_DECIMALS,
+  { currencyCode = 'USD', minFractionDigits = 0 }: IFormatFiatBalanceOptions = {},
 ): string => {
+  const format = (value: Decimal): string =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: minFractionDigits,
+      maximumFractionDigits: decimals,
+    }).format(value.toNumber());
+
   if (!balance) {
-    return defaultBalance;
+    return defaultBalance ?? format(new Decimal(0));
   }
 
-  const amount = new Decimal(balance).toDecimalPlaces(decimals).toNumber();
+  const amount = new Decimal(balance);
 
-  if (amount < 0.01) {
-    return '<$0.01';
+  if (amount.lt(MIN_DISPLAYED_FIAT_AMOUNT)) {
+    return `<${format(MIN_DISPLAYED_FIAT_AMOUNT)}`;
   }
 
-  return `$${amount.toLocaleString('en-US', { maximumFractionDigits: decimals })}`;
+  return format(amount.toDecimalPlaces(decimals));
 };
 
-export const getDecimalTokenBalance = (balance: string | number, decimals: number) => {
-  return new Decimal(balance).div(new Decimal(10).pow(decimals)).toFixed();
+/**
+ * Raw base units (motes) to a decimal string: `balance / 10 ^ decimals`.
+ *
+ * Pass `defaultBalance` to receive it instead of a throw when `balance` cannot be parsed.
+ */
+export const getDecimalTokenBalance = (
+  balance: string | number,
+  decimals: number,
+  defaultBalance?: string,
+): string => {
+  try {
+    return shiftDecimal(balance, -decimals).toFixed();
+  } catch (error) {
+    if (defaultBalance === undefined) {
+      throw error;
+    }
+
+    return defaultBalance;
+  }
 };
 
 export const formatTokenBalance = (
@@ -94,12 +136,29 @@ export const isKeysEqual = (keyOne?: Maybe<string>, keyTwo?: Maybe<string>) => {
   return keyOne.toLowerCase() === keyTwo.toLowerCase();
 };
 
-export const getBlockchainAmount = (decimalAmount: string, decimals: number) => {
-  if (!decimalAmount || Number.isNaN(parseFloat(decimalAmount))) {
-    throw new Error('Invalid amount');
-  }
+/**
+ * Decimal string to raw base units (motes): `decimalAmount * 10 ^ decimals`, truncated.
+ *
+ * Pass `defaultAmount` to receive it instead of a throw when `decimalAmount` is not a number.
+ */
+export const getBlockchainAmount = (
+  decimalAmount: string,
+  decimals: number,
+  defaultAmount?: string,
+): string => {
+  try {
+    if (!decimalAmount || Number.isNaN(parseFloat(decimalAmount))) {
+      throw new Error('Invalid amount');
+    }
 
-  return new Decimal(decimalAmount).mul(new Decimal(10).pow(decimals)).toFixed(0);
+    return shiftDecimal(decimalAmount, decimals).toFixed(0, Decimal.ROUND_DOWN);
+  } catch (error) {
+    if (defaultAmount === undefined) {
+      throw error;
+    }
+
+    return defaultAmount;
+  }
 };
 
 export const formatFiatAmount = (

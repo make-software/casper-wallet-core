@@ -1,10 +1,9 @@
-import Decimal from 'decimal.js';
-
 import {
   BLOCK_INTERVAL_MS,
   CSPR_DECIMALS,
   CSPR_NATIVE_TOKEN_ID,
   DEX_PAYMENT_AMOUNT,
+  FIAT_DECIMALS,
   MAX_DEADLINE,
   MAX_SLIPPAGE,
   MIN_DEADLINE,
@@ -12,65 +11,23 @@ import {
   NO_FIAT_RATE_LABEL,
   POSSIBLE_QUOTE_LATENCY_MS,
   SWAP_PROTOCOL_FEE,
+  TOKEN_DISPLAY_DECIMALS,
 } from '../domain/constants';
 import type { IDexToken } from '../domain/swap/entities';
 import { SwapQuoteType } from '../domain/swap/entities';
-
-/**
- * A local high-precision clone is used instead of the global `Decimal` for the same reason as
- * `utils/amounts.ts`: never mutate shared config, and keep full precision through div/mul chains.
- */
-const D = Decimal.clone({ precision: 50, toExpNeg: -50, toExpPos: 50 });
+import {
+  formatFiatBalance,
+  formatTokenBalance,
+  getBlockchainAmount,
+  getDecimalTokenBalance,
+} from './common';
+import { AmountDecimal as D } from './decimal';
 
 export type TokenPosition = 'first' | 'second';
 export type WcsprDisplay = 'wrapped' | 'native';
 
-export const tokenDivider = (decimals: number | null): Decimal => new D(10).pow(decimals || 0);
-
-export const divideCEP18Balance = (
-  balance: string | null,
-  decimals: number | null,
-): string | null => {
-  if (balance == null) {
-    return null;
-  }
-
-  return new D(balance).div(tokenDivider(decimals)).toFixed();
-};
-
-/**
- * Format a token amount for display, removing insignificant trailing decimals and padding to
- * a minimum number of decimals.
- */
-export const formatTokenAmount = (
-  amount: string | number,
-  maxDecimals: number = 5,
-  minDecimals: number = 2,
-): string => {
-  try {
-    const num = new D(amount);
-
-    if (num.eq(0)) {
-      return '0';
-    }
-
-    let formatted = num.toFixed(maxDecimals);
-
-    formatted = formatted.replace(/(\.\d*?)0+$/, '$1');
-    formatted = formatted.replace(/\.$/, '');
-
-    const parts = formatted.split('.');
-    if (parts.length === 1) {
-      formatted = `${formatted}.${'0'.repeat(minDecimals)}`;
-    } else if (parts[1].length < minDecimals) {
-      formatted = `${parts[0]}.${parts[1].padEnd(minDecimals, '0')}`;
-    }
-
-    return formatted;
-  } catch {
-    return '0';
-  }
-};
+const formatDecimalAmount = (amount: string, maxDecimals = TOKEN_DISPLAY_DECIMALS): string =>
+  formatTokenBalance(amount, 0, maxDecimals, '0', true);
 
 export const calculateSwapRate = (
   token1amount: string | null,
@@ -79,16 +36,13 @@ export const calculateSwapRate = (
   token2decimal: number | null,
   quoteType: SwapQuoteType,
 ): string => {
-  const token1 = new D(token1amount ?? '0').div(tokenDivider(token1decimal ?? 0));
-  const token2 = new D(token2amount ?? '0').div(tokenDivider(token2decimal ?? 0));
+  const token1 = new D(getDecimalTokenBalance(token1amount ?? '0', token1decimal ?? 0));
+  const token2 = new D(getDecimalTokenBalance(token2amount ?? '0', token2decimal ?? 0));
 
-  return formatTokenAmount(
-    (quoteType === SwapQuoteType.ExactIn ? token2 : token1)
-      .div(quoteType === SwapQuoteType.ExactIn ? token1 : token2)
-      .toFixed(10),
-    10,
-    2,
-  );
+  const [numerator, denominator] =
+    quoteType === SwapQuoteType.ExactIn ? [token2, token1] : [token1, token2];
+
+  return formatDecimalAmount(numerator.div(denominator).toFixed(10), 10);
 };
 
 export const calculateSwapFee = (
@@ -99,7 +53,7 @@ export const calculateSwapFee = (
     return '0';
   }
 
-  return formatTokenAmount(new D(decimalAmount).mul(fee).toFixed(6));
+  return formatDecimalAmount(new D(decimalAmount).mul(fee).toFixed(6));
 };
 
 export const calculateSwapMaxSlippage = (slippageBps?: string): string | null => {
@@ -180,30 +134,11 @@ export const getErrorMessageDescription = (code?: string | null): string | null 
   return null;
 };
 
-const formatCurrency = (amount: string, currencyCode: string): string =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(
-    Number(amount),
-  );
-
-export const formatSmallFiatAmount = (
-  amount: string | number,
-  currencyCode: string,
-  precision = 2,
-): string => {
-  const decimalAmount = new D(amount);
-
-  if (decimalAmount.lte(0)) {
-    return formatCurrency('0', currencyCode);
-  }
-
-  const minDisplayValue = new D(1).div(new D(10).pow(precision));
-
-  if (decimalAmount.lt(minDisplayValue)) {
-    return `< ${formatCurrency(minDisplayValue.toFixed(precision), currencyCode)}`;
-  }
-
-  return formatCurrency(decimalAmount.toFixed(precision), currencyCode);
-};
+const formatSwapFiatAmount = (amount: string, currencyCode: string): string =>
+  formatFiatBalance(amount, null, FIAT_DECIMALS, {
+    currencyCode,
+    minFractionDigits: FIAT_DECIMALS,
+  });
 
 export const calculateTokenFiatAmount = (
   token: IDexToken | null,
@@ -216,19 +151,13 @@ export const calculateTokenFiatAmount = (
     return '';
   }
 
-  if (token.id === CSPR_NATIVE_TOKEN_ID) {
-    return csprFiatRate
-      ? formatSmallFiatAmount(
-          new D(decimalAmount || 0).mul(csprFiatRate).toFixed(),
-          currencyCode,
-          2,
-        )
-      : NO_FIAT_RATE_LABEL;
+  const fiatRate = token.id === CSPR_NATIVE_TOKEN_ID ? csprFiatRate : tokenFiatRate;
+
+  if (!fiatRate) {
+    return NO_FIAT_RATE_LABEL;
   }
 
-  return tokenFiatRate
-    ? formatSmallFiatAmount(new D(decimalAmount || 0).mul(tokenFiatRate).toFixed(), currencyCode, 2)
-    : NO_FIAT_RATE_LABEL;
+  return formatSwapFiatAmount(new D(decimalAmount || 0).mul(fiatRate).toFixed(), currencyCode);
 };
 
 export const calculateSwapPaymentAmount = (
@@ -241,31 +170,26 @@ export const calculateSwapPaymentAmount = (
     return null;
   }
 
-  const amount =
+  const paymentInMotes =
     token1.id === CSPR_NATIVE_TOKEN_ID || token2.id === CSPR_NATIVE_TOKEN_ID
-      ? divideCEP18Balance(DEX_PAYMENT_AMOUNT.swapCsprForToken, CSPR_DECIMALS)
-      : divideCEP18Balance(DEX_PAYMENT_AMOUNT.swapTokenForToken, CSPR_DECIMALS);
+      ? DEX_PAYMENT_AMOUNT.swapCsprForToken
+      : DEX_PAYMENT_AMOUNT.swapTokenForToken;
+
+  const amount = getDecimalTokenBalance(paymentInMotes, CSPR_DECIMALS);
 
   return csprFiatRate
-    ? formatSmallFiatAmount(new D(amount ?? 0).mul(csprFiatRate).toFixed(), currencyCode, 2)
+    ? formatSwapFiatAmount(new D(amount).mul(csprFiatRate).toFixed(), currencyCode)
     : `${amount} CSPR`;
 };
 
 const calculateAvailableCsprBalance = (balance: string, context: 'swap' | 'wrap'): string => {
   try {
-    const balanceInMotes = new D(balance).mul(1e9);
-    let totalPaymentAmount = new D(0);
+    const balanceInMotes = new D(getBlockchainAmount(balance, CSPR_DECIMALS));
 
-    switch (context) {
-      case 'swap':
-        totalPaymentAmount = totalPaymentAmount
-          .plus(DEX_PAYMENT_AMOUNT.approve)
-          .plus(DEX_PAYMENT_AMOUNT.swapCsprForToken);
-        break;
-      case 'wrap':
-        totalPaymentAmount = totalPaymentAmount.plus(DEX_PAYMENT_AMOUNT.wrap);
-        break;
-    }
+    const totalPaymentAmount =
+      context === 'swap'
+        ? new D(DEX_PAYMENT_AMOUNT.approve).plus(DEX_PAYMENT_AMOUNT.swapCsprForToken)
+        : new D(DEX_PAYMENT_AMOUNT.wrap);
 
     const availableBalanceInMotes = balanceInMotes.minus(totalPaymentAmount);
 
@@ -273,7 +197,7 @@ const calculateAvailableCsprBalance = (balance: string, context: 'swap' | 'wrap'
       return '0';
     }
 
-    return availableBalanceInMotes.div(1e9).toFixed();
+    return getDecimalTokenBalance(availableBalanceInMotes.toFixed(0), CSPR_DECIMALS);
   } catch {
     return balance;
   }

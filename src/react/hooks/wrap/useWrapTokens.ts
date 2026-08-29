@@ -18,12 +18,8 @@ import {
 } from '../../../domain/constants';
 import type { WrapDirection } from '../../../domain/dex';
 import type { IDexToken } from '../../../domain/swap';
-import {
-  formattedToRawSafe,
-  isAmountValid,
-  isValidAmount,
-  rawToFormattedSafe,
-} from '../../../utils/amounts';
+import { isAmountInputValid, isPositiveAmount } from '../../../utils/amounts';
+import { getBlockchainAmount, getDecimalTokenBalance } from '../../../utils/common';
 
 const buildNativeCsprToken = (csprFromList: IDexToken | undefined): IDexToken => ({
   id: CSPR_NATIVE_TOKEN_ID,
@@ -88,7 +84,7 @@ export const useWrapTokens = () => {
   const sourceToken = direction === 'wrap' ? csprToken : wcsprToken;
   const destinationToken = direction === 'wrap' ? wcsprToken : csprToken;
 
-  const sourceRawAmount = useMemo(() => formattedToRawSafe(amount, CSPR_DECIMALS), [amount]);
+  const sourceRawAmount = useMemo(() => getBlockchainAmount(amount, CSPR_DECIMALS, '0'), [amount]);
 
   const { firstTokenFiatAmount: sourceTokenFiatAmount } = useTokenPairFiatAmounts({
     firstToken: sourceToken,
@@ -109,7 +105,7 @@ export const useWrapTokens = () => {
   const wcsprRawBalance = useMemo(() => wcsprBalance || '0', [wcsprBalance]);
 
   const wcsprFormattedBalance = useMemo(
-    () => rawToFormattedSafe(wcsprRawBalance, CSPR_DECIMALS, '0'),
+    () => getDecimalTokenBalance(wcsprRawBalance, CSPR_DECIMALS, '0'),
     [wcsprRawBalance],
   );
 
@@ -160,14 +156,14 @@ export const useWrapTokens = () => {
     isWalletConnected,
   });
 
-  const isAmountEntered = isValidAmount(amount);
+  const isAmountEntered = isPositiveAmount(amount);
 
   const isFormValid = Boolean(
     isAmountEntered && !isAmountExceedsBalance('first') && !isInsufficientCsprForFees(),
   );
 
   const updateAmount = useCallback((value: string) => {
-    if (value !== '' && !isAmountValid(value, CSPR_DECIMALS)) {
+    if (value !== '' && !isAmountInputValid(value, CSPR_DECIMALS)) {
       return;
     }
 

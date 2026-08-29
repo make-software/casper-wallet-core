@@ -9,8 +9,6 @@ import {
   calculateTokenFiatAmount,
   clampDeadlineValue,
   clampSlippageValue,
-  formatSmallFiatAmount,
-  formatTokenAmount,
   getErrorMessageDescription,
   getMillisecondsUntilNextBlock,
   getSwapRoutes,
@@ -44,35 +42,21 @@ const csprToken = buildToken({
 });
 
 describe('swap', () => {
-  describe('formatTokenAmount', () => {
-    it('trims trailing zeros and pads to minDecimals', () => {
-      expect(formatTokenAmount('1.100000', 5, 2)).toBe('1.10');
-      expect(formatTokenAmount('2', 5, 2)).toBe('2.00');
-      expect(formatTokenAmount('0')).toBe('0');
-    });
-
-    it('returns "0" for invalid input', () => {
-      expect(formatTokenAmount('not-a-number')).toBe('0');
-    });
-  });
-
   describe('calculateSwapRate', () => {
     it('computes the rate for ExactIn', () => {
       expect(calculateSwapRate('2000000000', 9, '1000000000', 9, SwapQuoteType.ExactIn)).toBe(
-        '0.50',
+        '0.5',
       );
     });
 
     it('computes the rate for ExactOut', () => {
-      expect(calculateSwapRate('2000000000', 9, '1000000000', 9, SwapQuoteType.ExactOut)).toBe(
-        '2.00',
-      );
+      expect(calculateSwapRate('2000000000', 9, '1000000000', 9, SwapQuoteType.ExactOut)).toBe('2');
     });
   });
 
   describe('calculateSwapFee', () => {
     it('defaults to the 0.3% protocol fee', () => {
-      expect(calculateSwapFee('1000')).toBe('3.00');
+      expect(calculateSwapFee('1000')).toBe('3');
     });
 
     it('returns "0" for empty input', () => {
@@ -141,16 +125,6 @@ describe('swap', () => {
     });
   });
 
-  describe('formatSmallFiatAmount', () => {
-    it('shows "< $0.01" for sub-cent amounts', () => {
-      expect(formatSmallFiatAmount('0.005', 'USD')).toBe('< $0.01');
-    });
-
-    it('formats at the requested precision', () => {
-      expect(formatSmallFiatAmount('5', 'USD')).toBe('$5.00');
-    });
-  });
-
   describe('calculateTokenFiatAmount', () => {
     it('returns "" when the token is null', () => {
       expect(calculateTokenFiatAmount(null, '1', 'USD')).toBe('');
@@ -160,10 +134,16 @@ describe('swap', () => {
       expect(calculateTokenFiatAmount(csprToken, '100', 'USD', null, 0.05)).toBe('$5.00');
     });
 
-    it('formats sub-cent amounts', () => {
+    it('shows a sub-cent amount as a bound', () => {
       const token = buildToken();
 
-      expect(calculateTokenFiatAmount(token, '0.005', 'USD', 1)).toBe('< $0.01');
+      expect(calculateTokenFiatAmount(token, '0.005', 'USD', 1)).toBe('<$0.01');
+    });
+
+    it('shows the bound in the requested currency', () => {
+      const token = buildToken();
+
+      expect(calculateTokenFiatAmount(token, '', 'EUR', 1)).toBe('<€0.01');
     });
 
     it('returns "N/A" when there is no fiat rate', () => {

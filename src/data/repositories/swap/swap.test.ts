@@ -159,7 +159,7 @@ describe('SwapRepository', () => {
 
       expect(quote.amountInDecimal).toBe('2');
       expect(quote.amountOutDecimal).toBe('1');
-      expect(quote.rate).toBe('0.50');
+      expect(quote.rate).toBe('0.5');
     });
   });
 

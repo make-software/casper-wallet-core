@@ -1,6 +1,6 @@
 import type { IDexToken, ISwapQuote, SwapQuoteType } from '../../../domain';
 import { CSPR_COIN, CSPR_NATIVE_TOKEN_ID } from '../../../domain';
-import { calculateSwapRate, divideCEP18Balance } from '../../../utils';
+import { calculateSwapRate, getDecimalTokenBalance } from '../../../utils';
 import type { DexTokenApiResponse, RawSwapQuote } from '../../repositories/swap/types';
 
 /**
@@ -50,8 +50,8 @@ export class SwapQuoteDto implements ISwapQuote {
     this.recommended_slippage_bps = resp.recommended_slippage_bps;
     this.type_id = typeId;
 
-    this.amountInDecimal = divideCEP18Balance(resp.amount_in, tokenIn.decimals) ?? '0';
-    this.amountOutDecimal = divideCEP18Balance(resp.amount_out, tokenOut.decimals) ?? '0';
+    this.amountInDecimal = getDecimalTokenBalance(resp.amount_in, tokenIn.decimals, '0');
+    this.amountOutDecimal = getDecimalTokenBalance(resp.amount_out, tokenOut.decimals, '0');
     this.rate = calculateSwapRate(
       resp.amount_in,
       tokenIn.decimals,

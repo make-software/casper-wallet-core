@@ -2,52 +2,14 @@ import {
   calculateApprovalAmount,
   calculateMaxAmountWithSlippage,
   calculateMinAmountWithSlippage,
-  calculatePercentageOf,
-  calculateTotalCSPRRequired,
-  clampAmountToDecimals,
   doesAmountExceedBalance,
   exceedsMaxDecimals,
-  formattedToRaw,
-  formattedToRawSafe,
-  getSlippageNumberFromInput,
   hasEnoughCSPRBalance,
-  isAmountValid,
-  isValidAmount,
-  isValidContractPackageHash,
-  rawToFormatted,
+  isAmountInputValid,
+  isPositiveAmount,
 } from './amounts';
 
 describe('amounts', () => {
-  describe('rawToFormatted', () => {
-    it('converts raw to formatted', () => {
-      expect(rawToFormatted('1500000000', 9)).toBe('1.5');
-    });
-
-    it('throws on empty rawAmount', () => {
-      expect(() => rawToFormatted('', 9)).toThrow('rawAmount cannot be empty');
-    });
-
-    it('throws on invalid decimals', () => {
-      expect(() => rawToFormatted('1', -1)).toThrow('decimals must be a non-negative integer');
-    });
-  });
-
-  describe('formattedToRaw', () => {
-    it('converts formatted to raw', () => {
-      expect(formattedToRaw('1.5', 9)).toBe('1500000000');
-    });
-
-    it('rounds down', () => {
-      expect(formattedToRaw('0.0000000015', 9)).toBe('1');
-    });
-  });
-
-  describe('formattedToRawSafe', () => {
-    it('swallows errors and returns the fallback', () => {
-      expect(formattedToRawSafe('abc', 9)).toBe('0');
-    });
-  });
-
   describe('calculateMinAmountWithSlippage', () => {
     it('floors the min amount', () => {
       expect(calculateMinAmountWithSlippage('1000000000', 3)).toBe('970000000');
@@ -55,6 +17,12 @@ describe('amounts', () => {
 
     it('floors on fractional slippage', () => {
       expect(calculateMinAmountWithSlippage('1001', 0.3)).toBe('997');
+    });
+
+    it('keeps every digit of a balance wider than the default Decimal precision', () => {
+      expect(calculateMinAmountWithSlippage('999999999999999999999', 0.5)).toBe(
+        '994999999999999999999',
+      );
     });
   });
 
@@ -68,57 +36,27 @@ describe('amounts', () => {
     });
   });
 
-  describe('calculatePercentageOf', () => {
-    it('computes the percentage', () => {
-      expect(calculatePercentageOf('1000', '0.3')).toBe('3');
-    });
-  });
-
-  describe('getSlippageNumberFromInput', () => {
-    it('accepts a comma as decimal separator', () => {
-      expect(getSlippageNumberFromInput('1,5')).toBe(1.5);
-    });
-
-    it('truncates to 2 decimal places', () => {
-      expect(getSlippageNumberFromInput('1.239')).toBe(1.23);
-    });
-
-    it('returns 0 for junk input without throwing', () => {
-      expect(getSlippageNumberFromInput('abc')).toBe(0);
-    });
-  });
-
-  describe('isValidAmount', () => {
+  describe('isPositiveAmount', () => {
     it('rejects zero', () => {
-      expect(isValidAmount('0')).toBe(false);
+      expect(isPositiveAmount('0')).toBe(false);
     });
 
     it('accepts a positive amount', () => {
-      expect(isValidAmount('0.1')).toBe(true);
+      expect(isPositiveAmount('0.1')).toBe(true);
     });
   });
 
-  describe('isAmountValid', () => {
+  describe('isAmountInputValid', () => {
     it('allows empty string', () => {
-      expect(isAmountValid('')).toBe(true);
+      expect(isAmountInputValid('')).toBe(true);
     });
 
     it('rejects too many decimals', () => {
-      expect(isAmountValid('1.234', 2)).toBe(false);
+      expect(isAmountInputValid('1.234', 2)).toBe(false);
     });
 
     it('rejects non-numeric input', () => {
-      expect(isAmountValid('12a')).toBe(false);
-    });
-  });
-
-  describe('clampAmountToDecimals', () => {
-    it('clamps the fraction part', () => {
-      expect(clampAmountToDecimals('1.23456', 2)).toBe('1.23');
-    });
-
-    it('drops the fraction entirely for 0 decimals', () => {
-      expect(clampAmountToDecimals('5.', 0)).toBe('5');
+      expect(isAmountInputValid('12a')).toBe(false);
     });
   });
 
@@ -163,27 +101,13 @@ describe('amounts', () => {
     });
   });
 
-  describe('CSPR total & sufficiency', () => {
-    it('sums amount and fee', () => {
-      expect(calculateTotalCSPRRequired('60', '40')).toBe('100');
-    });
-
+  describe('hasEnoughCSPRBalance', () => {
     it('reports sufficient balance', () => {
       expect(hasEnoughCSPRBalance('100', '60', '40')).toBe(true);
     });
 
     it('reports insufficient balance', () => {
       expect(hasEnoughCSPRBalance('99', '60', '40')).toBe(false);
-    });
-  });
-
-  describe('isValidContractPackageHash', () => {
-    it('accepts 64 hex characters', () => {
-      expect(isValidContractPackageHash('a'.repeat(64))).toBe(true);
-    });
-
-    it('rejects a hash- prefixed value', () => {
-      expect(isValidContractPackageHash(`hash-${'a'.repeat(64)}`)).toBe(false);
     });
   });
 });

@@ -5,7 +5,7 @@ import { useFetchDexTokens } from '../api/useFetchDexTokens';
 import { useRepositories } from '../context/useRepositories';
 
 import { CSPR_DECIMALS, CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
-import { rawToFormattedSafe } from '../../../utils/amounts';
+import { getDecimalTokenBalance } from '../../../utils/common';
 
 export interface ITokenBalances {
   formatted: Record<string, string>;
@@ -58,7 +58,7 @@ export const useTokenBalances = ({
     setTokenBalances(prev => ({
       formatted: {
         ...prev.formatted,
-        cspr: rawToFormattedSafe(rawBalance, CSPR_DECIMALS),
+        cspr: getDecimalTokenBalance(rawBalance, CSPR_DECIMALS, '0'),
       },
       raw: {
         ...prev.raw,
@@ -112,7 +112,7 @@ export const useTokenBalances = ({
       const rawBalance = token.balance || '0';
 
       nextRaw[token.contractPackageHash] = rawBalance;
-      nextFormatted[token.contractPackageHash] = rawToFormattedSafe(
+      nextFormatted[token.contractPackageHash] = getDecimalTokenBalance(
         rawBalance,
         token.decimals,
         '0',

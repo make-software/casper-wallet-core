@@ -51,6 +51,33 @@ describe('common utils', () => {
     it('formats normal amounts with US grouping', () => {
       expect(formatFiatBalance('1234.5')).toBe('$1,234.5');
     });
+
+    it('keeps the one-cent bound whatever decimals is set to', () => {
+      expect(formatFiatBalance('0.005', undefined, 4)).toBe('<$0.01');
+      expect(formatFiatBalance('0.011', undefined, 4)).toBe('$0.011');
+    });
+
+    it('bounds on the actual amount, not on the amount rounded to decimals', () => {
+      expect(formatFiatBalance('0.005')).toBe('<$0.01');
+      expect(formatFiatBalance('0.0099')).toBe('<$0.01');
+      expect(formatFiatBalance('0.01')).toBe('$0.01');
+    });
+
+    it('shows the bound in the requested currency', () => {
+      expect(formatFiatBalance('0.005', undefined, 2, { currencyCode: 'EUR' })).toBe('<€0.01');
+    });
+
+    it('formats in the requested currency, padding to minFractionDigits', () => {
+      expect(formatFiatBalance('5', null, 2, { currencyCode: 'EUR', minFractionDigits: 2 })).toBe(
+        '€5.00',
+      );
+    });
+
+    it('renders an absent balance in the requested currency when the default is null', () => {
+      expect(formatFiatBalance('', null, 2, { currencyCode: 'EUR', minFractionDigits: 2 })).toBe(
+        '€0.00',
+      );
+    });
   });
 
   describe('getDecimalTokenBalance', () => {
@@ -61,6 +88,17 @@ describe('common utils', () => {
 
     it('handles 0', () => {
       expect(getDecimalTokenBalance('0', 9)).toBe('0');
+    });
+
+    it('keeps digits past the default Decimal precision', () => {
+      expect(getDecimalTokenBalance('123456789012345678901234', 9)).toBe(
+        '123456789012345.678901234',
+      );
+    });
+
+    it('returns the fallback instead of throwing when one is given', () => {
+      expect(() => getDecimalTokenBalance('not-a-number', 9)).toThrow();
+      expect(getDecimalTokenBalance('not-a-number', 9, '0')).toBe('0');
     });
   });
 
@@ -134,8 +172,20 @@ describe('common utils', () => {
       expect(getBlockchainAmount('2.5', 9)).toBe('2500000000');
     });
 
+    it('truncates rather than rounding up', () => {
+      expect(getBlockchainAmount('1.9999999999', 9)).toBe('1999999999');
+    });
+
+    it('keeps digits past the default Decimal precision', () => {
+      expect(getBlockchainAmount('123456789012345.678901234', 9)).toBe('123456789012345678901234');
+    });
+
     it('throws on invalid amount', () => {
       expect(() => getBlockchainAmount('not-a-number', 9)).toThrow();
+    });
+
+    it('returns the fallback instead of throwing when one is given', () => {
+      expect(getBlockchainAmount('not-a-number', 9, '0')).toBe('0');
     });
   });
 
