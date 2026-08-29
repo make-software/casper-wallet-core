@@ -95,8 +95,8 @@ export const useWrapTokens = () => {
 
   const { getFormattedBalance, getRawBalance, refetchCsprBalance } = useTokenBalances();
 
-  // WCSPR balance is fetched via RPC (dictionary lookup) — not the backend indexer — so it
-  // reflects the on-chain state immediately after a transaction, with no block-indexing lag.
+  // Wrapping and unwrapping both move this balance, so the WCSPR leg gets its own fetch and a
+  // refetch handle to run right after the transaction.
   const { data: wcsprBalance, refetch: refetchWcsprBalance } = useFetchTokenBalance({
     contractPackageHash: wrappedCsprPackageHash,
     enabled: isWalletConnected,
