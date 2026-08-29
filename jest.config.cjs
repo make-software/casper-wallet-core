@@ -63,6 +63,7 @@ const config = {
     '!src/__test-utils__/**',
     '!src/domain/**/repository.ts',
     '!src/domain/**/entities.ts',
+    '!src/react/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov', 'html'],

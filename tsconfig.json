@@ -13,6 +13,7 @@
     "types": ["node", "jest"],
     "lib": ["esnext", "dom"],
     "noEmit": true,
+    "jsx": "react-jsx",
     "target": "esnext",
     "module": "nodenext",
     "moduleResolution": "nodenext"

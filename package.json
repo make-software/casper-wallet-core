@@ -49,8 +49,12 @@
     "@eslint/eslintrc": "^3.3.6",
     "@eslint/js": "^9.39.5",
     "@react-native/eslint-config": "^0.87.0",
+    "@tanstack/react-query": "5.90.6",
+    "@types/big.js": "^6.2.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.20.1",
+    "@types/react": "^18.3.0",
+    "big.js": "^7.0.1",
     "eslint": "^9.39.5",
     "eslint-plugin-prettier": "^5.5.6",
     "fast-check": "^4.9.0",
@@ -58,8 +62,21 @@
     "jest": "^29.7.0",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.5",
+    "react": "18.3.1",
     "ts-jest": "^29.4.12",
     "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "resolutions": {
     "axios": "^1.19.0",
