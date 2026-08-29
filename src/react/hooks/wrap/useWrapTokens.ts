@@ -1,0 +1,213 @@
+import { useCallback, useMemo, useState } from 'react';
+
+import { useFetchDexTokens } from '../api/useFetchDexTokens';
+import { useFetchTokenBalance } from '../api/useFetchTokenBalance';
+import { useRepositories } from '../context/useRepositories';
+import { useCsprFeeValidation } from '../token/useCsprFeeValidation';
+import { useTokenBalances } from '../token/useTokenBalances';
+import { useTokenPairBalances } from '../token/useTokenPairBalances';
+import { useTokenPairFiatAmounts } from '../token/useTokenPairFiatAmounts';
+import { useModalState } from '../ui/useModalState';
+
+import {
+  CSPR_TOKEN,
+  DEX_PAYMENT_AMOUNT,
+  WrappedCsprContractPackageHash,
+} from '../../../domain/constants/dex';
+import type { WrapDirection } from '../../../domain/dex';
+import type { IDexToken } from '../../../domain/swap';
+import {
+  formattedToRawSafe,
+  isAmountValid,
+  isValidAmount,
+  rawToFormattedSafe,
+} from '../../../utils/amounts';
+
+const buildNativeCsprToken = (csprFromList: IDexToken | undefined): IDexToken => ({
+  id: CSPR_TOKEN.id,
+  name: 'Casper',
+  symbol: CSPR_TOKEN.symbol,
+  icon: csprFromList?.icon ?? null,
+  decimals: CSPR_TOKEN.decimals,
+  packageHash: '',
+  isWhitelisted: true,
+  isBlacklisted: false,
+  fiatRates: csprFromList?.fiatRates ?? null,
+  totalValueLocked: null,
+  volume24h: null,
+});
+
+const buildWcsprToken = (
+  csprFromList: IDexToken | undefined,
+  wrappedCsprPackageHash: string,
+): IDexToken => ({
+  id: wrappedCsprPackageHash,
+  name: 'Wrapped Casper',
+  symbol: 'WCSPR',
+  icon: csprFromList?.icon ?? null,
+  decimals: CSPR_TOKEN.decimals,
+  packageHash: wrappedCsprPackageHash,
+  isWhitelisted: true,
+  isBlacklisted: false,
+  fiatRates: csprFromList?.fiatRates ?? null,
+  totalValueLocked: null,
+  volume24h: null,
+});
+
+/**
+ * WCSPR page orchestrator: wrap/unwrap direction, amount, both legs' balances and the review
+ * modal.
+ */
+export const useWrapTokens = () => {
+  const { network, activePublicKey } = useRepositories();
+  const isWalletConnected = Boolean(activePublicKey);
+
+  const wrappedCsprPackageHash = WrappedCsprContractPackageHash[network];
+
+  const { data: tokens } = useFetchDexTokens();
+
+  const [direction, setDirection] = useState<WrapDirection>('wrap');
+  const [amount, setAmount] = useState<string>('0');
+
+  const reviewModal = useModalState(false);
+
+  // The token list maps the WCSPR API record to a virtual CSPR token (id='cspr'), so both legs
+  // are rebuilt here to let the form target native CSPR and the real WCSPR contract separately.
+  const csprFromList = useMemo(() => tokens?.find(token => token.id === CSPR_TOKEN.id), [tokens]);
+  const csprToken = useMemo(() => buildNativeCsprToken(csprFromList), [csprFromList]);
+  const wcsprToken = useMemo(
+    () => buildWcsprToken(csprFromList, wrappedCsprPackageHash),
+    [csprFromList, wrappedCsprPackageHash],
+  );
+
+  const sourceToken = direction === 'wrap' ? csprToken : wcsprToken;
+  const destinationToken = direction === 'wrap' ? wcsprToken : csprToken;
+
+  const sourceRawAmount = useMemo(() => formattedToRawSafe(amount, CSPR_TOKEN.decimals), [amount]);
+
+  const { firstTokenFiatAmount: sourceTokenFiatAmount } = useTokenPairFiatAmounts({
+    firstToken: sourceToken,
+    secondToken: destinationToken,
+    firstTokenAmount: amount,
+    secondTokenAmount: amount,
+  });
+
+  const { getFormattedBalance, getRawBalance, refetchCsprBalance } = useTokenBalances();
+
+  // WCSPR balance is fetched via RPC (dictionary lookup) — not the backend indexer — so it
+  // reflects the on-chain state immediately after a transaction, with no block-indexing lag.
+  const { data: wcsprBalance, refetch: refetchWcsprBalance } = useFetchTokenBalance({
+    contractPackageHash: wrappedCsprPackageHash,
+    enabled: isWalletConnected,
+  });
+
+  const wcsprRawBalance = useMemo(() => wcsprBalance || '0', [wcsprBalance]);
+
+  const wcsprFormattedBalance = useMemo(
+    () => rawToFormattedSafe(wcsprRawBalance, CSPR_TOKEN.decimals, '0'),
+    [wcsprRawBalance],
+  );
+
+  const getFormattedBalanceById = useCallback(
+    (tokenId: string): string =>
+      tokenId === wrappedCsprPackageHash ? wcsprFormattedBalance : getFormattedBalance(tokenId),
+    [getFormattedBalance, wcsprFormattedBalance, wrappedCsprPackageHash],
+  );
+
+  const getRawBalanceById = useCallback(
+    (tokenId: string): string =>
+      tokenId === wrappedCsprPackageHash ? wcsprRawBalance : getRawBalance(tokenId),
+    [getRawBalance, wcsprRawBalance, wrappedCsprPackageHash],
+  );
+
+  const selectedTokens = useMemo(
+    () => ({ first: sourceToken, second: destinationToken }),
+    [sourceToken, destinationToken],
+  );
+
+  const tokenAmounts = useMemo(
+    () => ({
+      first: { formatted: amount, raw: sourceRawAmount },
+      second: { formatted: amount, raw: sourceRawAmount },
+    }),
+    [amount, sourceRawAmount],
+  );
+
+  const { getTokenBalance, getRawTokenBalance, isAmountExceedsBalance } = useTokenPairBalances({
+    selectedTokens,
+    tokenAmounts,
+    getFormattedBalance: getFormattedBalanceById,
+    getRawBalance: getRawBalanceById,
+    isWalletConnected,
+  });
+
+  const feeInMotes = useMemo(
+    () => (direction === 'wrap' ? DEX_PAYMENT_AMOUNT.wrap : DEX_PAYMENT_AMOUNT.unwrap),
+    [direction],
+  );
+
+  const isInsufficientCsprForFees = useCsprFeeValidation({
+    getRawBalance: getRawBalanceById,
+    feeInMotes,
+    // Only wrapping spends native CSPR (the amount being wrapped); unwrapping spends CSPR only
+    // for the fee.
+    csprAmountInMotes: direction === 'wrap' ? sourceRawAmount : '0',
+    isWalletConnected,
+  });
+
+  const isAmountEntered = isValidAmount(amount);
+
+  const isFormValid = Boolean(
+    isAmountEntered && !isAmountExceedsBalance('first') && !isInsufficientCsprForFees(),
+  );
+
+  const updateAmount = useCallback((value: string) => {
+    if (value !== '' && !isAmountValid(value, CSPR_TOKEN.decimals)) {
+      return;
+    }
+
+    setAmount(value === '' ? '0' : value);
+  }, []);
+
+  const switchDirection = useCallback(() => {
+    setDirection(prev => (prev === 'wrap' ? 'unwrap' : 'wrap'));
+    setAmount('0');
+  }, []);
+
+  const resetAmount = useCallback(() => {
+    setAmount('0');
+  }, []);
+
+  const onWrapSuccess = useCallback(() => {
+    resetAmount();
+
+    refetchCsprBalance().catch(() => {
+      // best-effort background refresh; consumers can retry via the returned onWrapSuccess
+    });
+    refetchWcsprBalance().catch(() => {
+      // best-effort background refresh; consumers can retry via the returned onWrapSuccess
+    });
+  }, [resetAmount, refetchCsprBalance, refetchWcsprBalance]);
+
+  return {
+    direction,
+    amount,
+    sourceToken,
+    destinationToken,
+    sourceRawAmount,
+    sourceTokenFiatAmount,
+    isFormValid,
+    isAmountEntered,
+    isReviewModalOpen: reviewModal.isOpen,
+    openReviewModal: reviewModal.open,
+    closeReviewModal: reviewModal.close,
+    updateAmount,
+    switchDirection,
+    resetAmount,
+    onWrapSuccess,
+    getTokenBalance,
+    getRawTokenBalance,
+    isAmountExceedsBalance,
+    isInsufficientCsprForFees,
+  };
+};
