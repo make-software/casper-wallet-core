@@ -49,9 +49,14 @@ const config = {
   moduleFileExtensions: ['ts', 'tsx', 'mjs', 'js', 'jsx', 'json'],
 
   // Whitelist ESM-only transitive deps that need transforming.
-  transformIgnorePatterns: ['node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild)/)'],
+  // `dom-accessibility-api` (via @testing-library/dom) ships its TypeScript sources, and
+  // `moduleFileExtensions` resolves `.ts` first — so Jest reaches the sources, not the build,
+  // and they have to be transformed like our own code.
+  transformIgnorePatterns: [
+    'node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild|dom-accessibility-api)/)',
+  ],
 
-  testMatch: ['<rootDir>/src/**/*.test.ts'],
+  testMatch: ['<rootDir>/src/**/*.test.ts?(x)'],
 
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -63,7 +68,6 @@ const config = {
     '!src/__test-utils__/**',
     '!src/domain/**/repository.ts',
     '!src/domain/**/entities.ts',
-    '!src/react/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov', 'html'],
