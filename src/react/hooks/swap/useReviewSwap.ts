@@ -8,6 +8,7 @@ import { useTokenApprovalFlow } from '../token/useTokenApprovalFlow';
 import { CSPR_NATIVE_TOKEN_ID } from '../../../domain/constants';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
 import { calculateApprovalAmount, calculateMaxAmountWithSlippage } from '../../../utils/amounts';
+import { getTransactionErrorMessage } from '../../../utils/swap';
 import type {
   ApprovalState,
   ISwapDependencies,
@@ -59,7 +60,9 @@ export const useReviewSwap = ({
   onClose,
 }: IUseReviewSwapParams) => {
   const [step, setStep] = useState<SwapStep>('confirm');
-  const [error, setError] = useState<string | null>(null);
+  // Scoped to the leg that produced it: a swap that fails after a successful approval must not
+  // mark the approval step as failed.
+  const [errors, setErrors] = useState<{ approval?: string; swap?: string }>({});
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
 
   const { swapTokens } = useSwapTransaction({
@@ -85,7 +88,8 @@ export const useReviewSwap = ({
 
   const resetForm = useCallback(() => {
     setStep('confirm');
-    setError(null);
+    setErrors({});
+    setTransactionHash(null);
     resetStates();
   }, [resetStates]);
 
@@ -153,7 +157,9 @@ export const useReviewSwap = ({
     if (!activePublicKey) return;
 
     setStep('signing');
-    setError(null);
+    setErrors({});
+
+    let leg: 'approval' | 'swap' = 'approval';
 
     try {
       const isFirstTokenNative = firstToken.id === CSPR_NATIVE_TOKEN_ID;
@@ -198,9 +204,15 @@ export const useReviewSwap = ({
         },
       });
 
+      leg = 'swap';
       await processSwapTokens();
-    } catch {
-      setError('Transaction failed');
+    } catch (txError) {
+      setErrors({ [leg]: getTransactionErrorMessage(txError) });
+      // A throw out of the check itself would otherwise leave `isChecking` true forever.
+      setApprovalRequirements(prev => ({ ...prev, isChecking: false }));
+      // Back to 'confirm' so the modal is retryable in place — `isProcessing` is derived from
+      // the step, and leaving it on 'signing' strands the modal with no path but closing it.
+      setStep('confirm');
     }
   }, [
     activePublicKey,
@@ -223,11 +235,11 @@ export const useReviewSwap = ({
         : approvalRequirements.firstRequired
           ? transactionStates.approval
           : 'success',
-      error: error ?? undefined,
+      error: errors.approval,
     },
     swap: {
       status: transactionStates.swap,
-      error: error ?? undefined,
+      error: errors.swap,
     },
   };
 

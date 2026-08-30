@@ -316,9 +316,9 @@ export const useSwapTokens = ({
     refetchCsprBalance().catch(() => {
       // best-effort background refresh; consumers can retry via the returned refetchCsprBalance
     });
-    refetchTokenBalances().catch(() => {
-      // best-effort background refresh; consumers can retry via the returned refetchTokenBalances
-    });
+    // No catch: this resolves to a react-query `refetch()`, which swallows its own rejection
+    // (QueryObserver only rethrows under `throwOnError`), so there is nothing here to catch.
+    refetchTokenBalances();
   }, [refetchCsprBalance, refetchTokenBalances, setTokenAmounts]);
 
   const resetForm = useCallback(() => {

@@ -28,22 +28,21 @@ export const useTokenApprovalFlow = ({
   dexContractRepository,
   signer,
 }: IUseTokenApprovalFlowParams) => {
+  // Rejections propagate: the repository already fails safe here (it returns `true` — "assume
+  // approval is required" — when it cannot read the allowance), and a `false` default at this
+  // layer would submit the swap with no allowance and revert on chain with the payment spent.
   const checkApprovalRequired = useCallback(
     async (config: IApprovalCheckConfig): Promise<boolean> => {
       if (!activePublicKey) {
-        return false;
+        throw new Error('No active account');
       }
 
-      try {
-        return await dexContractRepository.checkApprovalRequired({
-          network,
-          contractPackageHash: config.contractPackageHash,
-          publicKey: activePublicKey,
-          requiredAmount: config.requiredAmount,
-        });
-      } catch {
-        return false;
-      }
+      return dexContractRepository.checkApprovalRequired({
+        network,
+        contractPackageHash: config.contractPackageHash,
+        publicKey: activePublicKey,
+        requiredAmount: config.requiredAmount,
+      });
     },
     [network, activePublicKey, dexContractRepository],
   );

@@ -8,6 +8,7 @@ import type {
   ISwapQuote,
   SwapQuoteType,
 } from '../../../domain/swap';
+import { BLOCK_INTERVAL_MS } from '../../../domain/constants';
 import { getMillisecondsUntilNextBlock } from '../../../utils/swap';
 import type { ISwapDependencies } from '../../types';
 
@@ -53,11 +54,16 @@ export const useFetchSwapQuote = ({
   const isFirstRefetch = useRef(true);
   const prevQueryKeyRef = useRef<string>('');
 
-  const { data: latestBlockTimestamp } = useQuery({
+  const {
+    data: latestBlockTimestamp,
+    error: latestBlockError,
+    isError: isLatestBlockError,
+  } = useQuery({
     queryKey: ['latestBlock', network],
     queryFn: () => dexContractRepository.getLatestBlockTime({ network }),
     staleTime: Infinity,
-    retry: false,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const queryKey = ['quote', network, typeId, amount, tokenIn, tokenOut] as const;
@@ -90,7 +96,12 @@ export const useFetchSwapQuote = ({
             return false;
           }
 
-          return latestBlockTimestamp ? getMillisecondsUntilNextBlock(latestBlockTimestamp) : false;
+          // Without a block time the quote still has to refresh: "no block time" is not "no
+          // refresh", or one failed RPC read at mount freezes the displayed price for the
+          // session and the user signs a stale quote.
+          return latestBlockTimestamp
+            ? getMillisecondsUntilNextBlock(latestBlockTimestamp)
+            : BLOCK_INTERVAL_MS;
         }
       : undefined,
     staleTime: 0,
@@ -99,5 +110,17 @@ export const useFetchSwapQuote = ({
 
   const fetchQuoteErrorCode = extractFetchQuoteErrorCode(error);
 
-  return { data, error, isLoading, isFetching, refetch, fetchQuoteErrorCode, dataUpdatedAt };
+  return {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    refetch,
+    fetchQuoteErrorCode,
+    dataUpdatedAt,
+    /** The chain-time read behind the auto-refresh schedule; refresh falls back to a fixed
+     * interval when it fails, so this is the only signal that it did. */
+    latestBlockError,
+    isLatestBlockError,
+  };
 };

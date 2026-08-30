@@ -204,9 +204,9 @@ export const useWrapTokens = ({
     refetchCsprBalance().catch(() => {
       // best-effort background refresh; consumers can retry via the returned onWrapSuccess
     });
-    refetchWcsprBalance().catch(() => {
-      // best-effort background refresh; consumers can retry via the returned onWrapSuccess
-    });
+    // No catch: this is a react-query `refetch()`, which swallows its own rejection
+    // (QueryObserver only rethrows under `throwOnError`), so there is nothing here to catch.
+    refetchWcsprBalance();
   }, [resetAmount, refetchCsprBalance, refetchWcsprBalance]);
 
   return {
