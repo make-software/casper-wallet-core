@@ -1713,10 +1713,16 @@ __metadata:
     typescript: "npm:^5.9.3"
     uuid: "npm:^14.0.2"
   peerDependencies:
+    "@ledgerhq/hw-transport": ^6.35.4
     "@tanstack/react-query": ^5
+    "@zondax/ledger-casper": ^2.6.4
     react: ">=18"
   peerDependenciesMeta:
+    "@ledgerhq/hw-transport":
+      optional: true
     "@tanstack/react-query":
+      optional: true
+    "@zondax/ledger-casper":
       optional: true
     react:
       optional: true

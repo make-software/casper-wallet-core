@@ -2,7 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Guards the invariant WALLET-1421 buys: the helpers a wallet client calls while rendering its
+ * Two static import-graph gates.
+ *
+ * The first guards the invariant WALLET-1421 buys: the helpers a wallet client calls while rendering its
  * home screen must not reach `casper-js-sdk`.
  *
  * The SDK ships one prebuilt UMD bundle with no ESM build and no `sideEffects` flag, so a single
@@ -12,6 +14,11 @@ import path from 'path';
  *
  * `import type` / `export type` are ignored: TypeScript and Babel both erase them, so they cost
  * nothing at runtime.
+ *
+ * The second guards the optional Ledger integration. Those packages are optional peers, and this
+ * package ships raw TypeScript, so a consumer that skips them compiles our sources without them:
+ * there a type-only import fails just as hard as a value one. Hence the graph walk below counts
+ * both for that gate.
  */
 
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -66,8 +73,12 @@ const resolveRelative = (fromFile: string, specifier: string): string | null => 
   return null;
 };
 
-/** Every runtime module reachable from `entryPoint`, keyed by repo-relative path. */
-const collectRuntimeGraph = (entryPoint: string): Map<string, string[]> => {
+/**
+ * Every module reachable from `entryPoint`, keyed by repo-relative path, valued by the packages it
+ * imports. With `includeTypeOnly`, `import type` edges count too — for both the walk and the
+ * recorded packages.
+ */
+const collectGraph = (entryPoint: string, includeTypeOnly = false): Map<string, string[]> => {
   const graph = new Map<string, string[]>();
   const queue = [path.resolve(REPO_ROOT, entryPoint)];
 
@@ -83,7 +94,7 @@ const collectRuntimeGraph = (entryPoint: string): Map<string, string[]> => {
     graph.set(relative, packages);
 
     for (const { specifier, typeOnly } of parseImports(fs.readFileSync(file, 'utf8'))) {
-      if (typeOnly) {
+      if (typeOnly && !includeTypeOnly) {
         continue;
       }
 
@@ -107,7 +118,7 @@ const collectRuntimeGraph = (entryPoint: string): Map<string, string[]> => {
 
 describe('SDK-free modules', () => {
   it.each(SDK_FREE_ENTRY_POINTS)('%s does not reach casper-js-sdk at runtime', entryPoint => {
-    const graph = collectRuntimeGraph(entryPoint);
+    const graph = collectGraph(entryPoint);
 
     const offenders = [...graph]
       .filter(([, packages]) => packages.includes('casper-js-sdk'))
@@ -117,12 +128,39 @@ describe('SDK-free modules', () => {
   });
 
   it('resolves the whole graph (guards against the walker silently finding nothing)', () => {
-    expect(collectRuntimeGraph('src/utils/casperSdk/blockExplorer.ts').size).toBeGreaterThan(1);
+    expect(collectGraph('src/utils/casperSdk/blockExplorer.ts').size).toBeGreaterThan(1);
   });
 
   it('still detects the SDK where it is legitimately used', () => {
-    const graph = collectRuntimeGraph('src/utils/casperSdk/cep-nft-transfer.ts');
+    const graph = collectGraph('src/utils/casperSdk/cep-nft-transfer.ts');
 
     expect([...graph.values()].flat()).toContain('casper-js-sdk');
+  });
+});
+
+/** Installed only by clients that use the Ledger integration; see `ICasperLedgerServiceOptions`. */
+const OPTIONAL_LEDGER_PACKAGES = ['@ledgerhq/hw-transport', '@zondax/ledger-casper'];
+
+/** Entry points a client reaches without opting into Ledger — the package root included. */
+const LEDGER_FREE_ENTRY_POINTS = ['index.ts', 'src/domain/index.ts', 'src/setup.ts'];
+
+describe('optional Ledger packages', () => {
+  it.each(LEDGER_FREE_ENTRY_POINTS)(
+    '%s does not import them, type imports included',
+    entryPoint => {
+      const graph = collectGraph(entryPoint, true);
+
+      const offenders = [...graph]
+        .filter(([, packages]) => packages.some(pkg => OPTIONAL_LEDGER_PACKAGES.includes(pkg)))
+        .map(([file]) => file);
+
+      expect(offenders).toEqual([]);
+    },
+  );
+
+  it('still detects them in the file that checks the vendor types', () => {
+    const graph = collectGraph('src/data/ledger/vendor-contracts.test.ts', true);
+
+    expect([...graph.values()].flat()).toEqual(expect.arrayContaining(OPTIONAL_LEDGER_PACKAGES));
   });
 });

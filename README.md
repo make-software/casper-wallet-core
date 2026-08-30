@@ -87,6 +87,28 @@ npm install github:make-software/casper-wallet-core
 
 > Requires **Node 20** or **Node ≥ 22**, Yarn 4 (Berry).
 
+### Optional peer dependencies
+
+Ledger support needs two packages this library never imports itself. They are declared as optional
+peers, and the Casper app object is injected through `ICasperLedgerServiceOptions.createLedgerApp`:
+
+```bash
+yarn add @zondax/ledger-casper @ledgerhq/hw-transport
+```
+
+```ts
+import CasperApp from '@zondax/ledger-casper';
+import { createCasperLedgerService } from 'CasperWalletCore';
+
+const ledger = createCasperLedgerService({
+  createLedgerApp: transport => new CasperApp(transport),
+});
+```
+
+A client without Ledger installs neither: nothing reachable from the package root imports them, and
+`src/sdk-free-modules.test.ts` fails the suite if that changes. `react` and `@tanstack/react-query`
+are optional peers on the same footing, needed only for `casper-wallet-core/src/react`.
+
 ## Quick Start
 
 ```ts
@@ -241,7 +263,7 @@ Note that the SDK-linked modules are re-exported from the package root but **not
 Two guards keep this from regressing, both in `yarn test`:
 
 - `src/utils/casperSdk/accountHash.test.ts` — property-based parity against `casper-js-sdk` for both key algorithms.
-- `src/sdk-free-modules.test.ts` — walks the static import graph of each SDK-free entry point and fails if any runtime import reaches `casper-js-sdk`. `import type` is ignored, since it is erased at compile time.
+- `src/sdk-free-modules.test.ts` — walks the static import graph of each SDK-free entry point and fails if any runtime import reaches `casper-js-sdk`. `import type` is ignored, since it is erased at compile time. The same file walks the package root for the optional Ledger packages, and there counts type-only imports too: this package ships raw TypeScript, so a consumer that skipped them compiles our sources without them.
 
 When adding code to the `domain` layer or to the SDK-free `utils` modules, prefer `import type` for anything used only in type position, and import from the specific module rather than a barrel.
 

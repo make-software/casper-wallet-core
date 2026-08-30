@@ -1,7 +1,6 @@
 import { Transaction } from 'casper-js-sdk';
 import { createLedgerSigner } from './ledgerSigner';
-import { LedgerError, LedgerEventStatus } from '../../domain';
-import type { CasperLedgerService } from '../ledger';
+import { ICasperLedgerService, LedgerError, LedgerEventStatus } from '../../domain';
 
 const publicKeyHex = '02abc';
 const derivationIndex = 3;
@@ -30,7 +29,7 @@ const makeSigner = (
   over: Record<string, unknown> = {},
 ) =>
   createLedgerSigner({
-    service: service as unknown as CasperLedgerService,
+    service: service as unknown as ICasperLedgerService,
     publicKeyHex,
     derivationIndex,
     ...over,

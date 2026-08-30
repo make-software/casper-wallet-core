@@ -24,8 +24,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   implementations in both apps. Transport creation, availability checks, pairing-invalidation
   classification and session restore are injected, so the same service drives Web HID/USB and
   React Native BLE. The on-device identity pre-flight the extension had now applies to both.
-  Adds `@zondax/ledger-casper`, `@ledgerhq/hw-transport` and `rxjs` as dependencies.
-- **`createLedgerSigner`** — presents a `CasperLedgerService` as an `ICasperSigner`, so hardware
+  The Casper app object is injected too (`createLedgerApp`), so `@zondax/ledger-casper` and
+  `@ledgerhq/hw-transport` stay out of the import graph: both are **optional peer dependencies**,
+  installed only by clients that use Ledger, and `domain/ledger` declares the transport and app
+  shapes it needs (`ILedgerTransport`, `ILedgerCasperApp`) instead of importing them. Adds `rxjs`
+  as a dependency.
+- **`createLedgerSigner`** — presents an `ICasperLedgerService` as an `ICasperSigner`, so hardware
   and software keys drive the same send paths. `supportsTransactionV1Cb` and the session-restore
   callback are bound at signer construction rather than passed per transfer, and a `LedgerError`
   raised inside a repository method reaches the caller unwrapped.

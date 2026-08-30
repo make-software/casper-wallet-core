@@ -1,9 +1,13 @@
 import { Transaction } from 'casper-js-sdk';
-import { ICasperSigner, ISignTransactionOptions, ISignTransactionResponse } from '../../domain';
-import type { CasperLedgerService } from '../ledger';
+import {
+  ICasperLedgerService,
+  ICasperSigner,
+  ISignTransactionOptions,
+  ISignTransactionResponse,
+} from '../../domain';
 
 export interface ICreateLedgerSignerParams {
-  service: CasperLedgerService;
+  service: ICasperLedgerService;
   publicKeyHex: string;
   derivationIndex?: number;
   supportsTransactionV1Cb?: (publicKey: string, supports: boolean) => Promise<void>;

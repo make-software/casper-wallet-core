@@ -1,5 +1,3 @@
-import type Transport from '@ledgerhq/hw-transport'; // type-only — the sdk-free gate checks value imports
-
 export enum LedgerEventStatus {
   Disconnected = 'ledger-disconnected',
   NotAvailable = 'ledger-not-available',
@@ -66,5 +64,50 @@ export interface SignResult {
 export type LedgerTransport = 'USB' | 'Bluetooth';
 export type SelectedTransport = LedgerTransport | undefined;
 
-export type TransportCreator = () => Promise<Transport>;
+/**
+ * The transport surface the Ledger service drives. Structurally satisfied by
+ * `@ledgerhq/hw-transport`'s `Transport`, which the apps create and own — declaring it here keeps
+ * that package out of this library's dependency graph.
+ */
+export interface ILedgerTransport {
+  close(): Promise<void>;
+  on(eventName: string, cb: (...args: any[]) => any): void;
+  off(eventName: string, cb: (...args: any[]) => any): void;
+  setExchangeTimeout(exchangeTimeout: number): void;
+}
+
+export type TransportCreator = () => Promise<ILedgerTransport>;
 export type TransportAvailabilityCheck = () => Promise<boolean>;
+
+export interface ILedgerResponse {
+  /** APDU status word: `0x9000` on success. */
+  returnCode: number;
+  errorMessage: string;
+}
+
+export interface ILedgerAppInfoResponse extends ILedgerResponse {
+  appName: string;
+  appVersion: string;
+}
+
+export interface ILedgerAddressResponse extends ILedgerResponse {
+  publicKey: Uint8Array;
+}
+
+export interface ILedgerSignResponse extends ILedgerResponse {
+  signatureRS: Buffer;
+  signatureRSV: Buffer;
+}
+
+/**
+ * The Casper Ledger app the service talks to. Structurally satisfied by `@zondax/ledger-casper`'s
+ * default export, which the apps construct and pass in via
+ * {@link ICasperLedgerServiceOptions.createLedgerApp}.
+ */
+export interface ILedgerCasperApp {
+  getAppInfo(): Promise<ILedgerAppInfoResponse>;
+  getAddressAndPubKey(path: string): Promise<ILedgerAddressResponse>;
+  sign(path: string, message: Buffer): Promise<ILedgerSignResponse>;
+  signWasmDeploy(path: string, message: Buffer): Promise<ILedgerSignResponse>;
+  signMessage(path: string, message: Buffer): Promise<ILedgerSignResponse>;
+}

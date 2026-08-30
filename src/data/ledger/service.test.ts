@@ -1,10 +1,9 @@
-import Transport from '@ledgerhq/hw-transport';
 import { blake2b } from '@noble/hashes/blake2';
 import { KeyAlgorithm, PrivateKey, Transaction } from 'casper-js-sdk';
 import { BehaviorSubject } from 'rxjs';
 
-import { CasperLedgerService, ICasperLedgerServiceOptions } from './service';
-import { LedgerError, LedgerEventStatus } from '../../domain';
+import { CasperLedgerService } from './service';
+import { ICasperLedgerServiceOptions, LedgerError, LedgerEventStatus } from '../../domain';
 
 jest.mock('../../utils/common', () => ({
   delay: jest.fn().mockResolvedValue(undefined),
@@ -50,13 +49,13 @@ const makeTransport = () => ({
 
 const connectService = async (
   app: ReturnType<typeof makeFakeApp>,
-  options: ICasperLedgerServiceOptions = {},
+  options: Partial<ICasperLedgerServiceOptions> = {},
   isBluetoothTransport = false,
 ) => {
   const service = new CasperLedgerService({ createLedgerApp: () => app as never, ...options });
   const transport = makeTransport();
   await service.connect(
-    async () => transport as unknown as Transport,
+    async () => transport,
     async () => true,
     isBluetoothTransport,
   );
@@ -98,7 +97,7 @@ const makeDeploy = (over: { isModuleBytes?: boolean; bytes?: number[] } = {}) =>
 describe('CasperLedgerService', () => {
   describe('initial state', () => {
     it('is not connected and exposes an empty account cache', () => {
-      const service = new CasperLedgerService();
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
       expect(service.isConnected).toBe(false);
       expect(service.cachedAccounts).toEqual([]);
     });
@@ -385,7 +384,7 @@ describe('CasperLedgerService', () => {
       // connect() never settles on this path (never reaches Connected nor a rejecting status).
       service
         .connect(
-          async () => makeTransport() as unknown as Transport,
+          async () => makeTransport(),
           async () => true,
         )
         .catch(() => undefined);
@@ -416,7 +415,7 @@ describe('CasperLedgerService', () => {
       // connect() never settles on this path (never reaches Connected nor a rejecting status).
       service
         .connect(
-          async () => makeTransport() as unknown as Transport,
+          async () => makeTransport(),
           async () => true,
         )
         .catch(() => undefined);
@@ -535,7 +534,7 @@ describe('CasperLedgerService', () => {
   describe('event stream', () => {
     it('starts with Disconnected and delivers status updates debounced by 300ms', async () => {
       jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
-      const service = new CasperLedgerService();
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
       const received: LedgerEventStatus[] = [];
       const sub = service.subscribeToLedgerEventStatus(evt => received.push(evt.status));
 
@@ -558,7 +557,7 @@ describe('CasperLedgerService', () => {
       const { events, restore } = spyOnEvents();
 
       const connectPromise = service.connect(
-        async () => makeTransport() as unknown as Transport,
+        async () => makeTransport(),
         async () => true,
       );
       await flushMicrotasks();

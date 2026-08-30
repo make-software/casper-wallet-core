@@ -1,11 +1,14 @@
-import Transport from '@ledgerhq/hw-transport';
 import { blake2b } from '@noble/hashes/blake2';
-import LedgerCasperApp, { ResponseSign } from '@zondax/ledger-casper';
 import { HexBytes, PublicKey, Transaction } from 'casper-js-sdk';
 import { BehaviorSubject, debounceTime, distinct, Observable, Observer, Subscription } from 'rxjs';
 
 import {
+  ICasperLedgerService,
+  ICasperLedgerServiceOptions,
+  ILedgerCasperApp,
   ILedgerEvent,
+  ILedgerSignResponse,
+  ILedgerTransport,
   LedgerAccount,
   LedgerAccountsOptions,
   LedgerError,
@@ -33,37 +36,23 @@ function getBip44Path(index: number): string {
   ].join('/');
 }
 
-/** The subset of @zondax/ledger-casper's app the service calls — the test seam's contract. */
-export type LedgerCasperAppLike = Pick<
-  LedgerCasperApp,
-  'getAppInfo' | 'getAddressAndPubKey' | 'sign' | 'signWasmDeploy' | 'signMessage'
->;
-
-export interface ICasperLedgerServiceOptions {
-  /** Platform hook: detect transport-level "pairing invalidated" errors (RN BLE shapes). Default: () => false. */
-  isPairingInvalidatedError?: (e: unknown) => boolean;
-  /** Test seam; defaults to the real @zondax/ledger-casper app. */
-  createLedgerApp?: (transport: Transport) => LedgerCasperAppLike;
-}
-
-export class CasperLedgerService {
+export class CasperLedgerService implements ICasperLedgerService {
   cachedAccounts: LedgerAccount[] = [];
 
-  #transport: Transport | null = null;
+  #transport: ILedgerTransport | null = null;
   #isBluetoothTransport: boolean = false;
-  #ledgerApp: LedgerCasperAppLike | null = null;
+  #ledgerApp: ILedgerCasperApp | null = null;
   #ledgerConnected = false;
   #allowReconnect: boolean = true;
   #options: ICasperLedgerServiceOptions;
-  #createLedgerApp: (transport: Transport) => LedgerCasperAppLike;
+  #createLedgerApp: (transport: ILedgerTransport) => ILedgerCasperApp;
   #ledgerEventStatusSubject = new BehaviorSubject<ILedgerEvent>({
     status: LedgerEventStatus.Disconnected,
   });
 
-  constructor(options?: ICasperLedgerServiceOptions) {
-    this.#options = options ?? {};
-    this.#createLedgerApp =
-      options?.createLedgerApp ?? (transport => new LedgerCasperApp(transport));
+  constructor(options: ICasperLedgerServiceOptions) {
+    this.#options = options;
+    this.#createLedgerApp = options.createLedgerApp;
   }
 
   subscribeToLedgerEventStatus = (onData: (evt: ILedgerEvent) => void): Subscription =>
@@ -314,7 +303,7 @@ export class CasperLedgerService {
         txHash,
       });
 
-      let result: ResponseSign;
+      let result: ILedgerSignResponse | undefined;
 
       if (appSupportsTransactionV1) {
         if (tx.getDeploy()?.session?.isModuleBytes()) {
@@ -357,6 +346,15 @@ export class CasperLedgerService {
       }
 
       await this.#processDelayAfterAction();
+
+      if (!result) {
+        this.#processError({
+          status: LedgerEventStatus.SignatureFailed,
+          error: 'No response from device',
+          publicKey: account.publicKey,
+          txHash,
+        });
+      }
 
       if (result.returnCode === 0x6986) {
         // transaction rejected
@@ -504,12 +502,19 @@ export class CasperLedgerService {
 
       this.#transport?.setExchangeTimeout(10000);
 
-      const result: ResponseSign = await this.#ledgerApp?.signMessage(
+      const result: ILedgerSignResponse | undefined = await this.#ledgerApp?.signMessage(
         this.#getAccountPath(account.index),
         prefixedMessage,
       );
 
       await this.#processDelayAfterAction();
+
+      if (!result) {
+        this.#processError({
+          status: LedgerEventStatus.MsgSignatureFailed,
+          error: 'No response from device',
+        });
+      }
 
       if (result.returnCode === 0x6986) {
         // transaction rejected
@@ -690,5 +695,5 @@ export class CasperLedgerService {
 }
 
 export const createCasperLedgerService = (
-  options?: ICasperLedgerServiceOptions,
-): CasperLedgerService => new CasperLedgerService(options);
+  options: ICasperLedgerServiceOptions,
+): ICasperLedgerService => new CasperLedgerService(options);
