@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { initialSwapFlowState, swapFlowReducer } from '../../../domain/flows';
-import type { IStartSwapFlowParams, ISwapFlowHandle } from '../../../domain/flows';
+import type {
+  ISwapFlowState,
+  IStartSwapFlowParams,
+  ISwapFlowHandle,
+  SwapFlowEvent,
+} from '../../../domain/flows';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
 import type { ISwapDependencies, TransactionStatus } from '../../types';
 
@@ -21,6 +26,12 @@ export interface IUseReviewSwapParams extends Pick<
   onSwapSuccess: () => void;
   onClose: () => void;
 }
+
+/** `reset` is a view concern the runner never emits — it backs `resetForm`. */
+type SwapViewEvent = SwapFlowEvent | { type: 'reset' };
+
+const swapViewReducer = (state: ISwapFlowState, event: SwapViewEvent): ISwapFlowState =>
+  event.type === 'reset' ? initialSwapFlowState : swapFlowReducer(state, event);
 
 export interface ISwapTransactionState {
   approval: {
@@ -52,33 +63,36 @@ export const useReviewSwap = ({
   onClose,
 }: IUseReviewSwapParams) => {
   const [handle, setHandle] = useState<ISwapFlowHandle | null>(null);
-  const [state, setState] = useState(initialSwapFlowState);
+  const [state, dispatch] = useReducer(swapViewReducer, initialSwapFlowState);
   const succeededRef = useRef(false);
   // `confirmSwap` can be invoked twice within the same tick, before the `handle` state update
   // from the first call has re-rendered — a ref guards synchronously where state cannot.
   const handleRef = useRef<ISwapFlowHandle | null>(null);
+  // Held in a ref rather than depended on: a consumer passing an inline callback would otherwise
+  // change its identity every render, resubscribing and restarting the fold each time.
+  const onSwapSuccessRef = useRef(onSwapSuccess);
+  onSwapSuccessRef.current = onSwapSuccess;
 
   useEffect(() => {
     // Gated on `isOpen`, not torn down forever: unsubscribing here only stops the hook from
     // applying events while the surface is closed. It never cancels the flow (D4), and a real
     // handle's `events$` is `shareReplay`d, so resubscribing on reopen replays the full history
-    // and `next` reconstructs the flow's true current state rather than a stale one.
+    // onto the state already folded. Every case here overwrites rather than accumulates, so the
+    // replay converges on the flow's true current state instead of double-counting.
     if (!handle || !isOpen) return;
 
-    let next = initialSwapFlowState;
     const subscription = handle.events$.subscribe(event => {
-      next = swapFlowReducer(next, event);
-      setState(next);
+      dispatch(event);
 
       if (event.type === 'swap:confirmed' && !succeededRef.current) {
         succeededRef.current = true;
-        onSwapSuccess();
+        onSwapSuccessRef.current();
       }
     });
 
     // Unsubscribe only — cancelling here would abandon a submitted swap (D4).
     return () => subscription.unsubscribe();
-  }, [handle, isOpen, onSwapSuccess]);
+  }, [handle, isOpen]);
 
   const confirmSwap = useCallback(() => {
     if (handleRef.current || !swapFlowRunner || !activePublicKey) return;
@@ -110,7 +124,7 @@ export const useReviewSwap = ({
     succeededRef.current = false;
     handleRef.current = null;
     setHandle(null);
-    setState(initialSwapFlowState);
+    dispatch({ type: 'reset' });
   }, []);
 
   const transactionState: ISwapTransactionState = {

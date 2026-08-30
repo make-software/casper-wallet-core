@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { initialWrapFlowState, wrapFlowReducer } from '../../../domain/flows';
 import type { IStartWrapFlowParams, IWrapFlowHandle } from '../../../domain/flows';
@@ -33,33 +33,36 @@ export const useReviewWrap = ({
   onClose,
 }: IUseReviewWrapParams) => {
   const [handle, setHandle] = useState<IWrapFlowHandle | null>(null);
-  const [state, setState] = useState(initialWrapFlowState);
+  const [state, dispatch] = useReducer(wrapFlowReducer, initialWrapFlowState);
   const succeededRef = useRef(false);
   // `confirmWrap` can be invoked twice within the same tick, before the `handle` state update
   // from the first call has re-rendered — a ref guards synchronously where state cannot.
   const handleRef = useRef<IWrapFlowHandle | null>(null);
+  // Held in a ref rather than depended on: a consumer passing an inline callback would otherwise
+  // change its identity every render, resubscribing and restarting the fold each time.
+  const onWrapSuccessRef = useRef(onWrapSuccess);
+  onWrapSuccessRef.current = onWrapSuccess;
 
   useEffect(() => {
     // Gated on `isOpen`, not torn down forever: unsubscribing here only stops the hook from
     // applying events while the surface is closed. It never cancels the flow (D4), and a real
     // handle's `events$` is `shareReplay`d, so resubscribing on reopen replays the full history
-    // and `next` reconstructs the flow's true current state rather than a stale one.
+    // onto the state already folded. Every case here overwrites rather than accumulates, so the
+    // replay converges on the flow's true current state instead of double-counting.
     if (!handle || !isOpen) return;
 
-    let next = initialWrapFlowState;
     const subscription = handle.events$.subscribe(event => {
-      next = wrapFlowReducer(next, event);
-      setState(next);
+      dispatch(event);
 
       if (event.type === 'wrap:confirmed' && !succeededRef.current) {
         succeededRef.current = true;
-        onWrapSuccess();
+        onWrapSuccessRef.current();
       }
     });
 
     // Unsubscribe only — cancelling here would abandon a submitted wrap (D4).
     return () => subscription.unsubscribe();
-  }, [handle, isOpen, onWrapSuccess]);
+  }, [handle, isOpen]);
 
   const confirmWrap = useCallback(() => {
     if (handleRef.current || !wrapFlowRunner || !activePublicKey) return;
