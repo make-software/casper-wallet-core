@@ -2,211 +2,279 @@
  * @jest-environment jsdom
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { Subject } from 'rxjs';
 
 import { useReviewSwap } from './useReviewSwap';
 
-import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../../__test-utils__/render-hook';
-import type { IBuiltDexTransaction, IDexContractRepository } from '../../../domain/dex';
+import { TEST_PUBLIC_KEY } from '../../../__test-utils__/render-hook';
+import type { ILedgerEvent } from '../../../domain/ledger';
 import { SwapQuoteType } from '../../../domain/swap';
+import type { SwapFlowEvent } from '../../../domain/flows';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
-import type { IDexTransactionSender, ITransactionCallbacks } from '../../types';
-
-const BUILT = { kind: 'swap' } as IBuiltDexTransaction;
 
 const token = (id: string): IDexTokenWithAmount =>
-  ({
-    id,
-    packageHash: id,
-    decimals: 9,
-    amountRaw: '1000000000',
-    amountFormatted: '1',
-  }) as IDexTokenWithAmount;
+  ({ id, packageHash: id, decimals: 9, amountRaw: '1000000000', amountFormatted: '1' }) as never;
 
-/** A signer whose `send` drives the callbacks a real wallet provider would. */
-const makeSigner = (
-  behaviour: (callbacks: ITransactionCallbacks) => void = cb => cb.onProcessed?.(),
-): IDexTransactionSender => ({
-  publicKey: TEST_PUBLIC_KEY,
-  supportsTransactionV1: true,
-  send: jest.fn(async (_built: IBuiltDexTransaction, callbacks: ITransactionCallbacks) => {
-    behaviour(callbacks);
-  }),
-});
+/** A runner whose single handle is driven by the test through `events$`. */
+const makeRunner = () => {
+  const events$ = new Subject<SwapFlowEvent>();
+  const cancel = jest.fn();
+  const handle = {
+    id: 'flow-1',
+    events$: events$.asObservable(),
+    done: new Promise(() => {}),
+    cancel,
+  };
+  const start = jest.fn(() => handle);
 
-const setup = (
-  over: Partial<IDexContractRepository> = {},
-  signer: IDexTransactionSender = makeSigner(),
-) => {
-  const dexContractRepository = stubDexContractRepository({
-    checkApprovalRequired: jest.fn().mockResolvedValue(true),
-    buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT),
-    buildSwapTransaction: jest.fn().mockResolvedValue(BUILT),
-    ...over,
-  });
-
-  const rendered = renderHook(() =>
-    useReviewSwap({
-      network: 'mainnet',
-      activePublicKey: TEST_PUBLIC_KEY,
-      dexContractRepository,
-      signer,
-      slippage: 3,
-      deadline: 20,
-      firstToken: token('tokA'),
-      secondToken: token('tokB'),
-      path: ['tokA', 'tokB'],
-      quoteType: SwapQuoteType.ExactIn,
-      isOpen: true,
-      onSwapSuccess: jest.fn(),
-      onClose: jest.fn(),
-    }),
-  );
-
-  return { ...rendered, dexContractRepository };
+  return { events$, cancel, start, handle, getActive: jest.fn(() => handle) };
 };
 
+const setup = (runner: ReturnType<typeof makeRunner>, isOpen = true) =>
+  renderHook(
+    (props: { isOpen: boolean }) =>
+      useReviewSwap({
+        network: 'testnet',
+        activePublicKey: TEST_PUBLIC_KEY,
+        swapFlowRunner: runner as never,
+        slippage: 1,
+        deadline: 20,
+        firstToken: token('in'),
+        secondToken: token('out'),
+        path: ['in', 'out'],
+        quoteType: SwapQuoteType.ExactIn,
+        isOpen: props.isOpen,
+        onSwapSuccess: jest.fn(),
+        onClose: jest.fn(),
+      }),
+    { initialProps: { isOpen } },
+  );
+
 describe('useReviewSwap', () => {
-  describe('approval amount', () => {
-    it('approves the required amount plus its buffer, not the balance', async () => {
-      const buildApprovalTransaction = jest.fn().mockResolvedValue(BUILT);
-      const { result } = setup({ buildApprovalTransaction });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      // requiredAmount = ceil(1000000000 * 1.03) = 1030000000; grant = floor(× 1.2).
-      expect(buildApprovalTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: '1236000000' }),
-      );
-    });
-
-    it('grants at least what the check demands', async () => {
-      const checkApprovalRequired = jest.fn().mockResolvedValue(true);
-      const buildApprovalTransaction = jest.fn().mockResolvedValue(BUILT);
-      const { result } = setup({ checkApprovalRequired, buildApprovalTransaction });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      const required = checkApprovalRequired.mock.calls[0][0].requiredAmount as string;
-      const granted = buildApprovalTransaction.mock.calls[0][0].amount as string;
-
-      expect(BigInt(granted)).toBeGreaterThan(BigInt(required));
-    });
-  });
-
-  describe('failures', () => {
-    it('surfaces the real reason rather than a generic string', async () => {
-      const { result } = setup({
-        buildSwapTransaction: jest.fn().mockRejectedValue(new Error('insufficient liquidity')),
-      });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(result.current.transactionState.swap.error).toBe('insufficient liquidity');
-    });
-
-    it('names a user cancellation as such', async () => {
-      const signer = makeSigner(cb => cb.onCancelled?.());
-      const { result } = setup(
-        { checkApprovalRequired: jest.fn().mockResolvedValue(false) },
-        signer,
-      );
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(result.current.transactionState.swap.error).toBe('Swap transaction cancelled');
-    });
-
-    it('leaves the modal retryable instead of stuck processing', async () => {
-      const { result } = setup({
-        buildSwapTransaction: jest.fn().mockRejectedValue(new Error('rpc down')),
-      });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(result.current.step).toBe('confirm');
-      expect(result.current.isProcessing).toBe(false);
-    });
-
-    it('scopes the error to the swap leg, leaving a completed approval reported as success', async () => {
-      const { result } = setup({
-        buildSwapTransaction: jest.fn().mockRejectedValue(new Error('rpc down')),
-      });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(result.current.transactionState.approval.status).toBe('success');
-      expect(result.current.transactionState.approval.error).toBeUndefined();
-      expect(result.current.transactionState.swap.error).toBe('rpc down');
-    });
-
-    it('scopes the error to the approval leg when the approval is what failed', async () => {
-      const { result } = setup({
-        buildApprovalTransaction: jest.fn().mockRejectedValue(new Error('approval build failed')),
-      });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(result.current.transactionState.approval.error).toBe('approval build failed');
-      expect(result.current.transactionState.swap.error).toBeUndefined();
-    });
-
-    it('stops the flow when the approval check itself fails, rather than swapping unapproved', async () => {
-      const buildSwapTransaction = jest.fn().mockResolvedValue(BUILT);
-      const { result } = setup({
-        checkApprovalRequired: jest.fn().mockRejectedValue(new Error('allowance unreadable')),
-        buildSwapTransaction,
-      });
-
-      await act(async () => {
-        await result.current.confirmSwap();
-      });
-
-      expect(buildSwapTransaction).not.toHaveBeenCalled();
-      expect(result.current.transactionState.approval.error).toBe('allowance unreadable');
-      // The "checking" spinner has to clear, or the modal hangs on it forever.
-      await waitFor(() =>
-        expect(result.current.transactionState.approval.status).not.toBe('pending'),
-      );
-    });
-  });
-
-  it('exposes the approval transaction hash on the approval leg, separate from the swap hash', async () => {
-    const signer = makeSigner(cb => {
-      cb.onSent?.('hash-for-each-leg');
-      cb.onProcessed?.();
-    });
-    const { result } = setup({}, signer);
+  it('reaches the success step when the flow confirms the swap', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
 
     await act(async () => {
-      await result.current.confirmSwap();
+      result.current.confirmSwap();
     });
 
-    expect(result.current.transactionState.approval.transactionHash).toBe('hash-for-each-leg');
-    expect(result.current.transactionHash).toBe('hash-for-each-leg');
-  });
-
-  it('reaches the success step when both legs succeed', async () => {
-    const { result } = setup();
-
-    await act(async () => {
-      await result.current.confirmSwap();
+    act(() => {
+      runner.events$.next({ type: 'approval:checking' });
+      runner.events$.next({ type: 'approval:not-required' });
+      runner.events$.next({ type: 'swap:signing' });
+      runner.events$.next({ type: 'swap:sent', hash: '0xb' });
+      runner.events$.next({
+        type: 'swap:confirmed',
+        outcome: { hash: '0xb', status: 'success', blockHeight: 1 },
+      });
     });
 
-    expect(result.current.step).toBe('success');
+    await waitFor(() => expect(result.current.step).toBe('success'));
     expect(result.current.transactionState.swap.status).toBe('success');
+    expect(result.current.transactionHash).toBe('0xb');
+  });
+
+  it('exposes the approval leg once it has been submitted and settled', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'approval:checking' });
+      runner.events$.next({ type: 'approval:signing' });
+      runner.events$.next({ type: 'approval:sent', hash: '0xa' });
+      runner.events$.next({ type: 'approval:confirmed' });
+    });
+
+    await waitFor(() => expect(result.current.transactionState.approval.status).toBe('success'));
+    expect(result.current.transactionState.approval.isRequired).toBe(true);
+    expect(result.current.transactionState.approval.transactionHash).toBe('0xa');
+  });
+
+  it('scopes a swap failure to the swap leg', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'approval:checking' });
+      runner.events$.next({ type: 'approval:signing' });
+      runner.events$.next({ type: 'approval:sent', hash: '0xa' });
+      runner.events$.next({ type: 'approval:confirmed' });
+      runner.events$.next({ type: 'failed', leg: 'swap', error: new Error('slippage') });
+    });
+
+    await waitFor(() => expect(result.current.transactionState.swap.error).toBe('slippage'));
+    expect(result.current.transactionState.approval.status).toBe('success');
+  });
+
+  it('returns to a retryable confirm step after a failure', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'approval:checking' });
+      runner.events$.next({ type: 'failed', leg: 'approval', error: new Error('nope') });
+    });
+
+    await waitFor(() => expect(result.current.step).toBe('confirm'));
+    expect(result.current.isProcessing).toBe(false);
+  });
+
+  it('never starts a second flow while one is already running', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+      result.current.confirmSwap();
+    });
+
+    expect(runner.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cancel the flow when the modal closes', async () => {
+    const runner = makeRunner();
+    const { result, rerender } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'swap:signing' });
+      runner.events$.next({ type: 'swap:sent', hash: '0xb' });
+    });
+
+    rerender({ isOpen: false });
+
+    expect(runner.cancel).not.toHaveBeenCalled();
+  });
+
+  it('shows the flow’s real progress when the modal is reopened mid-flow', async () => {
+    const runner = makeRunner();
+    const { result, rerender } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'swap:signing' });
+      runner.events$.next({ type: 'swap:sent', hash: '0xb' });
+    });
+
+    rerender({ isOpen: false });
+    rerender({ isOpen: true });
+
+    await waitFor(() => expect(result.current.transactionState.swap.status).toBe('awaiting'));
+    expect(result.current.transactionHash).toBe('0xb');
+  });
+
+  it('does not cancel the flow on unmount', async () => {
+    const runner = makeRunner();
+    const { result, unmount } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    unmount();
+
+    expect(runner.cancel).not.toHaveBeenCalled();
+  });
+
+  it('calls onSwapSuccess exactly once when the swap confirms', async () => {
+    const runner = makeRunner();
+    const onSwapSuccess = jest.fn();
+
+    const { result } = renderHook(() =>
+      useReviewSwap({
+        network: 'testnet',
+        activePublicKey: TEST_PUBLIC_KEY,
+        swapFlowRunner: runner as never,
+        slippage: 1,
+        deadline: 20,
+        firstToken: token('in'),
+        secondToken: token('out'),
+        path: ['in', 'out'],
+        quoteType: SwapQuoteType.ExactIn,
+        isOpen: true,
+        onSwapSuccess,
+        onClose: jest.fn(),
+      }),
+    );
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({
+        type: 'swap:confirmed',
+        outcome: { hash: '0xb', status: 'success', blockHeight: 1 },
+      });
+      runner.events$.next({
+        type: 'swap:confirmed',
+        outcome: { hash: '0xb', status: 'success', blockHeight: 1 },
+      });
+    });
+
+    await waitFor(() => expect(onSwapSuccess).toHaveBeenCalledTimes(1));
+  });
+
+  it('stops applying events once the modal is closed', async () => {
+    const runner = makeRunner();
+    const { result, rerender } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'swap:signing' });
+      runner.events$.next({ type: 'swap:sent', hash: '0xb' });
+    });
+
+    rerender({ isOpen: false });
+
+    act(() => {
+      runner.events$.next({
+        type: 'swap:confirmed',
+        outcome: { hash: '0xb', status: 'success', blockHeight: 1 },
+      });
+    });
+
+    expect(result.current.step).toBe('signing');
+    expect(result.current.transactionState.swap.status).toBe('awaiting');
+  });
+
+  it('surfaces a ledger event without disturbing leg statuses', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+    const ledgerEvent = { status: 'waiting-response' } as unknown as ILedgerEvent;
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'swap:signing' });
+      runner.events$.next({ type: 'ledger', event: ledgerEvent });
+    });
+
+    await waitFor(() => expect(result.current.ledgerEvent).toBe(ledgerEvent));
+    expect(result.current.transactionState.swap.status).toBe('pending');
   });
 });

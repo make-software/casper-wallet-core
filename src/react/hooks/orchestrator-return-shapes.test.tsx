@@ -6,6 +6,7 @@
  * and breaks both apps at runtime. These tests are the only thing that fails on it.
  */
 import { act } from '@testing-library/react';
+import { NEVER } from 'rxjs';
 
 import { useReviewSwap } from './swap/useReviewSwap';
 import { useSwapTokens } from './swap/useSwapTokens';
@@ -19,6 +20,7 @@ import {
   stubTokensRepository,
   TEST_PUBLIC_KEY,
 } from '../../__test-utils__/render-hook';
+import type { ISwapFlowRunner } from '../../domain/flows';
 import { SwapQuoteType } from '../../domain/swap';
 import type { IDexToken, IDexTokenWithAmount } from '../../domain/swap';
 import type { IDexTransactionSender } from '../types';
@@ -29,6 +31,17 @@ const signer: IDexTransactionSender = {
   publicKey: TEST_PUBLIC_KEY,
   supportsTransactionV1: true,
   send: jest.fn().mockResolvedValue(undefined),
+};
+
+/** Never emits — this suite only asserts the hook's initial return shape. */
+const swapFlowRunner: ISwapFlowRunner = {
+  start: jest.fn(() => ({
+    id: 'flow-1',
+    events$: NEVER,
+    done: new Promise(() => {}),
+    cancel: jest.fn(),
+  })),
+  getActive: jest.fn(() => null),
 };
 
 const swapRepository = stubSwapRepository({
@@ -153,8 +166,7 @@ describe('orchestrator return shapes', () => {
       useReviewSwap({
         network,
         activePublicKey: TEST_PUBLIC_KEY,
-        dexContractRepository,
-        signer,
+        swapFlowRunner,
         slippage: 3,
         deadline: 20,
         firstToken: token('tokA'),
@@ -173,6 +185,7 @@ describe('orchestrator return shapes', () => {
       'confirmSwap',
       'handleCloseSuccessModal',
       'isProcessing',
+      'ledgerEvent',
       'resetForm',
       'step',
       'transactionHash',
