@@ -103,9 +103,8 @@ export class TransactionStatusRepository implements ITransactionStatusRepository
         tap(() => {
           consecutiveFailures = 0;
         }),
-        // A single failed lookup says nothing about the transaction, which may well be landing,
-        // so the watch rides it out and only calls the node unreachable once the grace window
-        // of back-to-back failures is spent.
+        // A single failed lookup says nothing about the transaction, so the node is only called
+        // unreachable once the grace window of back-to-back failures is spent.
         catchError((error: unknown) => {
           consecutiveFailures += 1;
 

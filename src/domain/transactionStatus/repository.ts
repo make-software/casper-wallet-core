@@ -1,4 +1,5 @@
-import type { Observable } from 'rxjs'; // type-only — the sdk-free gate and domain purity
+// type-only: the domain layer takes no runtime rxjs dependency
+import type { Observable } from 'rxjs';
 import type { ITransactionOutcome, IWaitForTransactionParams } from './entities';
 
 export interface ITransactionStatusRepository {

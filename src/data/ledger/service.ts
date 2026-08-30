@@ -309,7 +309,7 @@ export class CasperLedgerService implements ICasperLedgerService {
 
       if (appSupportsTransactionV1) {
         if (tx.getDeploy()?.session?.isModuleBytes()) {
-          // in version 3. we still need to use signWasmDeploy for legacy WASM Deploys
+          // Ledger app v3 still requires signWasmDeploy for legacy WASM Deploys
           result = await this.#ledgerApp?.signWasmDeploy(
             this.#getAccountPath(account.index),
             Buffer.from(tx.toBytes()),
@@ -686,9 +686,7 @@ export class CasperLedgerService implements ICasperLedgerService {
     throw new LedgerError(evt);
   }
 
-  /** Even though the Promise is resolved, bluetooth has not had time to process the messages
-   * We need to wait a bit due to errors
-   * */
+  /** Bluetooth transports need a beat after a resolved promise before the next call. */
   async #processDelayAfterAction() {
     if (this.#isBluetoothTransport) {
       await new Promise(resolve => setTimeout(resolve, 200));

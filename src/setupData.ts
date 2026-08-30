@@ -22,11 +22,10 @@ import type { IEnv } from './domain/env';
  * The repositories a wallet client needs to render its home screen — every one of them
  * SDK-free.
  *
- * Split out of {@link setupRepositories} because that factory constructs the signing
- * repositories too, and those link `casper-js-sdk`: a single prebuilt UMD bundle with no ESM
- * build and no `sideEffects` flag, so one value import costs ~900 KB that no bundler can shake
- * back out. Since the factory constructs everything in one call, no amount of tree shaking on
- * the client side could separate them — the split has to happen here (WALLET-1421).
+ * Kept apart from {@link setupRepositories}, which also constructs the signing repositories:
+ * those link `casper-js-sdk`, a prebuilt UMD bundle with no ESM build and no `sideEffects` flag,
+ * so one value import costs ~900 KB no bundler can shake back out. A factory that built both
+ * halves in one call would give a client no way to take only this one.
  *
  * Import this module by path (`casper-wallet-core/src/setupData`), not through the package
  * root: the root barrel re-exports `./src/setup`, which links the SDK.

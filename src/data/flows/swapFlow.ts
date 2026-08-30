@@ -158,8 +158,7 @@ const runSwap = async function* (
     ? firstToken.amountRaw
     : calculateMaxAmountWithSlippage(firstToken.amountRaw, slippage);
 
-  // The grant is derived from the same amount the check is made against, so the approval always
-  // clears the check it was made for.
+  // The grant is derived from the amount the check runs against, so an approval always clears it.
   const approvalAmount = isNative ? firstToken.amountRaw : calculateApprovalAmount(requiredAmount);
 
   yield { type: 'approval:checking' };

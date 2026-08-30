@@ -1,4 +1,5 @@
-import type { Observable } from 'rxjs'; // type-only — domain purity
+// type-only: the domain layer takes no runtime rxjs dependency
+import type { Observable } from 'rxjs';
 import type { WrapDirection } from '../dex';
 import type { ILedgerEvent } from '../ledger';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../swap';

@@ -281,9 +281,8 @@ describe('composed sends', () => {
   it('sendTokenTransfer (native) converts decimals, passes fallback deploy to the signer', async () => {
     mockGetStatus.mockResolvedValue(nodeStatus('2026-01-01T00:00:00.000Z'));
     mockPutTransaction.mockResolvedValue({ transactionHash: { toHex: () => 'ee' } });
-    // '2.5' CSPR → '2500000000' motes lands in the built transaction (asserted via the builder
-    // spy rather than JSON.stringify: casper-js-sdk 5.1.0 CLValue-encodes the transfer amount
-    // as bytes, so the decimal string is not present literally in Transaction#toJSON()).
+    // The SDK CLValue-encodes the transfer amount as bytes, so the motes value is asserted
+    // through the builder spy rather than the serialized transaction.
     const buildSpy = jest.spyOn(txBuildersModule, 'buildCsprTransferTransactions');
     const { signer, calls } = makeFakeSigner(sender);
     const repo = new CasperTransactionsRepository(GrpcUrl);

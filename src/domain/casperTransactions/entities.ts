@@ -1,4 +1,5 @@
-import type { Deploy, Transaction } from 'casper-js-sdk'; // type-only — the sdk-free gate checks value imports
+// type-only: a value import would pull the sdk into the domain layer
+import type { Deploy, Transaction } from 'casper-js-sdk';
 import type { CasperNetwork } from '../common';
 import type { AuctionManagerEntryPointType } from '../constants';
 import type { IBuiltDexTransaction } from '../dex';
@@ -95,10 +96,9 @@ export interface ISendSignedTransactionParams {
 }
 
 /**
- * Sign + submit one built DEX artifact (swap / wrap / unwrap / approve). The artifact kind was
- * already chosen at build time via `useTransactionV1`, so no fallback pairing applies (D12):
- * a `deploy` submits via `putDeploy`, a `transaction` via `putTransaction`, regardless of the
- * node's API version.
+ * Sign + submit one built DEX artifact (swap / wrap / unwrap / approve). The artifact kind is
+ * fixed at build time via `useTransactionV1`: a `deploy` submits via `putDeploy`, a
+ * `transaction` via `putTransaction`, regardless of the node's API version.
  */
 export interface ISendDexTransactionParams {
   built: IBuiltDexTransaction;

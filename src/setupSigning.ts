@@ -14,13 +14,12 @@ import type { IEnv } from './domain/env';
 /**
  * The repositories that build, parse and sign transactions.
  *
- * These link `casper-js-sdk`, so importing this module costs the whole ~900 KB UMD bundle.
- * That is unavoidable — they exist to talk to the chain — which is exactly why they are here
- * and not in {@link setupDataRepositories}: a surface that only renders balances and account
- * lists must be able to leave this module unimported (WALLET-1421).
+ * These link `casper-js-sdk`, so importing this module costs the whole ~900 KB UMD bundle. They
+ * are kept out of {@link setupDataRepositories} so a surface that only renders balances and
+ * account lists can leave this module unimported.
  *
  * Takes the data repositories it depends on rather than constructing its own, so both halves
- * share one `HttpDataProvider` and one logger, as they did when a single factory built them all.
+ * share one `HttpDataProvider` and one logger.
  */
 export interface ISetupSigningRepositoriesParams extends Pick<
   IDataRepositories,

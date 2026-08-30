@@ -16,9 +16,8 @@ describe('isValidCasperPublicKey', () => {
   });
 
   it('returns false, without throwing, when the correctly-shaped hex is rejected by the SDK', () => {
-    // casper-js-sdk 5.1.0's `PublicKey.fromHex` never rejects a well-formed-length hex on curve
-    // grounds for either algorithm, so there is no real "wrong point" input to reach for; the
-    // catch branch is exercised directly to prove `false` (not a throw) is what it returns.
+    // `PublicKey.fromHex` has no reachable curve-rejection input, so the throwing branch is
+    // forced directly.
     jest.spyOn(PublicKey, 'fromHex').mockImplementationOnce(() => {
       throw new Error('not a point on the curve');
     });

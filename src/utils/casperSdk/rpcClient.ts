@@ -2,7 +2,7 @@ import { HttpHandler, RpcClient } from 'casper-js-sdk';
 import { CSPR_API_PROXY_HEADERS } from '../../domain/constants';
 import type { ICasperRpcOptions } from '../../domain';
 
-/** One RPC client construction for every core repository that talks to a node (D6/D14). */
+/** Builds the RPC client every repository that talks to a node uses. */
 export const createCasperRpcClient = (url: string, options: ICasperRpcOptions = {}): RpcClient => {
   const { handlerType = 'fetch', referrerMode = 'fetch-referrer', authorizationHeader } = options;
 

@@ -20,7 +20,7 @@ export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
  * Importing this module links `casper-js-sdk` (~900 KB, one prebuilt UMD bundle that cannot be
  * tree-shaken), because the signing repositories do. A client that only renders balances and
  * account lists should call {@link setupDataRepositories} from `src/setupData` instead and pay
- * nothing for the SDK — see WALLET-1421.
+ * nothing for the SDK.
  */
 export const setupRepositories = ({
   grpcUrl = GrpcUrl,

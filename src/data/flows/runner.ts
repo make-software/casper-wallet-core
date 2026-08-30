@@ -29,10 +29,9 @@ export const createFlowHandle = <TEvent, TResult>({
   const controller = new AbortController();
   const finished$ = new Subject<void>();
 
-  // Hot and replayed on its own: `done` is derived from this alone, never from `events$`. Basing
-  // `done` on the merged `events$` below would deadlock whenever `sideEvents$` is a live stream
-  // that never completes on its own — `events$` would then only complete once `finished$` fires,
-  // and `finished$` only fires once `events$` completes.
+  // `done` is derived from this stream alone, never from the merged `events$`: with a live
+  // `sideEvents$` that never completes on its own, `events$` would only complete once `finished$`
+  // fires, and `finished$` only fires once `done` settles.
   const flow$ = from(generator(controller.signal)).pipe(
     shareReplay({ bufferSize: Infinity, refCount: false }),
   );
@@ -41,9 +40,8 @@ export const createFlowHandle = <TEvent, TResult>({
     shareReplay({ bufferSize: Infinity, refCount: false }),
   );
 
-  // Subscribing here is what makes both streams hot: the flow runs, and side events start being
-  // captured into `events$`'s replay buffer, whether or not anyone else is listening — the whole
-  // point of D4.
+  // Subscribing here is what makes both streams hot: the flow runs and side events land in the
+  // replay buffer whether or not anyone else is listening.
   events$.subscribe({ error: () => undefined });
 
   const done = firstValueFrom(flow$.pipe(toArray()), { defaultValue: [] as TEvent[] })

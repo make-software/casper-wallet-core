@@ -18,10 +18,9 @@ export interface IUseReviewWrapParams extends Pick<
 }
 
 /**
- * Subscribes the review modal to a running wrap flow instead of owning the orchestration
- * itself. Closing the modal (`isOpen: false`) unsubscribes but never cancels the handle — only
- * the explicit `handle.cancel()` does that — so a submitted wrap keeps running, and reopening
- * replays the flow's history to re-render whatever it has actually reached.
+ * Subscribes the review modal to a running wrap flow. Closing the modal (`isOpen: false`)
+ * unsubscribes but never cancels the handle, so a submitted wrap keeps running and reopening
+ * replays the flow's history. Only `handle.cancel()` stops a flow.
  */
 export const useReviewWrap = ({
   activePublicKey,
@@ -38,17 +37,15 @@ export const useReviewWrap = ({
   // `confirmWrap` can be invoked twice within the same tick, before the `handle` state update
   // from the first call has re-rendered — a ref guards synchronously where state cannot.
   const handleRef = useRef<IWrapFlowHandle | null>(null);
-  // Held in a ref rather than depended on: a consumer passing an inline callback would otherwise
-  // change its identity every render, resubscribing and restarting the fold each time.
+  // Held in a ref rather than a dependency: an inline callback would change identity every
+  // render, resubscribing and restarting the fold.
   const onWrapSuccessRef = useRef(onWrapSuccess);
   onWrapSuccessRef.current = onWrapSuccess;
 
   useEffect(() => {
-    // Gated on `isOpen`, not torn down forever: unsubscribing here only stops the hook from
-    // applying events while the surface is closed. It never cancels the flow (D4), and a real
-    // handle's `events$` is `shareReplay`d, so resubscribing on reopen replays the full history
-    // onto the state already folded. Every case here overwrites rather than accumulates, so the
-    // replay converges on the flow's true current state instead of double-counting.
+    // Unsubscribing while the surface is closed only stops the hook from applying events; the
+    // flow keeps running. `events$` is replayed, so reopening re-folds the whole history onto the
+    // state already folded — every reducer case overwrites, so that converges rather than doubles.
     if (!handle || !isOpen) return;
 
     const subscription = handle.events$.subscribe(event => {
@@ -60,7 +57,7 @@ export const useReviewWrap = ({
       }
     });
 
-    // Unsubscribe only — cancelling here would abandon a submitted wrap (D4).
+    // Unsubscribe only — cancelling here would abandon a submitted wrap.
     return () => subscription.unsubscribe();
   }, [handle, isOpen]);
 

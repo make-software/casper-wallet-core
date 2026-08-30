@@ -57,8 +57,8 @@ describe('buildCsprTransferTransactions', () => {
   });
 
   it('memo passes through untouched and is not defaulted', () => {
-    // The SDK carries `memo` as the transfer's numeric `id` CLValue (`Some`/`None` of U64), not
-    // as literal text, so the assertion below reads that field rather than substring-matching.
+    // The SDK carries `memo` as the transfer's numeric `id` CLValue (`Some`/`None` of U64), so
+    // the assertion reads that arg rather than matching text.
     const withMemo = buildCsprTransferTransactions({ ...params, memo: '777' }, '1.5.8');
     const noMemo = buildCsprTransferTransactions(params, '1.5.8');
     const idArg = (name: [string, { bytes: string }][]) =>

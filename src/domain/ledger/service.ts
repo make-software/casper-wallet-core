@@ -1,4 +1,5 @@
-import type { Transaction } from 'casper-js-sdk'; // type-only — the sdk-free gate checks value imports
+// type-only: a value import would pull the sdk into the domain layer
+import type { Transaction } from 'casper-js-sdk';
 import type { Observable, Subscription } from 'rxjs';
 import type {
   ILedgerCasperApp,
@@ -14,9 +15,8 @@ import type {
 
 export interface ICasperLedgerServiceOptions {
   /**
-   * Builds the Casper app for a freshly opened transport, e.g. `t => new CasperApp(t)` with
-   * `@zondax/ledger-casper`. Declared as a method so a factory typed against the app's own
-   * concrete transport class is accepted.
+   * Builds the Casper app for a freshly opened transport, e.g. `t => new CasperApp(t)`. A method,
+   * not a property, so a factory typed against the app's own transport class is accepted.
    */
   createLedgerApp(transport: ILedgerTransport): ILedgerCasperApp;
   /** Platform hook: detect transport-level "pairing invalidated" errors (RN BLE shapes). Default: () => false. */

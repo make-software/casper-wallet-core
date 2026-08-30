@@ -4,21 +4,14 @@ import path from 'path';
 /**
  * Two static import-graph gates.
  *
- * The first guards the invariant WALLET-1421 buys: the helpers a wallet client calls while rendering its
- * home screen must not reach `casper-js-sdk`.
+ * The first: the helpers a wallet client calls while rendering its home screen must not reach
+ * `casper-js-sdk`. The SDK ships one prebuilt UMD bundle with no ESM build and no `sideEffects`
+ * flag, so a single value import links ~900 KB no bundler can shake back out. `import type` /
+ * `export type` are ignored — TypeScript and Babel both erase them.
  *
- * The SDK ships one prebuilt UMD bundle with no ESM build and no `sideEffects` flag, so a single
- * value import of it links ~900 KB that no bundler can shake back out. Tree-shaking can hide a
- * regression here (the host build may still drop it), which is precisely why this is checked
- * statically instead of being left to a bundle measurement in another repo.
- *
- * `import type` / `export type` are ignored: TypeScript and Babel both erase them, so they cost
- * nothing at runtime.
- *
- * The second guards the optional Ledger integration. Those packages are optional peers, and this
- * package ships raw TypeScript, so a consumer that skips them compiles our sources without them:
- * there a type-only import fails just as hard as a value one. Hence the graph walk below counts
- * both for that gate.
+ * The second: the optional Ledger packages. They are optional peers and this package ships raw
+ * TypeScript, so a consumer that skips them compiles our sources without them — there a type-only
+ * import fails just as hard as a value one, and the walk counts both.
  */
 
 const REPO_ROOT = path.resolve(__dirname, '..');

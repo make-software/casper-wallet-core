@@ -16,9 +16,9 @@ import Decimal from 'decimal.js';
  * declared locally.
  *
  * Importing them from `casper-js-sdk` links its whole ~900 KB prebuilt UMD bundle — for two
- * numeric constants — and `ValidatorDto` is reachable from a wallet's validator list, which is
- * one of the surfaces WALLET-1421 is keeping SDK-free. `validators.test.ts` asserts these stay
- * equal to the SDK's, so a change upstream fails the build here rather than silently drifting.
+ * numeric constants — and `ValidatorDto` is reachable from a wallet's validator list, one of the
+ * surfaces that must stay SDK-free. `validators.test.ts` asserts these stay equal to the SDK's,
+ * so a change upstream fails the build here rather than silently drifting.
  */
 const DEFAULT_MINIMUM_DELEGATION_AMOUNT = BigInt(500) * BigInt(1_000_000_000);
 const DEFAULT_MAXIMUM_DELEGATION_AMOUNT = BigInt(1_000_000_000) * BigInt(1_000_000_000);

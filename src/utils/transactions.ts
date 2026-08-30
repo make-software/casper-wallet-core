@@ -1,4 +1,5 @@
-import type { Transaction } from 'casper-js-sdk'; // type-only — the sdk-free gate checks value imports
+// type-only: a value import would pull the sdk into this module's import graph
+import type { Transaction } from 'casper-js-sdk';
 import { CASPER_MESSAGE_HEADER } from '../domain/constants';
 import { isKeysEqual } from './common';
 

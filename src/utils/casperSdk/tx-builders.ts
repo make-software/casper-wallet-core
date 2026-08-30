@@ -21,7 +21,7 @@ import {
   NftStandardToSdkStandardMap,
 } from './cep-nft-transfer';
 
-/** Lives here, not in `src/domain/constants` — it value-imports the SDK enum (D13). */
+/** Lives here, not in `src/domain/constants` — it value-imports the SDK enum. */
 export const AuctionManagerEntryPointMap: Record<
   AuctionManagerEntryPointType,
   | AuctionManagerEntryPoint.delegate
@@ -188,7 +188,7 @@ export const buildNftTransferTransactions = (
     gasPrice,
   });
 
-  // required for old Ledger apps (D11: direct deploy build == legacy '1.5.8' hack)
+  // required for old Ledger apps
   const fallbackDeploy = makeNftTransferDeploy({
     chainName,
     contractPackageHash,
