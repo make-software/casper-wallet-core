@@ -6,6 +6,7 @@ import {
   makeNftTransferDeploy,
   makeNftTransferTransaction,
   NFTTokenStandard,
+  NftStandardToSdkStandardMap,
 } from './cep-nft-transfer';
 
 const SENDER = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
@@ -114,6 +115,16 @@ describe('cep-nft-transfer', () => {
         casperNetworkApiVersion: '2.0',
       });
       expect(txn).toBeDefined();
+    });
+  });
+});
+
+describe('NftStandardToSdkStandardMap', () => {
+  it('covers all standards', () => {
+    expect(NftStandardToSdkStandardMap).toEqual({
+      CEP47: NFTTokenStandard.CEP47,
+      CEP78: NFTTokenStandard.CEP78,
+      CEP95: NFTTokenStandard.CEP95,
     });
   });
 });

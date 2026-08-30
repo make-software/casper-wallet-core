@@ -300,3 +300,11 @@ export const NFT_ACTION_ENTRY_POINTS = [
   'update_token_meta',
   'set_approval_for_all',
 ];
+
+export const CASPER_MESSAGE_HEADER = 'Casper Message:\n';
+
+/** Registered coin type for BIP-0044. https://github.com/satoshilabs/slips/blob/master/slip-0044.md */
+export const CSPR_COIN_INDEX = 506;
+
+/** Keys of the auction-manager entry-point map (the SDK-enum map itself lives in `src/utils/casperSdk/tx-builders.ts`). */
+export type AuctionManagerEntryPointType = 'DELEGATE' | 'UNDELEGATE' | 'REDELEGATE';
