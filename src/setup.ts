@@ -2,11 +2,16 @@ import { CasperWalletApiByEnvUrl, GrpcUrl } from './domain';
 import { setupDataRepositories } from './setupData';
 import { setupSigningRepositories } from './setupSigning';
 import type { ISetupDataRepositoriesParams } from './setupData';
-import type { CasperNetwork, IDexConfig } from './domain';
+import type { CasperNetwork, ICasperRpcOptions, IDexConfig } from './domain';
 
 export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
   grpcUrl?: Record<CasperNetwork, string>;
   dexConfig?: IDexConfig;
+  /**
+   * Node-RPC client behavior for casperTransactionsRepository and dexContractRepository.
+   * Browser-safe defaults; mobile passes axios + referer-header.
+   */
+  rpcOptions?: Omit<ICasperRpcOptions, 'authorizationHeader'>;
 }
 
 /**
@@ -20,6 +25,7 @@ export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
 export const setupRepositories = ({
   grpcUrl = GrpcUrl,
   dexConfig,
+  rpcOptions,
   ...dataParams
 }: ISetupRepositoriesParams = {}) => {
   const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories(dataParams);
@@ -33,6 +39,7 @@ export const setupRepositories = ({
     grpcUrl,
     httpAuthorizationHeader: dataParams.httpAuthorizationHeader,
     dexConfig,
+    rpcOptions,
     log,
   });
 

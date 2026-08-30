@@ -1,11 +1,12 @@
 import {
+  CasperTransactionsRepository,
   DexContractRepository,
   EIP712Repository,
   TxSignatureRequestRepository,
 } from './data/repositories';
 import { GrpcUrl, TradeContractPackageHash, WrappedCsprContractPackageHash } from './domain';
 import type { IDataRepositories } from './setupData';
-import type { CasperNetwork, ILogger } from './domain';
+import type { CasperNetwork, ICasperRpcOptions, ILogger } from './domain';
 import type { IDexConfig } from './domain';
 import type { IEnv } from './domain/env';
 
@@ -33,6 +34,11 @@ export interface ISetupSigningRepositoriesParams extends Pick<
    * Supply it and `getProxyWasm` is mandatory; the hashes and gas price default.
    */
   dexConfig?: IDexConfig;
+  /**
+   * Node-RPC client behavior for casperTransactionsRepository and dexContractRepository.
+   * Browser-safe defaults; mobile passes axios + referer-header.
+   */
+  rpcOptions?: Omit<ICasperRpcOptions, 'authorizationHeader'>;
   log: ILogger;
 }
 
@@ -45,6 +51,7 @@ export const setupSigningRepositories = ({
   grpcUrl = GrpcUrl,
   httpAuthorizationHeader,
   dexConfig,
+  rpcOptions,
   log,
 }: ISetupSigningRepositoriesParams) => {
   const txSignatureRequestRepository = new TxSignatureRequestRepository(
@@ -71,7 +78,17 @@ export const setupSigningRepositories = ({
       getProxyWasm: dexConfig?.getProxyWasm,
     },
     httpAuthorizationHeader,
+    rpcOptions,
   );
+  const casperTransactionsRepository = new CasperTransactionsRepository(grpcUrl, {
+    ...rpcOptions,
+    ...(httpAuthorizationHeader ? { authorizationHeader: httpAuthorizationHeader } : {}),
+  });
 
-  return { txSignatureRequestRepository, eip712Repository, dexContractRepository };
+  return {
+    txSignatureRequestRepository,
+    eip712Repository,
+    dexContractRepository,
+    casperTransactionsRepository,
+  };
 };

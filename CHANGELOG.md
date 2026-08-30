@@ -6,6 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Shared Casper transaction, signing and submission layer (Phase 1).** New
+  `domain/casperTransactions` (`ICasperSigner`, `ICasperTransactionsRepository`,
+  `CasperTransactionsError`), a `CasperTransactionsRepository` that owns node-RPC client
+  construction, node-time drift correction and API-version detection, and submits either a
+  `putTransaction` (node 2.x) or the legacy `putDeploy` (node 1.x) — mirroring mobile/extension
+  byte-for-byte. It exposes both a composed path (`sendTokenTransfer`, `sendNftTransfer`,
+  `sendDelegation` — build, sign, submit in one call, mobile parity) and a granular one
+  (`signTransaction` / `sendSignedTransaction`, for the extension's multi-window sign-then-submit
+  UX), plus `sendDexTransaction` for the swap flow's built artifact.
+- **`createPrivateKeySigner`** (`src/data/signers`) — an `ICasperSigner` over the
+  `{publicKeyHex, secretKeyBase64}` pair both apps already store; the software-key counterpart to
+  the Phase-2 Ledger signer.
+- **Pure transaction builders** (`src/utils/casperSdk/tx-builders.ts`, root-exported):
+  `buildCsprTransferTransactions`, `buildCep18TransferTransactions`,
+  `buildNftTransferTransactions`, `buildAuctionManagerTransactions` and
+  `AuctionManagerEntryPointMap` — each returns the `{transaction, fallbackDeploy}` pair mobile and
+  the extension hand-roll today. The NFT fallback deploy is now built directly via
+  `makeNftTransferDeploy` instead of the `casperNetworkApiVersion: '1.5.8'` round-trip hack (the
+  two are provably byte-identical).
+- `isValidCasperPublicKey` (`src/utils/casperSdk/validation.ts`, root-exported) and shared
+  message/key helpers in `src/utils/transactions.ts`: `createCasperMessageBytes`,
+  `isTransactionSignedBy`, `getPrivateKeyHexFromSecretKey`.
+- `setupRepositories` / `setupSigningRepositories` return a `casperTransactionsRepository` and
+  accept an optional `rpcOptions` (`ICasperRpcOptions`: `handlerType`, `referrerMode`,
+  `authorizationHeader`), threaded into both `casperTransactionsRepository` and
+  `dexContractRepository`. Defaults stay browser-safe (`fetch` + `fetch-referrer`); mobile passes
+  `{ handlerType: 'axios', referrerMode: 'referer-header' }`.
+- Package root additionally exports `./src/data/signers`, `./src/utils/casperSdk/tx-builders` and
+  `./src/utils/casperSdk/validation`.
+
+### Changed
+
+- **`DexContractRepository`'s node-RPC client now sets the CSPR.cloud proxy referrer by
+  default.** It previously built its client with no referrer at all; it now goes through the same
+  `createCasperRpcClient` helper as `casperTransactionsRepository` and `txSignatureRequest`, so an
+  un-configured consumer picks up the `fetch` + `fetch-referrer` default. Pass `rpcOptions` to
+  `DexContractRepository` (or via `setupRepositories`) to opt out.
+- **BREAKING — the swap `ISigner` port is renamed `IDexTransactionSender` and moved from
+  `src/react/types.ts` to `domain/dex`.** It is no longer an interface apps implement: core builds
+  it via `createDexTransactionSender({ signer, casperTransactionsRepository, network,
+supportsTransactionV1, waitForTransaction, isCancellationError? })`, which signs and
+  submits through `sendDexTransaction` and drives `ITransactionCallbacks` (also moved to
+  `domain/dex`). `src/react/types.ts` re-exports both names; the `ISwapDependencies.signer` field
+  name and the hooks' runtime behavior are unchanged — only the type an app hands in changes, from
+  a hand-rolled sign+submit implementation to an `ICasperSigner`.
+
 ## [2.0.0] - 2026-08-30 — Swap / DEX
 
 ### Added
