@@ -88,11 +88,10 @@ export class DexContractRepository implements IDexContractRepository {
 
       const allowanceResult = await getDictionaryValue(client, contractHash, 'allowances', dictKey);
 
+      // '' is the genuinely-absent case: the dictionary has no entry for this spender.
       return allowanceResult?.toString() ?? '';
-    } catch {
-      // An unreadable allowance resolves to '', which `checkApprovalRequired` reads as
-      // "not enough" rather than surfacing an error.
-      return '';
+    } catch (e) {
+      this._processError(e, 'getAllowance');
     }
   }
 

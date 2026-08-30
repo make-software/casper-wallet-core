@@ -78,11 +78,30 @@ describe('DexContractRepository', () => {
       );
     });
 
-    it('mirrors source behavior: resolves "" on RPC failure', async () => {
+    it('rejects a DexError typed "getAllowance" on RPC failure', async () => {
       const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
       stubClient(
         repo,
         makeClient({ queryLatestGlobalState: jest.fn().mockRejectedValue(new Error('rpc down')) }),
+      );
+
+      await expect(
+        repo.getAllowance({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+        }),
+      ).rejects.toMatchObject({ name: 'DexRepositoryError', type: 'getAllowance' });
+    });
+
+    it('resolves "" when the allowances dictionary has no entry for the spender', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('key not found')),
+        }),
       );
 
       await expect(

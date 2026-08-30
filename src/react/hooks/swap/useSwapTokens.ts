@@ -224,9 +224,10 @@ export const useSwapTokens = ({
     setTokenAmounts(prev => ({
       first: {
         formatted: prev.first.formatted,
-        raw: nextFirstToken?.decimals
-          ? getBlockchainAmount(prev.first.formatted, nextFirstToken.decimals, '0')
-          : prev.first.raw,
+        raw:
+          typeof nextFirstToken?.decimals === 'number'
+            ? getBlockchainAmount(prev.first.formatted, nextFirstToken.decimals, '0')
+            : prev.first.raw,
       },
       second: { formatted: '0', raw: '0' },
     }));

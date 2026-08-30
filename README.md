@@ -142,10 +142,26 @@ interface ISetupRepositoriesParams {
 
   /** Optional Authorization header forwarded with every HTTP call. */
   httpAuthorizationHeader?: string;
+
+  /** Override trade (DEX) API URLs per network. */
+  tradeApiByNetworkUrl?: Record<CasperNetwork, string>;
+
+  /** Override the WCSPR contract-package hash per network. */
+  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>;
+
+  /**
+   * DEX contract-package hashes, gas price and the proxy WASM loader. Optional as a whole,
+   * but `getProxyWasm` is required inside it — without it no swap, wrap or unwrap
+   * transaction can be built.
+   */
+  dexConfig?: IDexConfig;
 }
 ```
 
-All fields are optional — defaults point at the production Casper Wallet API.
+All fields are optional — defaults point at the production Casper Wallet API and the
+production DEX contracts. See
+[docs/swap-react-integration.md](docs/swap-react-integration.md) for `dexConfig` and the
+React layer.
 
 ### Custom logger
 
@@ -196,20 +212,21 @@ Each domain module exposes a repository interface (in `src/domain/<module>/repos
 
 This package declares `"sideEffects": false`, so a bundler with tree shaking enabled drops the unused half even when you import from the package root. For builds where that cannot be relied on, the SDK-free helpers also have stable deep-import paths:
 
-| Import path                                               | Exports                                                  | Links the SDK |
-| --------------------------------------------------------- | -------------------------------------------------------- | ------------- |
-| `casper-wallet-core/src/utils/casperSdk/accountHash`      | `getAccountHashFromPublicKey`                            | no            |
-| `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                            | no            |
-| `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`              | no            |
-| `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants        | no            |
-| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the eight read repositories    | no            |
-| `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, … | **yes**       |
-| `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                          | **yes**       |
-| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712 | **yes**       |
+| Import path                                               | Exports                                                               | Links the SDK |
+| --------------------------------------------------------- | --------------------------------------------------------------------- | ------------- |
+| `casper-wallet-core/src/utils/casperSdk/accountHash`      | `getAccountHashFromPublicKey`                                         | no            |
+| `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                                         | no            |
+| `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`                           | no            |
+| `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants                     | no            |
+| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the nine read repositories                  | no            |
+| `casper-wallet-core/src/react`                            | React hooks for the swap / wrap flow                                  | no            |
+| `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, …              | **yes**       |
+| `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                                       | **yes**       |
+| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712, dexContract | **yes**       |
 
 ### Repositories
 
-`setupRepositories()` still constructs all ten repositories and its return shape is unchanged, but it links the SDK, because two of them do. A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing pair separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three repositories it depends on, so both halves still talk through one provider:
+`setupRepositories()` still constructs all twelve repositories and its return shape is unchanged, but it links the SDK, because three of them do (`txSignatureRequest`, `eip712` and `dexContract`). A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing pair separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three repositories it depends on, so both halves still talk through one provider:
 
 ```typescript
 import { setupDataRepositories } from 'casper-wallet-core/src/setupData';
@@ -292,7 +309,9 @@ Tests live next to the code they cover (e.g. `src/utils/common.test.ts`, `src/da
 │   │   ├── eip712/
 │   │   ├── env/
 │   │   ├── nfts/
+│   │   ├── dex/
 │   │   ├── onRamp/
+│   │   ├── swap/
 │   │   ├── tokens/
 │   │   ├── tx-signature-request/
 │   │   └── validator/
@@ -300,6 +319,7 @@ Tests live next to the code they cover (e.g. `src/utils/common.test.ts`, `src/da
 │   │   ├── data-providers/http/   # apisauce/axios wrapper (IHttpDataProvider)
 │   │   ├── dto/                   # API → domain entity mappers
 │   │   └── repositories/          # Concrete repository implementations
+│   ├── react/                  # React hooks for the swap / wrap flow (SDK-free)
 │   ├── utils/                  # Shared helpers (crypto, date, address, deploy, casperSdk, logger, …)
 │   └── typings/                # Ambient type declarations
 ├── scripts/                    # Tooling (e.g. fixture generation)

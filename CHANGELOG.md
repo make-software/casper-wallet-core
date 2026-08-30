@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-30 — Swap / DEX
+
+### Added
+
+- **Swap / DEX domain and data layer.** New `domain/swap` and `domain/dex` (entities, repository
+  interfaces, `SwapError` / `DexError`), `repositories/swap` (trade API: token list, quotes) and
+  `repositories/dex` (`DexContractRepository` — allowance reads and the approval, swap, wrap and
+  unwrap transaction builders), plus `dto/swap` mappers. Wired into `setupRepositories()` as
+  `swapRepository` and `dexContractRepository`.
+- **`src/react/` — a React hook layer** for the trade form, the review modal and the wrap/unwrap
+  flow. Deep-importable as `casper-wallet-core/src/react` and free of `casper-js-sdk`. `react`
+  and `@tanstack/react-query` are optional peer dependencies; a consumer that does not import
+  this path needs neither. See `docs/swap-react-integration.md`.
+- `setupRepositories` / `setupSigningRepositories` accept `dexConfig`; `setupDataRepositories`
+  accepts `tradeApiByNetworkUrl` and `wrappedCsprContractPackageHash`.
+- Swap helpers in the `utils` barrel: `amounts`, `swap`, `decimal`.
+
+### Changed
+
+- **BREAKING — three published domain interface fields renamed to camelCase.** Consuming code
+  reading the old names will not compile:
+  - `INft.owner_reverse_lookup_mode` → `INft.ownerReverseLookupMode`
+  - `IAppMarketingEvent.image_url` → `IAppMarketingEvent.imageUrl`
+  - `IOnRampCurrencyItem.type_id` → `IOnRampCurrencyItem.typeId`
+- **`getBlockchainAmount` now truncates instead of rounding half-up.** It previously used
+  decimal.js's default `ROUND_HALF_UP`; it now uses `ROUND_DOWN`, so it can never hand back more
+  base units than the caller typed. An amount whose fraction extends past `decimals` now
+  converts one base unit lower — `getBlockchainAmount('1.9999999995', 9)` returns
+  `'1999999999'`, previously `'2000000000'`; `getBlockchainAmount('0.0000000005', 9)` returns
+  `'0'`, previously `'1'`. This is an exported util: it affects transfer and payment amounts in
+  consuming apps, not only the swap flow.
+- **`formatFiatBalance` now tests the one-cent floor against the actual amount, not the rounded
+  one.** With the default `decimals = 2`, a balance in `[0.005, 0.01)` renders `<$0.01` where it
+  previously rounded up to `$0.01`. This is deliberate and applies wallet-wide, not only to
+  swap: it changes the rendered fiat string on existing deploy-history rows and CEP-18 token
+  rows, through `formatFiatAmount`, `getCep18FiatAmount` and `getCsprFiatAmount`. `getFiatAmount`
+  passes `decimals: 4` and is unaffected.
+- `IDexConfig.getProxyWasm` is required. `dexConfig` as a whole stays optional — omit it and
+  `dexContractRepository` still builds approvals — but supplying a `dexConfig` without the proxy
+  WASM loader is now a compile error rather than a runtime failure at the Confirm button.
+- `DexContractRepository.getAllowance` rejects with a `DexError` on an RPC failure instead of
+  resolving `''`. `''` now means only "no allowance entry for this spender".
+- `buildSwapTransaction` validates its inputs before encoding: the quoted route must start at the
+  input token and end at the output token, `slippage` must be within `[0, MAX_SLIPPAGE]` and
+  `deadline` within `[MIN_DEADLINE, MAX_DEADLINE]`. The on-chain deadline is derived from chain
+  time (`getLatestBlockTime`) rather than the device clock.
+- `calculateMinAmountWithSlippage` and `calculateMaxAmountWithSlippage` throw on a slippage
+  outside their valid range instead of returning an inverted or unprotected bound.
+
 ## [1.4.0] - 2026-06-30 — EIP-712 typed-data signing
 
 ### Added

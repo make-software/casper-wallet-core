@@ -18,7 +18,7 @@ import type { IEnv } from './domain/env';
  * lists must be able to leave this module unimported (WALLET-1421).
  *
  * Takes the data repositories it depends on rather than constructing its own, so both halves
- * share one `HttpDataProvider` and one logger, as they did when a single factory built all ten.
+ * share one `HttpDataProvider` and one logger, as they did when a single factory built them all.
  */
 export interface ISetupSigningRepositoriesParams extends Pick<
   IDataRepositories,
