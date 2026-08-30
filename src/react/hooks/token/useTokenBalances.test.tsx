@@ -94,6 +94,54 @@ describe('useTokenBalances', () => {
     expect(result.current.getRawBalance('cph-2')).toBe('0');
   });
 
+  // The parameter exists for deep links to tokens the trade API does not list; without it the
+  // balance reads '0', isAmountExceedsBalance is true for any amount, and the swap never enables.
+  it('resolves the balance of a hash supplied only through additionalContractPackageHashes', async () => {
+    const getTokens = jest.fn().mockResolvedValue([makeHeldToken('cph-unlisted', '4200000', 6)]);
+    const deps = {
+      network: 'mainnet' as const,
+      activePublicKey: TEST_PUBLIC_KEY,
+      tokensRepository: stubTokensRepository({
+        getCsprBalance: jest.fn().mockResolvedValue(makeCsprBalance()),
+        getTokens,
+      }),
+      swapRepository: stubSwapRepository({
+        getDexTokens: jest.fn().mockResolvedValue([makeDexToken('cph-listed')]),
+      }),
+      additionalContractPackageHashes: ['cph-unlisted'],
+    };
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cph-unlisted')).toBe('4200000'));
+    expect(getTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractPackageHashes: expect.arrayContaining(['cph-listed', 'cph-unlisted']),
+      }),
+    );
+  });
+
+  it('does not duplicate a hash that is both listed and supplied additionally', async () => {
+    const getTokens = jest.fn().mockResolvedValue([makeHeldToken('cph-1', '1', 6)]);
+    const deps = {
+      network: 'mainnet' as const,
+      activePublicKey: TEST_PUBLIC_KEY,
+      tokensRepository: stubTokensRepository({
+        getCsprBalance: jest.fn().mockResolvedValue(makeCsprBalance()),
+        getTokens,
+      }),
+      swapRepository: stubSwapRepository({
+        getDexTokens: jest.fn().mockResolvedValue([makeDexToken('cph-1')]),
+      }),
+      additionalContractPackageHashes: ['cph-1'],
+    };
+
+    renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(getTokens).toHaveBeenCalled());
+    expect(getTokens.mock.calls[0][0].contractPackageHashes).toEqual(['cph-1']);
+  });
+
   it('reports "0" for a token that was never fetched', async () => {
     const getCsprBalance = jest.fn().mockResolvedValue(makeCsprBalance());
     const deps = csprOnlyDeps(getCsprBalance);

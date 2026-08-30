@@ -191,9 +191,10 @@ const csprClickSigner = (
 ): ISigner => ({
   publicKey,
   supportsTransactionV1,
-  async send({ transaction, deploy }, callbacks) {
-    const isDeploy = Boolean(deploy);
-    const built = deploy ?? transaction!;
+  async send(built, callbacks) {
+    // Narrow rather than assert: `IBuiltDexTransaction` is a union, so this tells the compiler
+    // which half is present instead of promising it that one of them is.
+    const isDeploy = 'deploy' in built;
 
     const statusUpdate = (status: string, data: SendResult) => {
       if (status === 'sent') {
@@ -218,8 +219,8 @@ const csprClickSigner = (
     };
 
     const jsonPayload = isDeploy
-      ? JSON.stringify(Deploy.toJSON(built as Deploy))
-      : JSON.stringify({ transaction: { Version1: (built as Transaction).toJSON() } });
+      ? JSON.stringify(Deploy.toJSON(built.deploy))
+      : JSON.stringify({ transaction: { Version1: built.transaction.toJSON() } });
 
     const res = await clickRef.send(jsonPayload, publicKey, statusUpdate);
 

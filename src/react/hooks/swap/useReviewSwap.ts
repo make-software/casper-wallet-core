@@ -64,6 +64,7 @@ export const useReviewSwap = ({
   // mark the approval step as failed.
   const [errors, setErrors] = useState<{ approval?: string; swap?: string }>({});
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const [approvalHash, setApprovalHash] = useState<string | undefined>(undefined);
 
   const { swapTokens } = useSwapTransaction({
     network,
@@ -90,6 +91,7 @@ export const useReviewSwap = ({
     setStep('confirm');
     setErrors({});
     setTransactionHash(null);
+    setApprovalHash(undefined);
     resetStates();
   }, [resetStates]);
 
@@ -193,6 +195,9 @@ export const useReviewSwap = ({
       updateTransactionState('approval', approvalRequired ? 'pending' : 'success');
 
       await checkAndApprove(firstCheckConfig, firstExecuteConfig, {
+        onSent: hash => {
+          setApprovalHash(hash);
+        },
         onProcessed: () => {
           updateTransactionState('approval', 'success');
         },
@@ -235,6 +240,7 @@ export const useReviewSwap = ({
         : approvalRequirements.firstRequired
           ? transactionStates.approval
           : 'success',
+      transactionHash: approvalHash,
       error: errors.approval,
     },
     swap: {

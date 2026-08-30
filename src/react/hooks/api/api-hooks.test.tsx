@@ -16,6 +16,7 @@ import {
   stubTokensRepository,
   TEST_PUBLIC_KEY,
 } from '../../../__test-utils__/render-hook';
+import { BLOCK_INTERVAL_MS } from '../../../domain/constants';
 import type { CasperNetwork } from '../../../domain/common/common';
 import type { IDexToken } from '../../../domain/swap';
 import { SwapQuoteType } from '../../../domain/swap';
@@ -145,7 +146,10 @@ describe('useFetchCsprFiatRates', () => {
     expect(getCsprFiatCurrencyRate).toHaveBeenCalledWith({ network: 'mainnet' });
   });
 
-  it('fetches the rate even with no account connected', async () => {
+  // `IUseFetchCsprFiatRatesParams` has no account field, so "with no account connected" is
+  // structural rather than something a test can set up. This pins that the rate is
+  // network-keyed only, which is what would break if account-gating were ever added.
+  it('keys the rate on the network alone, with no account input', async () => {
     const getCsprFiatCurrencyRate = jest.fn().mockResolvedValue({ rate: 1, currency: 'USD' });
 
     const { result } = renderHookWithQueryClient(() =>
@@ -156,6 +160,8 @@ describe('useFetchCsprFiatRates', () => {
     );
 
     await waitFor(() => expect(result.current.csprFiatRates).toBe(1));
+    expect(getCsprFiatCurrencyRate).toHaveBeenCalledWith({ network: 'mainnet' });
+    expect(Object.keys(getCsprFiatCurrencyRate.mock.calls[0][0])).toEqual(['network']);
   });
 });
 
@@ -187,6 +193,98 @@ describe('useFetchAccountTokenOwnership across networks', () => {
     expect(getTokens).toHaveBeenCalledTimes(2);
     expect(getTokens).toHaveBeenLastCalledWith(expect.objectContaining({ network: 'testnet' }));
   });
+});
+
+describe('useFetchSwapQuote error handling', () => {
+  const rejectingQuote = (data: unknown) =>
+    stubSwapRepository({
+      getQuote: jest.fn().mockRejectedValue(Object.assign(new Error('Bad Request'), { data })),
+    });
+
+  const renderQuote = (swapRepository: ReturnType<typeof stubSwapRepository>) =>
+    renderHookWithQueryClient(() =>
+      useFetchSwapQuote({
+        network: 'mainnet',
+        swapRepository,
+        dexContractRepository: stubDexContractRepository({
+          getLatestBlockTime: jest.fn().mockResolvedValue(1000),
+        }),
+        typeId: SwapQuoteType.ExactIn,
+        amount: '1000000000',
+        tokenIn: makeDexToken('cph-1'),
+        tokenOut: makeDexToken('cph-2'),
+        withAutoRefresh: false,
+      }),
+    );
+
+  // The envelope shape mirrors src/data/repositories/swap/swap.test.ts — `SwapError.data` is the
+  // JSON `HttpDataProvider` builds, so the API's own body sits one level down under `data`.
+  it('unwraps the trade API error code from the nested envelope', async () => {
+    const { result } = renderQuote(
+      rejectingQuote(JSON.stringify({ status: 400, data: { error: { code: 'invalid_input' } } })),
+    );
+
+    await waitFor(() => expect(result.current.fetchQuoteErrorCode).toBe('invalid_input'));
+  });
+
+  it.each([
+    { name: 'a single-level envelope', data: JSON.stringify({ error: { code: 'not_found' } }) },
+    { name: 'a body that is not JSON', data: 'gateway timeout' },
+    { name: 'no data at all', data: undefined },
+  ])('resolves the code to null for $name', async ({ data }) => {
+    const { result } = renderQuote(rejectingQuote(data));
+
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    expect(result.current.fetchQuoteErrorCode).toBeNull();
+  });
+});
+
+describe('useFetchSwapQuote auto-refresh', () => {
+  const QUOTE = { amountIn: '1', amountOut: '2' };
+
+  const renderAutoRefreshing = (getLatestBlockTime: jest.Mock, getQuote: jest.Mock) =>
+    renderHookWithQueryClient(() =>
+      useFetchSwapQuote({
+        network: 'mainnet',
+        swapRepository: stubSwapRepository({ getQuote }),
+        dexContractRepository: stubDexContractRepository({ getLatestBlockTime }),
+        typeId: SwapQuoteType.ExactIn,
+        amount: '1000000000',
+        tokenIn: makeDexToken('cph-1'),
+        tokenOut: makeDexToken('cph-2'),
+      }),
+    );
+
+  // The production caller always takes the default `withAutoRefresh: true` branch, and
+  // re-quoting every block is the whole reason the latestBlock query exists. Reporting a block
+  // that landed almost a full interval ago puts the next one ~600ms out, so this does not have
+  // to sit through a real 8s block.
+  it('re-quotes on the block schedule', async () => {
+    const getQuote = jest.fn().mockResolvedValue(QUOTE);
+    const nearlyDue = Date.now() - (BLOCK_INTERVAL_MS - 100);
+    const getLatestBlockTime = jest.fn().mockResolvedValue(nearlyDue);
+
+    renderAutoRefreshing(getLatestBlockTime, getQuote);
+
+    await waitFor(() => expect(getQuote).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getQuote.mock.calls.length).toBeGreaterThan(1), { timeout: 5000 });
+  }, 10000);
+
+  // A failed block read used to set the interval to `false`, freezing the displayed quote for
+  // the whole session while the user believed it was live. The fallback is a flat
+  // BLOCK_INTERVAL_MS with no way to shorten it, so this test costs one real interval.
+  it('keeps re-quoting on a fixed interval when the block-time read fails', async () => {
+    const getQuote = jest.fn().mockResolvedValue(QUOTE);
+    const getLatestBlockTime = jest.fn().mockRejectedValue(new Error('rpc down'));
+
+    const { result } = renderAutoRefreshing(getLatestBlockTime, getQuote);
+
+    await waitFor(() => expect(result.current.isLatestBlockError).toBe(true), { timeout: 10000 });
+    expect(getQuote).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(getQuote.mock.calls.length).toBeGreaterThan(1), {
+      timeout: BLOCK_INTERVAL_MS + 4000,
+    });
+  }, 20000);
 });
 
 describe('useFetchSwapQuote across networks', () => {

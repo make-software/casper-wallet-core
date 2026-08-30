@@ -181,6 +181,21 @@ describe('useReviewSwap', () => {
     });
   });
 
+  it('exposes the approval transaction hash on the approval leg, separate from the swap hash', async () => {
+    const signer = makeSigner(cb => {
+      cb.onSent?.('hash-for-each-leg');
+      cb.onProcessed?.();
+    });
+    const { result } = setup({}, signer);
+
+    await act(async () => {
+      await result.current.confirmSwap();
+    });
+
+    expect(result.current.transactionState.approval.transactionHash).toBe('hash-for-each-leg');
+    expect(result.current.transactionHash).toBe('hash-for-each-leg');
+  });
+
   it('reaches the success step when both legs succeed', async () => {
     const { result } = setup();
 

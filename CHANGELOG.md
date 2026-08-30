@@ -54,6 +54,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   time (`getLatestBlockTime`) rather than the device clock.
 - `calculateMinAmountWithSlippage` and `calculateMaxAmountWithSlippage` throw on a slippage
   outside their valid range instead of returning an inverted or unprotected bound.
+- `IBuiltDexTransaction` is a discriminated union: exactly one of `transaction` / `deploy` is
+  present, so a signer adapter narrows with `'transaction' in built` instead of asserting
+  `deploy ?? transaction!`.
+- `useCsprFeeValidation`'s parameters are a union of its two modes. Supplying neither — which
+  silently validated against an amount of `'0'`, i.e. gas only — no longer compiles.
+- Swap failures reach the consumer as the real message rather than a single `'Transaction
+failed'` string, scoped to the leg that produced them, and the review flow returns to its
+  confirm step so it stays retryable. `ApprovalState.transactionHash` is now populated.
 
 ## [1.4.0] - 2026-06-30 — EIP-712 typed-data signing
 

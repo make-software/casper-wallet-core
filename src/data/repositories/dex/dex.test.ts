@@ -29,16 +29,19 @@ const makeClient = (overrides: Record<string, jest.Mock> = {}) => overrides;
 const stubClient = (repo: DexContractRepository, client: Record<string, jest.Mock>) =>
   jest.spyOn(repo as any, '_getClient').mockReturnValue(client);
 
-const makeQueryLatestGlobalState = (contractHashHex: string) =>
+const makeVersion = (contractVersion: number, contractHashHex: string) => ({
+  contractVersion,
+  contractHash: { hash: { toHex: () => `contract-${contractHashHex}` } },
+});
+
+const makeQueryLatestGlobalState = (...versions: ReturnType<typeof makeVersion>[] | [string]) =>
   jest.fn().mockResolvedValue({
     storedValue: {
       contractPackage: {
-        versions: [
-          {
-            contractVersion: 1,
-            contractHash: { hash: { toHex: () => `contract-${contractHashHex}` } },
-          },
-        ],
+        versions:
+          typeof versions[0] === 'string'
+            ? [makeVersion(1, versions[0])]
+            : (versions as ReturnType<typeof makeVersion>[]),
       },
     },
   });
@@ -106,6 +109,49 @@ describe('DexContractRepository', () => {
           publicKey: PUBLIC_KEY,
         }),
       ).resolves.toBe('');
+    });
+  });
+
+  describe('contract version selection', () => {
+    /** Reads back the contract hash the dictionary lookup was pointed at. */
+    const dictionaryTargetOf = async (
+      queryLatestGlobalState: jest.Mock,
+    ): Promise<string | undefined> => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const getDictionaryItemByIdentifier = jest
+        .fn()
+        .mockResolvedValue({ storedValue: { clValue: { toString: () => '1' } } });
+      stubClient(repo, makeClient({ queryLatestGlobalState, getDictionaryItemByIdentifier }));
+
+      await repo.getAllowance({
+        network: 'mainnet',
+        contractPackageHash: 'cph',
+        publicKey: PUBLIC_KEY,
+      });
+
+      return getDictionaryItemByIdentifier.mock.calls[0][1].contractNamedKey.key as string;
+    };
+
+    // A stale version's `allowances` dictionary reports an allowance the user never granted, or
+    // misses one they did — either way they pay for an approval on every swap.
+    it('reads the allowance from the highest contract version', async () => {
+      await expect(
+        dictionaryTargetOf(
+          makeQueryLatestGlobalState(
+            makeVersion(1, 'old'),
+            makeVersion(3, 'newest'),
+            makeVersion(2, 'mid'),
+          ),
+        ),
+      ).resolves.toContain('newest');
+    });
+
+    it('does not depend on the versions arriving in order', async () => {
+      await expect(
+        dictionaryTargetOf(
+          makeQueryLatestGlobalState(makeVersion(3, 'newest'), makeVersion(1, 'old')),
+        ),
+      ).resolves.toContain('newest');
     });
   });
 
