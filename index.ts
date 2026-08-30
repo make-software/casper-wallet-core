@@ -11,3 +11,4 @@ export * from './src/utils/casperSdk/cep-nft-transfer';
 export * from './src/utils/eip712/sign';
 export * from './src/utils/casperSdk/validation';
 export * from './src/data/signers';
+export * from './src/utils/casperSdk/tx-builders';
