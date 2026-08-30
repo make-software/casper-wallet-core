@@ -1,6 +1,6 @@
 import { isDomainError, isError, IDomainError } from '../common';
 
-export type TransactionStatusErrorType = 'timeout' | 'lookup';
+export type TransactionStatusErrorType = 'timeout' | 'lookup' | 'cancelled';
 
 export type ITransactionStatusError = IDomainError<TransactionStatusErrorType>;
 
@@ -44,4 +44,23 @@ export class TransactionTimeoutError extends TransactionStatusError {
 
 export function isTransactionTimeoutError(error: unknown): error is TransactionTimeoutError {
   return error instanceof TransactionTimeoutError;
+}
+
+/**
+ * The caller aborted the watch. Like a timeout it says nothing about the transaction, which is
+ * very likely still on its way to a block.
+ */
+export class TransactionWatchCancelledError extends TransactionStatusError {
+  readonly hash: string;
+
+  constructor(hash: string) {
+    super(new Error('errors:transaction-watch-cancelled'), 'cancelled');
+    this.hash = hash;
+  }
+}
+
+export function isTransactionWatchCancelledError(
+  error: unknown,
+): error is TransactionWatchCancelledError {
+  return error instanceof TransactionWatchCancelledError;
 }

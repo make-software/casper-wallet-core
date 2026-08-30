@@ -89,9 +89,10 @@ const runWrap = async function* (
       hash,
       network: deps.network,
       isDeploy: built.deploy !== undefined,
+      signal,
     });
   } catch (error) {
-    yield { type: 'failed', error };
+    yield signal.aborted ? { type: 'cancelled' } : { type: 'failed', error };
 
     return;
   }

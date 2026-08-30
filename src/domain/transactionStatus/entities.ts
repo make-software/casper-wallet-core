@@ -1,8 +1,12 @@
+import { DEX_TRANSACTION_TTL_MS } from '../constants';
 import type { CasperNetwork } from '../common';
 
 /** How long between settlement polls, and how long to keep polling before giving up. */
 export const DEFAULT_SETTLEMENT_POLL_INTERVAL_MS = 2_000;
-export const DEFAULT_SETTLEMENT_TIMEOUT_MS = 180_000;
+/** Matches the TTL transactions are built with, so a timeout means the hash can no longer land. */
+export const DEFAULT_SETTLEMENT_TIMEOUT_MS = DEX_TRANSACTION_TTL_MS;
+/** How long lookups may keep failing before the node is called unreachable. */
+export const DEFAULT_LOOKUP_GRACE_MS = 60_000;
 
 export type TransactionOutcomeStatus = 'success' | 'failure';
 
@@ -24,4 +28,12 @@ export interface IWaitForTransactionParams {
   pollIntervalMs?: number;
   /** Default {@link DEFAULT_SETTLEMENT_TIMEOUT_MS}. */
   timeoutMs?: number;
+  /**
+   * How long a run of failing lookups is tolerated before the watch reports the node unreachable.
+   * A single failed poll never ends the watch — the transaction may be landing regardless.
+   * Default {@link DEFAULT_LOOKUP_GRACE_MS}.
+   */
+  lookupGraceMs?: number;
+  /** Aborting ends the watch and rejects with {@link TransactionWatchCancelledError}. */
+  signal?: AbortSignal;
 }

@@ -1,3 +1,4 @@
+import { HttpError, RpcError } from 'casper-js-sdk';
 import { firstValueFrom } from 'rxjs';
 
 import { TransactionStatusRepository } from './index';
@@ -6,9 +7,12 @@ import { createCasperRpcClient } from '../../../utils/casperSdk/rpcClient';
 
 import {
   DEFAULT_SETTLEMENT_POLL_INTERVAL_MS,
+  DEFAULT_SETTLEMENT_TIMEOUT_MS,
+  DEX_TRANSACTION_TTL_MS,
   isTransactionTimeoutError,
+  isTransactionWatchCancelledError,
   TransactionStatusError,
-} from '../../../domain/transactionStatus';
+} from '../../../domain';
 import type { CasperNetwork } from '../../../domain';
 
 jest.mock('../../../utils/casperSdk/rpcClient', () => ({
@@ -30,7 +34,8 @@ const settled = (blockHeight: number, errorMessage?: string) => ({
 
 const pending = () => ({ executionInfo: undefined });
 
-const rpcError = (code: number) => Object.assign(new Error(`rpc ${code}`), { code });
+/** The shape `RpcClient.processRequest` throws: the code rides on the wrapped `RpcError`. */
+const rpcError = (code: number) => new HttpError(code, new RpcError(code, `rpc ${code}`));
 
 /** Installs a fake RpcClient whose lookups resolve/reject from `steps`, in order. */
 const installRpc = (steps: Array<() => Promise<unknown>>) => {
@@ -48,13 +53,24 @@ const installRpc = (steps: Array<() => Promise<unknown>>) => {
 
 const makeRepository = () => new TransactionStatusRepository(GRPC_URL, {});
 
-const params = (over: Partial<{ isDeploy: boolean; timeoutMs: number }> = {}) => ({
+const params = (
+  over: Partial<{
+    isDeploy: boolean;
+    timeoutMs: number;
+    lookupGraceMs: number;
+    signal: AbortSignal;
+  }> = {},
+) => ({
   hash: HASH,
   network: NETWORK,
   isDeploy: false,
   pollIntervalMs: 5,
   timeoutMs: 500,
   ...over,
+});
+
+beforeEach(() => {
+  createCasperRpcClientMock.mockClear();
 });
 
 describe('TransactionStatusRepository', () => {
@@ -112,19 +128,21 @@ describe('TransactionStatusRepository', () => {
     });
   });
 
-  it('retries a transient lookup failure within the same poll tick', async () => {
+  it('keeps polling through a run of transient lookup failures rather than ending the watch', async () => {
+    let calls = 0;
+
     installRpc([
       async () => {
-        throw new Error('socket hang up');
+        if ((calls += 1) <= 6) {
+          throw new Error('socket hang up');
+        }
+
+        return settled(11);
       },
-      async () => {
-        throw new Error('socket hang up');
-      },
-      async () => settled(11),
     ]);
 
     await expect(
-      makeRepository().waitForTransaction(params({ timeoutMs: 2_500 })),
+      makeRepository().waitForTransaction(params({ timeoutMs: 2_500, lookupGraceMs: 200 })),
     ).resolves.toEqual({
       hash: HASH,
       status: 'success',
@@ -132,16 +150,19 @@ describe('TransactionStatusRepository', () => {
     });
   });
 
-  it('errors with a lookup TransactionStatusError when the node never answers', async () => {
+  it('errors with a lookup TransactionStatusError once the grace window of failures elapses', async () => {
     installRpc([
       async () => {
         throw new Error('ECONNREFUSED');
       },
     ]);
 
-    await expect(makeRepository().waitForTransaction(params())).rejects.toBeInstanceOf(
-      TransactionStatusError,
-    );
+    const error = await makeRepository()
+      .waitForTransaction(params({ lookupGraceMs: 20 }))
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TransactionStatusError);
+    expect((error as { type: string }).type).toBe('lookup');
   });
 
   it('errors with a timeout — not a failure outcome — when the transaction never executes', async () => {
@@ -196,6 +217,92 @@ describe('TransactionStatusRepository', () => {
     expect(maxInFlight).toBe(1);
   });
 
+  it('waits out the poll interval after a slow lookup instead of queueing missed ticks', async () => {
+    const LOOKUP_MS = 60;
+    const POLL_INTERVAL_MS = 50;
+    const starts: number[] = [];
+    let calls = 0;
+
+    createCasperRpcClientMock.mockReturnValue({
+      getTransactionByTransactionHash: jest.fn(async () => {
+        starts.push(Date.now());
+        await new Promise(resolve => setTimeout(resolve, LOOKUP_MS));
+
+        return (calls += 1) < 3 ? pending() : settled(5);
+      }),
+      getTransactionByDeployHash: jest.fn(),
+    } as never);
+
+    await makeRepository().waitForTransaction({
+      ...params({ timeoutMs: 5_000 }),
+      pollIntervalMs: POLL_INTERVAL_MS,
+    });
+
+    expect(starts).toHaveLength(3);
+    expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(LOOKUP_MS + POLL_INTERVAL_MS - 15);
+    expect(starts[2] - starts[1]).toBeGreaterThanOrEqual(LOOKUP_MS + POLL_INTERVAL_MS - 15);
+  });
+
+  it('builds one rpc client per watch rather than one per poll', async () => {
+    const client = installRpc([
+      async () => pending(),
+      async () => pending(),
+      async () => settled(3),
+    ]);
+
+    await makeRepository().waitForTransaction(params());
+
+    expect(client.getTransactionByTransactionHash).toHaveBeenCalledTimes(3);
+    expect(createCasperRpcClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects with a cancellation error when the caller aborts the watch', async () => {
+    installRpc([async () => pending()]);
+    const controller = new AbortController();
+
+    const promise = makeRepository()
+      .waitForTransaction(params({ timeoutMs: 5_000, signal: controller.signal }))
+      .catch((e: unknown) => e);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    controller.abort();
+
+    const error = await promise;
+
+    expect(isTransactionWatchCancelledError(error)).toBe(true);
+    expect((error as { hash: string }).hash).toBe(HASH);
+  });
+
+  it('stops polling once the watch is aborted', async () => {
+    const client = installRpc([async () => pending()]);
+    const controller = new AbortController();
+
+    const promise = makeRepository()
+      .waitForTransaction(params({ timeoutMs: 5_000, signal: controller.signal }))
+      .catch(() => undefined);
+
+    await new Promise(resolve => setTimeout(resolve, 30));
+    controller.abort();
+    await promise;
+
+    const callsAtAbort = client.getTransactionByTransactionHash.mock.calls.length;
+
+    await new Promise(resolve => setTimeout(resolve, 60));
+
+    expect(client.getTransactionByTransactionHash).toHaveBeenCalledTimes(callsAtAbort);
+  });
+
+  it('rejects immediately when handed an already-aborted signal', async () => {
+    const client = installRpc([async () => settled(1)]);
+
+    const error = await makeRepository()
+      .waitForTransaction(params({ signal: AbortSignal.abort() }))
+      .catch((e: unknown) => e);
+
+    expect(isTransactionWatchCancelledError(error)).toBe(true);
+    expect(client.getTransactionByTransactionHash).not.toHaveBeenCalled();
+  });
+
   it('exposes the same outcome through observeTransaction', async () => {
     installRpc([async () => settled(42)]);
 
@@ -206,7 +313,8 @@ describe('TransactionStatusRepository', () => {
     });
   });
 
-  it('defaults the poll interval when the caller omits it', () => {
+  it('watches for as long as a transaction stays valid on chain', () => {
     expect(DEFAULT_SETTLEMENT_POLL_INTERVAL_MS).toBe(2_000);
+    expect(DEFAULT_SETTLEMENT_TIMEOUT_MS).toBe(DEX_TRANSACTION_TTL_MS);
   });
 });

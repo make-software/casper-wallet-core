@@ -104,9 +104,10 @@ const submitLeg = async function* (
       hash,
       network: deps.network,
       isDeploy: built.deploy !== undefined,
+      signal,
     });
   } catch (error) {
-    yield { type: 'failed', leg, error };
+    yield signal.aborted ? { type: 'cancelled', leg } : { type: 'failed', leg, error };
 
     return false;
   }

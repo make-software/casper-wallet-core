@@ -4,7 +4,10 @@ import { createSwapFlowRunner } from './swapFlow';
 
 import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../__test-utils__/render-hook';
 import { CSPR_NATIVE_TOKEN_ID } from '../../domain/constants';
-import { TransactionTimeoutError } from '../../domain/transactionStatus';
+import {
+  TransactionTimeoutError,
+  TransactionWatchCancelledError,
+} from '../../domain/transactionStatus';
 import { SwapQuoteType } from '../../domain/swap';
 import type { ILedgerEvent } from '../../domain/ledger';
 import type { IDexTokenWithAmount } from '../../domain/swap';
@@ -292,6 +295,38 @@ describe('createSwapFlowRunner', () => {
     expect((await events).map(e => e.type)).toContain('cancelled');
     expect(result.status).toBe('cancelled');
     expect(result.swapHash).toBe('0xswap');
+  });
+
+  it('hands the abort signal to the settlement watch and reports its abort as a cancellation', async () => {
+    const waitForTransaction = jest.fn(
+      ({ signal }: { signal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) =>
+          signal?.addEventListener(
+            'abort',
+            () => reject(new TransactionWatchCancelledError('0xswap')),
+            { once: true },
+          ),
+        ),
+    );
+    const deps = makeDeps({
+      transactionStatusRepository: { observeTransaction: jest.fn(), waitForTransaction },
+    });
+
+    const handle = createSwapFlowRunner(deps).start(startParams());
+    const events = firstValueFrom(handle.events$.pipe(toArray()));
+
+    await new Promise(resolve => setTimeout(resolve, 10));
+    handle.cancel();
+
+    const result = await handle.done;
+    const types = (await events).map(e => e.type);
+
+    expect(waitForTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(types).toContain('cancelled');
+    expect(types).not.toContain('failed');
+    expect(result.status).toBe('cancelled');
   });
 
   it('keeps running after every subscriber has unsubscribed', async () => {
