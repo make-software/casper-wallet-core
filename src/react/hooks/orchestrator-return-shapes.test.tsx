@@ -20,23 +20,27 @@ import {
   stubTokensRepository,
   TEST_PUBLIC_KEY,
 } from '../../__test-utils__/render-hook';
-import type { ISwapFlowRunner } from '../../domain/flows';
+import type { ISwapFlowRunner, IWrapFlowRunner } from '../../domain/flows';
 import { SwapQuoteType } from '../../domain/swap';
 import type { IDexToken, IDexTokenWithAmount } from '../../domain/swap';
-import type { IDexTransactionSender } from '../types';
 
 const network = 'mainnet' as const;
-
-const signer: IDexTransactionSender = {
-  publicKey: TEST_PUBLIC_KEY,
-  supportsTransactionV1: true,
-  send: jest.fn().mockResolvedValue(undefined),
-};
 
 /** Never emits — this suite only asserts the hook's initial return shape. */
 const swapFlowRunner: ISwapFlowRunner = {
   start: jest.fn(() => ({
     id: 'flow-1',
+    events$: NEVER,
+    done: new Promise(() => {}),
+    cancel: jest.fn(),
+  })),
+  getActive: jest.fn(() => null),
+};
+
+/** Never emits — this suite only asserts the hook's initial return shape. */
+const wrapFlowRunner: IWrapFlowRunner = {
+  start: jest.fn(() => ({
+    id: 'flow-2',
     events$: NEVER,
     done: new Promise(() => {}),
     cancel: jest.fn(),
@@ -199,8 +203,7 @@ describe('orchestrator return shapes', () => {
       useReviewWrap({
         network,
         activePublicKey: TEST_PUBLIC_KEY,
-        dexContractRepository,
-        signer,
+        wrapFlowRunner,
         direction: 'wrap',
         sourceToken: token('cspr') as unknown as IDexToken & IDexTokenWithAmount,
         isOpen: true,

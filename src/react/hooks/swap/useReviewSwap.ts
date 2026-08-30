@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { initialSwapFlowState, swapFlowReducer } from '../../../domain/flows';
 import type { IStartSwapFlowParams, ISwapFlowHandle } from '../../../domain/flows';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
-import type { ApprovalState, ISwapDependencies, TransactionStatus } from '../../types';
+import type { ISwapDependencies, TransactionStatus } from '../../types';
 
 export interface IUseReviewSwapParams extends Pick<
   ISwapDependencies,
@@ -23,7 +23,12 @@ export interface IUseReviewSwapParams extends Pick<
 }
 
 export interface ISwapTransactionState {
-  approval: ApprovalState;
+  approval: {
+    isRequired: boolean;
+    status: TransactionStatus;
+    transactionHash?: string;
+    error?: string;
+  };
   swap: { status: TransactionStatus; error?: string };
 }
 

@@ -22,22 +22,6 @@ export type IBuiltDexTransaction = IBuiltDexTransactionBase &
     | { readonly deploy: Deploy; readonly transaction?: never }
   );
 
-export interface ITransactionCallbacks {
-  onSent?: (transactionHash: string) => void;
-  onProcessed?: () => void;
-  onError?: (error: unknown) => void;
-  onCancelled?: () => void;
-}
-
-/** The dex flow port the react hooks consume. Built by `createDexTransactionSender` — apps supply only an ICasperSigner (D12). */
-export interface IDexTransactionSender {
-  readonly publicKey: string;
-  /** Chooses the built artifact (TransactionV1 vs Deploy); computed app-side per D12. */
-  readonly supportsTransactionV1: boolean;
-  /** Signs + submits; resolves after submission. Status flows through the callbacks. */
-  send(built: IBuiltDexTransaction, callbacks: ITransactionCallbacks): Promise<void>;
-}
-
 export interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
   wrappedCsprContractPackageHash?: Record<CasperNetwork, string>; // default WrappedCsprContractPackageHash

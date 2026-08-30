@@ -1,21 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useWrapTransaction, type IUseWrapTransactionParams } from './useWrapTransaction';
-
-import { useTransactionStatuses } from '../ui/useTransactionStatuses';
-
+import { initialWrapFlowState, wrapFlowReducer } from '../../../domain/flows';
+import type { IStartWrapFlowParams, IWrapFlowHandle } from '../../../domain/flows';
 import type { WrapDirection } from '../../../domain/dex';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
-import { getTransactionErrorMessage } from '../../../utils/swap';
-import type { ISwapDependencies, ITransactionCallbacks } from '../../types';
-
-type WrapStep = 'confirm' | 'signing' | 'success';
-
-const WRAP_STATUS_KEYS = ['wrap'] as const;
+import type { ISwapDependencies } from '../../types';
 
 export interface IUseReviewWrapParams extends Pick<
   ISwapDependencies,
-  'network' | 'activePublicKey' | 'dexContractRepository' | 'signer'
+  'network' | 'activePublicKey' | 'wrapFlowRunner'
 > {
   direction: WrapDirection;
   sourceToken: IDexTokenWithAmount;
@@ -25,104 +18,72 @@ export interface IUseReviewWrapParams extends Pick<
 }
 
 /**
- * Review-modal flow for wrap/unwrap. A single build+sign step, unlike `useReviewSwap`: wrap has
- * no slippage/deadline and needs no approval (`withdraw` burns the caller's own balance).
+ * Subscribes the review modal to a running wrap flow instead of owning the orchestration
+ * itself. Closing the modal (`isOpen: false`) unsubscribes but never cancels the handle — only
+ * the explicit `handle.cancel()` does that — so a submitted wrap keeps running, and reopening
+ * replays the flow's history to re-render whatever it has actually reached.
  */
 export const useReviewWrap = ({
-  network,
   activePublicKey,
-  dexContractRepository,
-  signer,
+  wrapFlowRunner,
   direction,
   sourceToken,
   isOpen,
   onWrapSuccess,
   onClose,
 }: IUseReviewWrapParams) => {
-  const { execute } = useWrapTransaction({ network, dexContractRepository, signer });
-  const { transactionStates, updateTransactionState, resetStates } =
-    useTransactionStatuses(WRAP_STATUS_KEYS);
-
-  const [step, setStep] = useState<WrapStep>('confirm');
-  const [error, setError] = useState<string | null>(null);
-  const [transactionHash, setTransactionHash] = useState<string | null>(null);
-
-  const status = transactionStates.wrap;
-
-  const resetForm = useCallback(() => {
-    setStep('confirm');
-    resetStates();
-    setError(null);
-    setTransactionHash(null);
-  }, [resetStates]);
+  const [handle, setHandle] = useState<IWrapFlowHandle | null>(null);
+  const [state, setState] = useState(initialWrapFlowState);
+  const succeededRef = useRef(false);
+  // `confirmWrap` can be invoked twice within the same tick, before the `handle` state update
+  // from the first call has re-rendered — a ref guards synchronously where state cannot.
+  const handleRef = useRef<IWrapFlowHandle | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
-      resetForm();
-    }
-  }, [isOpen, resetForm]);
+    // Gated on `isOpen`, not torn down forever: unsubscribing here only stops the hook from
+    // applying events while the surface is closed. It never cancels the flow (D4), and a real
+    // handle's `events$` is `shareReplay`d, so resubscribing on reopen replays the full history
+    // and `next` reconstructs the flow's true current state rather than a stale one.
+    if (!handle || !isOpen) return;
 
-  const confirmWrap = useCallback(async () => {
-    if (!activePublicKey) return;
+    let next = initialWrapFlowState;
+    const subscription = handle.events$.subscribe(event => {
+      next = wrapFlowReducer(next, event);
+      setState(next);
 
-    setStep('signing');
-    setError(null);
-    updateTransactionState('wrap', 'pending');
-
-    const callbacks: ITransactionCallbacks = {
-      onSent: hash => {
-        setTransactionHash(hash);
-        updateTransactionState('wrap', 'awaiting');
-      },
-      onProcessed: () => {
-        updateTransactionState('wrap', 'success');
-        setStep('success');
-        // Refetch balances as soon as the transaction succeeds (not on modal close), so the form
-        // behind the success modal reflects the new CSPR / WCSPR balances immediately.
+      if (event.type === 'wrap:confirmed' && !succeededRef.current) {
+        succeededRef.current = true;
         onWrapSuccess();
-      },
-      onError: txError => {
-        updateTransactionState('wrap', 'error');
-        setError(getTransactionErrorMessage(txError));
-      },
-      // Treat a wallet rejection like any other failure: stay on the signing step and surface
-      // the error. onError follows onCancelled and will set the message.
-      onCancelled: () => {
-        updateTransactionState('wrap', 'error');
-      },
-    };
+      }
+    });
 
-    const params: IUseWrapTransactionParams = {
+    // Unsubscribe only — cancelling here would abandon a submitted wrap (D4).
+    return () => subscription.unsubscribe();
+  }, [handle, isOpen, onWrapSuccess]);
+
+  const confirmWrap = useCallback(() => {
+    if (handleRef.current || !wrapFlowRunner || !activePublicKey) return;
+
+    const params: IStartWrapFlowParams = {
       direction,
       rawAmount: sourceToken.amountRaw,
-      publicKey: activePublicKey,
     };
 
-    try {
-      await execute(params, callbacks);
-    } catch (txError) {
-      updateTransactionState('wrap', 'error');
-      setError(getTransactionErrorMessage(txError));
-    }
-  }, [
-    activePublicKey,
-    direction,
-    execute,
-    onWrapSuccess,
-    sourceToken.amountRaw,
-    updateTransactionState,
-  ]);
+    const newHandle = wrapFlowRunner.start(params);
+    handleRef.current = newHandle;
+    setHandle(newHandle);
+  }, [activePublicKey, direction, sourceToken.amountRaw, wrapFlowRunner]);
 
   const handleCloseSuccessModal = useCallback(() => {
     onClose();
   }, [onClose]);
 
   return {
-    step,
-    status,
-    error,
-    transactionHash,
-    isProcessing: step === 'signing' && status !== 'success',
+    step: state.step,
+    status: state.wrap.status,
+    error: state.wrap.error ?? null,
+    transactionHash: state.wrap.hash ?? null,
+    isProcessing: state.step === 'signing',
     confirmWrap,
     handleCloseSuccessModal,
   };
