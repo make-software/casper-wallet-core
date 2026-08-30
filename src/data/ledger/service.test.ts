@@ -575,6 +575,41 @@ describe('CasperLedgerService', () => {
     });
   });
 
+  describe('ledgerEvents$', () => {
+    it('replays the current event to a late subscriber', () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const seen: LedgerEventStatus[] = [];
+
+      service.ledgerEvents$.subscribe(evt => seen.push(evt.status));
+
+      expect(seen).toHaveLength(1);
+    });
+
+    it('emits without waiting out the callback path debounce', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 21781,
+          publicKey: Buffer.alloc(33),
+        })),
+      });
+      const { service } = await connectService(app);
+      const seen: LedgerEventStatus[] = [];
+
+      service.ledgerEvents$.subscribe(evt => seen.push(evt.status));
+      const before = seen.length;
+
+      await service.getAccountList({ size: 1, offset: 0 });
+
+      expect(seen.length).toBeGreaterThan(before);
+    });
+
+    it('does not expose a publishing surface', () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      expect((service.ledgerEvents$ as unknown as { next?: unknown }).next).toBeUndefined();
+    });
+  });
+
   describe('getAccountList', () => {
     it('fetches accounts sequentially, encodes them as hex, and caches the result', async () => {
       const app = makeFakeApp({

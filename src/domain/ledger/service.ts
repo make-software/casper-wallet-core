@@ -1,5 +1,5 @@
 import type { Transaction } from 'casper-js-sdk'; // type-only — the sdk-free gate checks value imports
-import type { Subscription } from 'rxjs';
+import type { Observable, Subscription } from 'rxjs';
 import type {
   ILedgerCasperApp,
   ILedgerEvent,
@@ -33,6 +33,12 @@ export interface ICasperLedgerService {
   cachedAccounts: LedgerAccount[];
   readonly isConnected: boolean;
   subscribeToLedgerEventStatus(onData: (evt: ILedgerEvent) => void): Subscription;
+  /**
+   * The same events as {@link subscribeToLedgerEventStatus}, un-debounced, for consumers that
+   * compose them with another stream — a swap flow merging device prompts into its own progress.
+   * Replays the current event to every new subscriber.
+   */
+  readonly ledgerEvents$: Observable<ILedgerEvent>;
   /** @throws {LedgerError} */
   connect(
     transportCreator: TransportCreator,

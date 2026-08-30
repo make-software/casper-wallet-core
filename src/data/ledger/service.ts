@@ -58,6 +58,8 @@ export class CasperLedgerService implements ICasperLedgerService {
   subscribeToLedgerEventStatus = (onData: (evt: ILedgerEvent) => void): Subscription =>
     this.#ledgerEventStatusSubject.pipe(debounceTime(300)).subscribe(onData);
 
+  readonly ledgerEvents$: Observable<ILedgerEvent> = this.#ledgerEventStatusSubject.asObservable();
+
   /** @throws {LedgerError} */
   async connect(
     transportCreator: TransportCreator,
