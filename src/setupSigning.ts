@@ -2,6 +2,7 @@ import {
   CasperTransactionsRepository,
   DexContractRepository,
   EIP712Repository,
+  TransactionStatusRepository,
   TxSignatureRequestRepository,
 } from './data/repositories';
 import { GrpcUrl, TradeContractPackageHash, WrappedCsprContractPackageHash } from './domain';
@@ -84,11 +85,16 @@ export const setupSigningRepositories = ({
     ...rpcOptions,
     ...(httpAuthorizationHeader ? { authorizationHeader: httpAuthorizationHeader } : {}),
   });
+  const transactionStatusRepository = new TransactionStatusRepository(grpcUrl, {
+    ...rpcOptions,
+    authorizationHeader: httpAuthorizationHeader,
+  });
 
   return {
     txSignatureRequestRepository,
     eip712Repository,
     dexContractRepository,
     casperTransactionsRepository,
+    transactionStatusRepository,
   };
 };
