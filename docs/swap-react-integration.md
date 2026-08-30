@@ -2,7 +2,8 @@
 
 This guide is for consumers wiring the swap and WCSPR wrap/unwrap flows into a React app (the
 Casper Wallet browser extension and the mobile app). It covers the pieces added under
-`src/domain/swap`, `src/domain/dex`, and the optional React hooks layer in `src/react/`.
+`src/domain/swap`, `src/domain/dex`, `src/domain/flows`/`src/data/flows` (the framework-neutral
+flow layer, root-exported), and the optional React hooks layer in `src/react/`.
 
 `src/react/` is **not** exported from the package root — it depends on `react` and
 `@tanstack/react-query`, both optional peer dependencies, so importing it never forces the SDK
@@ -119,10 +120,12 @@ function TradeScreen() {
       dexContractRepository,
       tokensRepository,
       network,
-      signer,
+      // Built once from a signer + setupRepositories(), as shown in step 3.
+      swapFlowRunner,
+      wrapFlowRunner,
       activePublicKey,
     }),
-    [network, signer, activePublicKey],
+    [network, swapFlowRunner, wrapFlowRunner, activePublicKey],
   );
 
   const swap = useSwapTokens({ ...deps, slippage });
@@ -131,16 +134,18 @@ function TradeScreen() {
 ```
 
 Note that each hook takes only the subset it needs, so spreading a full `ISwapDependencies` is a
-convenience, not a requirement — a hook can equally be given its three fields by hand. This
-library holds no live wallet-account state itself; `activePublicKey` and `signer` are exactly
-what the host app currently has selected.
+convenience, not a requirement — a hook can equally be given its fields by hand. This library
+holds no live wallet-account state itself; `activePublicKey`, `swapFlowRunner` and
+`wrapFlowRunner` are exactly what the host app currently has selected and built — `null` for the
+runners and `activePublicKey` until a wallet is connected.
 
-**Repositories must be stable references.** These hooks put dependency objects in
-`useCallback`/`useEffect` dependency arrays, so a dependency that gets a new identity on every
+**Repositories and flow runners must be stable references.** These hooks put dependency objects
+in `useCallback`/`useEffect` dependency arrays, so a dependency that gets a new identity on every
 render re-triggers those effects — `useTokenBalances`'s CSPR refetch loops indefinitely if
-`tokensRepository` is rebuilt on every render instead of held as a stable singleton. Keep
-`swapRepository`, `dexContractRepository`, and `tokensRepository` as module-level singletons
-(the way `setupRepositories()` in step 1 already returns them), and memoize the `deps` object
+`tokensRepository` is rebuilt on every render instead of held as a stable singleton, and a
+`swapFlowRunner` rebuilt on every render breaks `useReviewSwap`'s duplicate-submission guard the
+same way. Keep `swapRepository`, `dexContractRepository`, `tokensRepository`, `swapFlowRunner`
+and `wrapFlowRunner` as module-level (or memoized-once) singletons, and memoize the `deps` object
 itself, as in the example above.
 
 Above `TradeScreen`, only `QueryClientProvider` is required:
@@ -155,63 +160,72 @@ function App() {
 }
 ```
 
-## 3. Provide an `ICasperSigner` and build the transaction sender
+## 3. Provide an `ICasperSigner` and build the flow runners
 
-The library never signs or submits directly, but it does own the sign+submit pipeline: apps no
-longer implement a flow-level port themselves. Builders (`buildSwapTransaction`,
-`buildWrapTransaction`, `buildUnwrapTransaction`, `buildApprovalTransaction`) return an unsigned
-`IBuiltDexTransaction` (exactly one of `.transaction` / `.deploy`, selected by the
-`useTransactionV1` flag you pass in). Consumers supply only a key-level `ICasperSigner`
-(`createPrivateKeySigner` for a software key, `createLedgerSigner` for Ledger) and hand it,
-together with their own deploy-status monitoring, to `createDexTransactionSender`:
+The library never signs or submits directly, but it does own the whole approve → settle →
+swap → settle orchestration: apps no longer implement a flow-level port themselves. Consumers
+supply only a key-level `ICasperSigner` (`createPrivateKeySigner` for a software key,
+`createLedgerSigner` for Ledger) and hand it, together with the repositories from
+`setupRepositories()`, to `createSwapFlowRunner` / `createWrapFlowRunner`:
 
 ```ts
 import {
-  createDexTransactionSender,
   createPrivateKeySigner,
+  createSwapFlowRunner,
+  createWrapFlowRunner,
   setupRepositories,
 } from 'casper-wallet-core';
 
-const { casperTransactionsRepository } = setupRepositories();
+const { casperTransactionsRepository, dexContractRepository, transactionStatusRepository } =
+  setupRepositories({ dexConfig: { getProxyWasm } });
 
 const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
 
-const dexTransactionSender = createDexTransactionSender({
-  signer,
-  casperTransactionsRepository,
+const swapFlowRunner = createSwapFlowRunner({
   network,
+  publicKey: publicKeyHex,
+  signer,
   supportsTransactionV1:
     casperNetworkApiVersion.startsWith('2.') && (isSoftwareKey || ledgerSupportsTransactionV1),
-  waitForTransaction: (transactionHash, network) =>
-    waitForDeployOrTransaction(transactionHash, network), // your own deploy/transaction-status monitoring
-  isCancellationError: error => isLedgerSignatureCancelled(error), // optional, default: never
+  dexContractRepository,
+  casperTransactionsRepository,
+  transactionStatusRepository,
+  // Optional: device prompts interleave with flow progress in the same stream.
+  ledgerEvents$: ledgerService?.ledgerEvents$,
+  isCancellationError: error => isLedgerSignatureCancelled(error),
 });
 ```
 
-`createDexTransactionSender` produces the `IDexTransactionSender` the hooks' `signer` field
-expects:
+`createWrapFlowRunner` takes the identical dependency shape — build both runners from the same
+`deps` object (wrap simply never calls the approval builders). `transactionStatusRepository`
+(`ITransactionStatusRepository`) is core-owned: it polls node RPC until the submitted
+transaction executes, so there is no `waitForTransaction` callback left for a consumer to
+implement. Both runners are typically built once, alongside your other repositories, and passed
+into `ISwapDependencies` as `swapFlowRunner`/`wrapFlowRunner` — see step 2.
 
-```ts
-export interface IDexTransactionSender {
-  readonly publicKey: string;
-  /** true when the signer supports signing TransactionV1 — passed in, not derived here. */
-  readonly supportsTransactionV1: boolean;
-  /** Signs + submits via `sendDexTransaction`; resolves after submission. */
-  send(built: IBuiltDexTransaction, callbacks: ITransactionCallbacks): Promise<void>;
-}
+`runner.start(params)` returns an `ISwapFlowHandle` / `IWrapFlowHandle` — a running flow, not a
+one-shot promise. `src/react/hooks/swap/useReviewSwap.ts` and
+`src/react/hooks/wrap/useReviewWrap.ts` are the reference subscribers (see "Swap review flow" and
+"Wrap / unwrap flow" below); a non-React consumer subscribes to `handle.events$` the same way.
 
-export interface ITransactionCallbacks {
-  onSent?: (transactionHash: string) => void;
-  onProcessed?: () => void;
-  onError?: (error: unknown) => void;
-  onCancelled?: () => void;
-}
-```
+### The flow handle and cancellation semantics
 
-`send` calls `sendDexTransaction({ built, network, signer })`, fires `onSent(hash)` once
-submitted, then resolves — settlement is reported later through `onProcessed`/`onError` as your
-injected `waitForTransaction` resolves or rejects. A rejection from `sendDexTransaction` itself
-routes to `onCancelled` when `isCancellationError` recognizes it, otherwise to `onError`.
+- **`events$` is hot and replayed.** It is a `shareReplay({ bufferSize: Infinity, refCount:
+false })` observable: the flow starts as soon as `start()` is called, regardless of whether
+  anyone is subscribed, and a subscriber that attaches later — after a modal reopens, or a
+  screen remounts — receives the full event history from the beginning, not just what happens
+  next.
+- **Unsubscribing never cancels the flow.** Closing a review modal or navigating away
+  unsubscribes the hook's listener, but the submitted transaction keeps running to completion.
+  This is deliberate: a closed UI surface must not abandon a swap or wrap that is already on
+  chain.
+- **`handle.cancel()` is the only way to stop a flow**, and only takes effect at the next
+  `AbortSignal` check inside the flow generator — it cannot un-submit a transaction that has
+  already been sent.
+- **Reattaching:** `runner.getActive(id)` returns the handle for a still-running flow by its
+  `id`, or `null` once it has finished. A surface that unmounted and remounted (a modal closed
+  and reopened, an app backgrounded and resumed) uses this to pick the same in-flight flow back
+  up instead of losing track of it or starting a duplicate.
 
 ### Example: CSPR.click adapter
 
@@ -238,24 +252,25 @@ const csprClickSigner = (clickRef: ICSPRClickSDK, publicKeyHex: string): ICasper
 ```
 
 A CSPR.click cancellation surfaces as a rejection from `clickRef.sign`/`signMessage` — recognize
-it and pass it as `isCancellationError` to `createDexTransactionSender` so it maps to
-`onCancelled` instead of `onError`.
+it and pass it as `isCancellationError` to `createSwapFlowRunner`/`createWrapFlowRunner` so the
+flow yields a `'cancelled'` event (reducer state `'idle'`) instead of a `'failed'` one.
 
 ### Extension / mobile signing pipelines
 
 The shape is identical for any signing backend — the extension's in-process keyring and the
 mobile app's native signing bridge both implement `ICasperSigner` the same way: sign the
 transaction hash (already built by the library) and hand the result back. Submission, node-time
-drift, and API-version detection are no longer the app's concern — `createDexTransactionSender`
-drives them through `casperTransactionsRepository.sendDexTransaction`.
+drift, and API-version detection are no longer the app's concern — the flow runner drives them
+through `casperTransactionsRepository.sendDexTransaction` and `transactionStatusRepository`.
 
 ## 4. Slippage and deadline
 
 The library keeps no settings state of its own. `slippage` (percent) is a required parameter of
-`useSwapTokens`, `useSwapTransaction` and `useReviewSwap`; `deadline` (minutes) is a required
-parameter of `useSwapTransaction` and `useReviewSwap` only. `useSwapTokens` does **not** thread
-`deadline` anywhere — it quotes and validates the form, it does not build the transaction — so
-a consumer that stops at the orchestrator never supplies one. Where that state lives (in-memory,
+`useSwapTokens` and `useReviewSwap`; `deadline` (minutes) is a required parameter of
+`useReviewSwap` only, which threads both into the swap flow's `IStartSwapFlowParams`.
+`useSwapTokens` does **not** thread `deadline` anywhere — it quotes and validates the form, it
+does not build the transaction — so a consumer that stops at the orchestrator never supplies
+one. Where that state lives (in-memory,
 `localStorage`, `AsyncStorage`, redux-persist, ...) and how it survives a remount is entirely up
 to the host app.
 
@@ -347,7 +362,16 @@ function SwapPage({ slippage, deadline }: { slippage: number; deadline: number }
     ...rest
   } = useSwapTokens({ ...deps, slippage });
 
-  const { step, transactionState, isProcessing, confirmSwap, transactionHash } = useReviewSwap({
+  const {
+    step,
+    transactionState,
+    isProcessing,
+    confirmSwap,
+    resetForm,
+    handleCloseSuccessModal,
+    transactionHash,
+    ledgerEvent,
+  } = useReviewSwap({
     ...deps,
     slippage,
     deadline,
@@ -373,6 +397,17 @@ approval amount is derived from it and needs nothing else from the caller.
 rejects a route whose first hop is not the input token or whose last hop is not the output
 token, since `amount_out_min` bounds how much the user receives but not which token it is.
 
+`confirmSwap` calls `swapFlowRunner.start(...)` and subscribes to the resulting handle;
+`transactionState` is the reducer's fold of the flow's events into `{ approval, swap }` leg
+status, `ledgerEvent` is the most recent device-prompt event forwarded through
+`ledgerEvents$` (`undefined` until one arrives, or if the runner was built without a Ledger
+stream), and `resetForm` clears the hook's local state — it does not cancel a running flow.
+Closing the modal (`isOpen: false`) unsubscribes the hook from `events$`, which stops it from
+applying further events but never cancels the underlying flow: a submitted swap keeps running.
+Reopening the modal resubscribes, replays the flow's full history through the reducer, and
+reconstructs the true current state rather than a reset form. See "The flow handle and
+cancellation semantics" in step 3.
+
 ## Wrap / unwrap flow
 
 WCSPR wrap/unwrap composes the same building blocks as swap, with no approval step (`withdraw`
@@ -388,10 +423,11 @@ function WrapPage() {
       dexContractRepository,
       tokensRepository,
       network,
-      signer,
+      swapFlowRunner,
+      wrapFlowRunner,
       activePublicKey,
     }),
-    [network, signer, activePublicKey],
+    [network, swapFlowRunner, wrapFlowRunner, activePublicKey],
   );
 
   const {
@@ -431,11 +467,15 @@ function WrapPage() {
 
 - `useWrapTokens` owns the form: direction toggle, amount entry, balance/fee validation
   (`isInsufficientCsprForFees`), and fiat display for the source leg.
-- `useReviewWrap` drives the review-modal build+sign step: `confirmWrap` builds via
+- `useReviewWrap` drives the review-modal build+sign step: `confirmWrap` calls
+  `wrapFlowRunner.start({ direction, rawAmount: sourceToken.amountRaw })`, which builds via
   `dexContractRepository.buildWrapTransaction`/`buildUnwrapTransaction` (direction-dispatched)
-  and hands the result to `signer.send`. Note `onProcessed` fires `onWrapSuccess` immediately
-  rather than on modal close, and `onCancelled` maps to the `'error'` status like any other
-  failure.
+  and submits through the signer baked into the runner (step 3). `onWrapSuccess` fires as soon
+  as the flow's `'wrap:confirmed'` event arrives, not on modal close. A cancelled signature
+  resets `status` back to `'idle'` (the `'confirm'` step, so the user can retry); a submission or
+  on-chain failure sets `status` to `'error'` with a message in `error`. As with swap, closing the
+  modal unsubscribes but never cancels a submitted wrap — see "The flow handle and cancellation
+  semantics" in step 3.
 
 For swap (approval-then-swap, with slippage/deadline as consumer-owned parameters — see
 "Slippage and deadline" above), the equivalent entry points are `useSwapTokens` (form
@@ -443,19 +483,22 @@ orchestration) and `useReviewSwap` (review modal, approval + swap).
 
 Every hook shown in this guide takes a single object parameter whose dependency fields
 (`network`, `activePublicKey`, `swapRepository`, `dexContractRepository`, `tokensRepository`,
-`signer`) are required — there is no default or optional fallback for them, and each hook's
-params type `Pick`s only the subset it needs from `ISwapDependencies`.
+`swapFlowRunner`, `wrapFlowRunner`) are required — there is no default or optional fallback for
+them, and each hook's params type `Pick`s only the subset it needs from `ISwapDependencies`.
 
 ## Further reading
 
-- `src/domain/dex/entities.ts` — the full `IDexTransactionSender` and `ITransactionCallbacks`
-  contracts (re-exported from `src/react/types.ts`); `src/data/signers/dexTransactionSender.ts` —
-  `createDexTransactionSender`. `src/react/types.ts` — `ISwapDependencies`.
+- `src/domain/flows/entities.ts` — `IFlowHandle`, `ISwapFlowRunner`/`IWrapFlowRunner`,
+  `SwapFlowEvent`/`WrapFlowEvent`, `ISwapFlowResult`/`IWrapFlowResult` (re-exported from
+  `src/domain/index.ts`); `src/data/flows/` — `createSwapFlowRunner`, `createWrapFlowRunner`,
+  `createFlowHandle` (root-exported). `src/react/types.ts` — `ISwapDependencies`.
 - `src/domain/swap/`, `src/domain/dex/` — entities, repository interfaces, errors.
+- `src/domain/transactionStatus/` — `ITransactionStatusRepository`, `ITransactionOutcome`,
+  `TransactionTimeoutError`.
 - `src/domain/constants/config.ts` — fee/slippage/deadline constants and DEX gas amounts;
   `src/domain/constants/casperNetwork.ts` — the per-network trade API url and contract package
   hashes.
-- `src/react/hooks/` — `ui/` (debounce, modal state, transaction status tracking), `api/`
-  (TanStack Query hooks over `swapRepository`/`dexContractRepository`), `token/` (balance,
-  approval, pair-state helpers shared by swap and wrap), `swap/`, `wrap/` (the two page-level
-  flows).
+- `src/react/hooks/` — `ui/` (debounce, modal state), `api/` (TanStack Query hooks over
+  `swapRepository`/`dexContractRepository`), `token/` (balance, fee validation, pair-state
+  helpers shared by swap and wrap), `swap/`, `wrap/` (the page-level form hooks plus
+  `useReviewSwap`/`useReviewWrap`, which subscribe to the flow runners in `src/data/flows`).

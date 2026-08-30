@@ -53,6 +53,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `{ handlerType: 'axios', referrerMode: 'referer-header' }`.
 - Package root additionally exports `./src/data/signers`, `./src/utils/casperSdk/tx-builders` and
   `./src/utils/casperSdk/validation`.
+- **Framework-neutral swap/wrap flow layer.** New `domain/flows` (`IFlowHandle`,
+  `ISwapFlowRunner`/`IWrapFlowRunner`, `SwapFlowEvent`/`WrapFlowEvent`, `ISwapFlowResult`/
+  `IWrapFlowResult`, the pure `swapFlowReducer`/`wrapFlowReducer`) and `src/data/flows`
+  (root-exported): `createSwapFlowRunner`/`createWrapFlowRunner` build the approve → settle →
+  swap → settle sequence as an `async function*`, lifted to a hot, replayed `Observable`
+  (`events$`) via `shareReplay({ bufferSize: Infinity, refCount: false })`. Unsubscribing from
+  `events$` never cancels a running flow — only the explicit `handle.cancel()` does — so a closed
+  UI surface never abandons or duplicates a submitted transaction; `runner.getActive(id)` lets a
+  remounted surface reattach to a flow that is still running.
+- **`ITransactionStatusRepository`** (`domain/transactionStatus`), implemented by
+  `TransactionStatusRepository` and returned as `transactionStatusRepository` from
+  `setupRepositories()`. Polls node RPC (`observeTransaction`/`waitForTransaction`) until a
+  submitted transaction executes, distinguishing a `TransactionTimeoutError` ("we stopped
+  waiting") from an executed `ITransactionOutcome` with `status: 'failure'` ("the chain rejected
+  it") — settlement is now core-owned instead of each app polling for itself.
+- **`ICasperLedgerService.ledgerEvents$`** — an `Observable<ILedgerEvent>` alongside the existing
+  callback-based `subscribeToLedgerEventStatus`, so a flow runner can merge device-prompt events
+  into its own `events$` via the `ledgerEvents$` dependency.
+- **`useReviewSwap`/`useReviewWrap` now subscribe to `swapFlowRunner`/`wrapFlowRunner`** instead
+  of owning the sign/submit/settle sequence themselves; `ISwapDependencies` carries
+  `swapFlowRunner`/`wrapFlowRunner` in place of `signer`. See `docs/swap-react-integration.md`.
 
 ### Changed
 
@@ -61,14 +82,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `createCasperRpcClient` helper as `casperTransactionsRepository` and `txSignatureRequest`, so an
   un-configured consumer picks up the `fetch` + `fetch-referrer` default. Pass `rpcOptions` to
   `DexContractRepository` (or via `setupRepositories`) to opt out.
-- **BREAKING — the swap `ISigner` port is renamed `IDexTransactionSender` and moved from
-  `src/react/types.ts` to `domain/dex`.** It is no longer an interface apps implement: core builds
-  it via `createDexTransactionSender({ signer, casperTransactionsRepository, network,
-supportsTransactionV1, waitForTransaction, isCancellationError? })`, which signs and
-  submits through `sendDexTransaction` and drives `ITransactionCallbacks` (also moved to
-  `domain/dex`). `src/react/types.ts` re-exports both names; the `ISwapDependencies.signer` field
-  name and the hooks' runtime behavior are unchanged — only the type an app hands in changes, from
-  a hand-rolled sign+submit implementation to an `ICasperSigner`.
+
+### Removed
+
+- **`createDexTransactionSender`, `IDexTransactionSender`, `ITransactionCallbacks`**
+  (`domain/dex`) — superseded by `createSwapFlowRunner`/`createWrapFlowRunner`, which consume an
+  `ICasperSigner` directly instead of wrapping it in a sender. Settlement is now core-owned via
+  `transactionStatusRepository`, so consumers no longer inject a `waitForTransaction` callback.
+- **`ApprovalState`** and the React hooks that used to orchestrate the sign/submit/settle
+  pipeline: `useSwapStates`, `useTransactionStatuses`, `useTokenApprovalFlow`,
+  `useSwapTransaction`, `useWrapTransaction`. That orchestration now lives in the flow layer
+  (`src/data/flows`) and the two review hooks that subscribe to it.
+  `dexContractRepository.checkApprovalRequired` is unaffected and stays public.
 
 ## [2.0.0] - 2026-08-30 — Swap / DEX
 
