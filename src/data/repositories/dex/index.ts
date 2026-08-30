@@ -117,8 +117,10 @@ export class DexContractRepository implements IDexContractRepository {
       });
 
       return new Decimal(allowance || '0').lt(new Decimal(requiredAmount || '0'));
+      // Fail-safe: an unreadable allowance must read as "approval required", never as
+      // "already approved".
+      // eslint-disable-next-line no-restricted-syntax -- deliberate
     } catch {
-      // Assume approval is required if we can't check.
       return true;
     }
   }

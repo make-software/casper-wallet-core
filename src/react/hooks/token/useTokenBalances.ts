@@ -45,7 +45,7 @@ export const useTokenBalances = ({
   const contractPackageHashes = useMemo(
     () => [
       ...(tokens ?? [])
-        .filter(token => token.id !== CSPR_NATIVE_TOKEN_ID && token.packageHash)
+        .filter(token => token.id !== CSPR_NATIVE_TOKEN_ID && token.packageHash !== '')
         .map(token => token.packageHash),
       ...(additionalContractPackageHashes ?? []).filter(
         h => !(tokens ?? []).some(t => t.packageHash === h),
@@ -109,7 +109,7 @@ export const useTokenBalances = ({
   }, [activePublicKey, refetchCsprBalance]);
 
   useEffect(() => {
-    if (!ownershipData?.length) {
+    if (ownershipData === undefined || ownershipData.length === 0) {
       return;
     }
 

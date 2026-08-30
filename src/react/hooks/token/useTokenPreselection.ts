@@ -29,23 +29,24 @@ export const useTokenPreselection = ({
 }: IUseTokenPreselectionParams): void => {
   const hasSetRef = useRef(false);
 
-  // `null` while the listed set is loading; only an explicit `false` triggers a custom fetch.
-  const tokenInInListed = tokens ? tokens.some(t => t.packageHash === tokenInHash) : null;
-  const tokenOutInListed = tokens ? tokens.some(t => t.packageHash === tokenOutHash) : null;
+  // `tokens` is a non-nullable array, so an empty list — still loading — is indistinguishable
+  // from a loaded list that does not contain the hash, and both send it to the custom fetch.
+  const tokenInInListed = tokens.some(t => t.packageHash === tokenInHash);
+  const tokenOutInListed = tokens.some(t => t.packageHash === tokenOutHash);
 
   const { token: customTokenIn } = useFetchToken({
     network,
     swapRepository,
-    contractPackageHash: tokenInHash && tokenInInListed === false ? tokenInHash : '',
+    contractPackageHash: tokenInHash && !tokenInInListed ? tokenInHash : '',
   });
   const { token: customTokenOut } = useFetchToken({
     network,
     swapRepository,
-    contractPackageHash: tokenOutHash && tokenOutInListed === false ? tokenOutHash : '',
+    contractPackageHash: tokenOutHash && !tokenOutInListed ? tokenOutHash : '',
   });
 
   useEffect(() => {
-    if (hasSetRef.current || !tokens) return;
+    if (hasSetRef.current) return;
 
     const tokenIn = tokens.find(t => t.packageHash === tokenInHash) ?? customTokenIn ?? null;
     const tokenOut = tokenOutHash

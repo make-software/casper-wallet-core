@@ -13,8 +13,8 @@ export const useTokenWarnings = (
   context: 'swap' | 'add-liquidity',
 ): IUseTokenWarningsReturn => {
   const blacklistedTokens = [
-    selectedTokens.first?.isBlacklisted ? selectedTokens.first : null,
-    selectedTokens.second?.isBlacklisted ? selectedTokens.second : null,
+    selectedTokens.first?.isBlacklisted === true ? selectedTokens.first : null,
+    selectedTokens.second?.isBlacklisted === true ? selectedTokens.second : null,
   ].filter(Boolean) as NonNullable<ISelectedTokensState['first']>[];
 
   const unlistedTokens = [

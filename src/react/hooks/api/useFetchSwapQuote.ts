@@ -36,6 +36,8 @@ const extractFetchQuoteErrorCode = (error: ISwapError | null): FetchQuoteErrorCo
     const parsed = JSON.parse(data) as { data?: { error?: { code?: FetchQuoteErrorCodes } } };
 
     return parsed.data?.error?.code ?? null;
+    // A malformed envelope is simply "no code"; the quote error itself is surfaced as `error`.
+    // eslint-disable-next-line no-restricted-syntax -- deliberate
   } catch {
     return null;
   }
@@ -99,7 +101,7 @@ export const useFetchSwapQuote = ({
           // Without a block time the quote still has to refresh: "no block time" is not "no
           // refresh", or one failed RPC read at mount freezes the displayed price for the
           // session and the user signs a stale quote.
-          return latestBlockTimestamp
+          return typeof latestBlockTimestamp === 'number'
             ? getMillisecondsUntilNextBlock(latestBlockTimestamp)
             : BLOCK_INTERVAL_MS;
         }
