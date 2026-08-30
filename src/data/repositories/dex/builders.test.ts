@@ -1,4 +1,4 @@
-import { Args, Deploy, RpcClient, Transaction } from 'casper-js-sdk';
+import { Args, Deploy, PublicKey, RpcClient, Transaction } from 'casper-js-sdk';
 
 import {
   createContractDeploy,
@@ -404,6 +404,18 @@ describe('DexContractRepository builders', () => {
 
         const innerArgs = decodeInnerArgs(outerArgs);
         expect([...innerArgs.args.keys()].sort()).toEqual([...innerKeys].sort());
+
+        // The recipient of the swapped-for tokens, the on-chain expiry and the route are the
+        // three args whose value nothing else in the suite reads back.
+        expect(innerArgs.args.get('to')?.key?.toPrefixedString()).toBe(
+          PublicKey.fromHex(PUBLIC_KEY).accountHash().toPrefixedString(),
+        );
+        expect(innerArgs.args.get('deadline')?.ui64?.toString()).toBe(
+          String(BLOCK_TIME_MS + DEADLINE_MINUTES * 60_000),
+        );
+        expect(
+          innerArgs.args.get('path')?.list?.elements.map(el => el.key?.toPrefixedString()),
+        ).toEqual(params.path.map(hash => `hash-${hash}`));
 
         if (innerArgs.args.has('amount_out_min')) {
           expect(innerArgs.args.get('amount_out_min')?.ui256?.toString()).toBe(AMOUNT_OUT_MIN);

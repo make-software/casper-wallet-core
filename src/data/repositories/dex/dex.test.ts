@@ -1,7 +1,4 @@
-import { CLValue, Key, PublicKey } from 'casper-js-sdk';
-
 import { DexContractRepository } from './index';
-import { keysToHex } from '../../../utils/casperSdk/dex-contract';
 import {
   DexError,
   TradeContractPackageHash,
@@ -9,6 +6,8 @@ import {
 } from '../../../domain';
 
 const PUBLIC_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
+/** blake2b-256(accountKey.bytes() ++ tradeContractKey.bytes()) for PUBLIC_KEY on mainnet. */
+const ALLOWANCES_DICT_KEY = 'd3cf5c22d374ac6ec3e20c825ad6f38b47f15ba4db675ab3ab598d0fa6c03782';
 
 const GRPC_URL = {
   mainnet: 'https://rpc.mainnet.example.com',
@@ -69,13 +68,9 @@ describe('DexContractRepository', () => {
       const identifier = getDictionaryItemByIdentifier.mock.calls[0][1];
       expect(identifier.contractNamedKey.dictionaryName).toBe('allowances');
 
-      const accountKey = CLValue.newCLKey(
-        Key.newKey(PublicKey.fromHex(PUBLIC_KEY).accountHash().toPrefixedString()),
-      );
-      const operatorKey = CLValue.newCLKey(Key.newKey(TradeContractPackageHash.mainnet));
-      expect(identifier.contractNamedKey.dictionaryItemKey).toBe(
-        keysToHex(accountKey, operatorKey),
-      );
+      // Fixed vector rather than a re-run of `keysToHex`; the derivation itself is pinned in
+      // src/utils/casperSdk/dex-contract.test.ts.
+      expect(identifier.contractNamedKey.dictionaryItemKey).toBe(ALLOWANCES_DICT_KEY);
     });
 
     it('rejects a DexError typed "getAllowance" on RPC failure', async () => {
