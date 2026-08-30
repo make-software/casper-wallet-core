@@ -985,6 +985,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ledgerhq/devices@npm:8.15.1":
+  version: 8.15.1
+  resolution: "@ledgerhq/devices@npm:8.15.1"
+  dependencies:
+    "@ledgerhq/errors": "npm:^6.36.0"
+    "@ledgerhq/logs": "npm:^6.17.0"
+    rxjs: "npm:7.8.2"
+    semver: "npm:7.7.3"
+  checksum: 10c0/34d4959070465c20f815ae656baca103c24c3fe4e4b7c556975ca43de30ce5420cdcff7ae9f1a3e3fa4ef80cf851160970107557422c8677a208d4af076cc8e1
+  languageName: node
+  linkType: hard
+
 "@ledgerhq/devices@npm:8.17.0":
   version: 8.17.0
   resolution: "@ledgerhq/devices@npm:8.17.0"
@@ -994,10 +1006,53 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ledgerhq/devices@npm:8.9.0":
+  version: 8.9.0
+  resolution: "@ledgerhq/devices@npm:8.9.0"
+  dependencies:
+    "@ledgerhq/errors": "npm:^6.28.0"
+    "@ledgerhq/logs": "npm:^6.13.0"
+    rxjs: "npm:7.8.2"
+    semver: "npm:7.7.3"
+  checksum: 10c0/6443ef5551081221c98da7ff175e61a927a20b251d46a78a4d9eb9ee8fa77868f41ac308f7596682f6ad6d87be9d765e499530b434e27343bfbc7e0ae0ed33fd
+  languageName: node
+  linkType: hard
+
+"@ledgerhq/errors@npm:^6.28.0, @ledgerhq/errors@npm:^6.36.0":
+  version: 6.37.0
+  resolution: "@ledgerhq/errors@npm:6.37.0"
+  checksum: 10c0/8943569bec9640d7af14498491fc254857a3ec3bf21e841cf51b8bfe7fe9192838e1c854dad646c5264e020b1411df5fca26fc720dab31de539f2712ce6ed217
+  languageName: node
+  linkType: hard
+
 "@ledgerhq/errors@npm:^7.0.0":
   version: 7.0.0
   resolution: "@ledgerhq/errors@npm:7.0.0"
   checksum: 10c0/975943754576b665824f70f8a3c0d5d1c770799f970d026337b2173e327d675256c9e8af8390aa4ef9664f6fd04d03e91a53ce6311ccf906e4f79e331ddd64d9
+  languageName: node
+  linkType: hard
+
+"@ledgerhq/hw-transport@npm:6.31.16":
+  version: 6.31.16
+  resolution: "@ledgerhq/hw-transport@npm:6.31.16"
+  dependencies:
+    "@ledgerhq/devices": "npm:8.9.0"
+    "@ledgerhq/errors": "npm:^6.28.0"
+    "@ledgerhq/logs": "npm:^6.13.0"
+    events: "npm:^3.3.0"
+  checksum: 10c0/b98da4bbf842b5beaac09c2550b52d0981ea37f008d64cc1187122ca3623146713aa9d86db62a69e1f0220dbe9a84430c7942d00504d0b096b1a84ecbdd2409b
+  languageName: node
+  linkType: hard
+
+"@ledgerhq/hw-transport@npm:6.35.4":
+  version: 6.35.4
+  resolution: "@ledgerhq/hw-transport@npm:6.35.4"
+  dependencies:
+    "@ledgerhq/devices": "npm:8.15.1"
+    "@ledgerhq/errors": "npm:^6.36.0"
+    "@ledgerhq/logs": "npm:^6.17.0"
+    events: "npm:^3.3.0"
+  checksum: 10c0/07d36556e77287cd07d213496e80c726d797cd5e0b018edbea29b5ebdc3a69acdc2f812f4bb00cb4e79aba446178f573c188eb0b25ad26f3ad9c88fde94bff04
   languageName: node
   linkType: hard
 
@@ -1013,7 +1068,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/logs@npm:^6.17.0":
+"@ledgerhq/logs@npm:^6.13.0, @ledgerhq/logs@npm:^6.17.0":
   version: 6.17.0
   resolution: "@ledgerhq/logs@npm:6.17.0"
   checksum: 10c0/3f90895048b04dd79a916a87cde6ec4b28d60b059d865697a1429d83af54e17066a113de17c52c91bd638b3d9bf2df0c196ea783119f0d18869923dbc6d973e8
@@ -1598,6 +1653,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@zondax/ledger-casper@npm:^2.6.4":
+  version: 2.6.4
+  resolution: "@zondax/ledger-casper@npm:2.6.4"
+  dependencies:
+    "@ledgerhq/hw-transport": "npm:6.31.16"
+    "@zondax/ledger-js": "npm:^1.3.1"
+  checksum: 10c0/402ffea40377320db4242549f73e747803a11e946037e9bcce080802cdb728ef9ee19aefff0e9540cc116b4f5bf39705955b482e3bfc2fe2683ced30b5a0c4bd
+  languageName: node
+  linkType: hard
+
+"@zondax/ledger-js@npm:^1.3.1":
+  version: 1.3.4
+  resolution: "@zondax/ledger-js@npm:1.3.4"
+  dependencies:
+    "@ledgerhq/hw-transport": "npm:6.35.4"
+  checksum: 10c0/1bfa5d15eb236304648727c35d4e8727095053ab3f5c6f7ceff6e0e43be0c50039d4797eda022d3432a9f6e748abfd7a71d3159428b3580ea9bd2cd9b98c35a1
+  languageName: node
+  linkType: hard
+
 "CasperWalletCore@workspace:.":
   version: 0.0.0-use.local
   resolution: "CasperWalletCore@workspace:."
@@ -1616,6 +1690,7 @@ __metadata:
     "@types/node": "npm:^22.20.1"
     "@types/react": "npm:^18.3.0"
     "@types/react-dom": "npm:^18"
+    "@zondax/ledger-casper": "npm:^2.6.4"
     apisauce: "npm:^3.2.2"
     big.js: "npm:^7.0.1"
     casper-js-sdk: "npm:5.1.0"
@@ -1633,6 +1708,7 @@ __metadata:
     prettier: "npm:^3.9.5"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
+    rxjs: "npm:^7.8.2"
     ts-jest: "npm:^29.4.12"
     typescript: "npm:^5.9.3"
     uuid: "npm:^14.0.2"
@@ -5563,6 +5639,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"rxjs@npm:7.8.2, rxjs@npm:^7.8.2":
+  version: 7.8.2
+  resolution: "rxjs@npm:7.8.2"
+  dependencies:
+    tslib: "npm:^2.1.0"
+  checksum: 10c0/1fcd33d2066ada98ba8f21fcbbcaee9f0b271de1d38dc7f4e256bfbc6ffcdde68c8bfb69093de7eeb46f24b1fb820620bf0223706cff26b4ab99a7ff7b2e2c45
+  languageName: node
+  linkType: hard
+
 "safe-array-concat@npm:^1.1.3":
   version: 1.1.3
   resolution: "safe-array-concat@npm:1.1.3"
@@ -6134,7 +6219,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.0.1, tslib@npm:^2.4.1":
+"tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.4.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
