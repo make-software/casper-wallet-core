@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `sendDelegation` — build, sign, submit in one call, mobile parity) and a granular one
   (`signTransaction` / `sendSignedTransaction`, for the extension's multi-window sign-then-submit
   UX), plus `sendDexTransaction` for the swap flow's built artifact.
+- **Shared Ledger layer (Phase 2).** New `domain/ledger` (`LedgerEventStatus` — the union of
+  both apps' event sets, `ILedgerEvent`, `LedgerAccount`, `SignResult`, transport types,
+  `LedgerError`, `LEDGER_ERROR_STATUSES`, `isLedgerErrorEvent`) and `CasperLedgerService`
+  (`src/data/ledger`, root-exported), one device class replacing the near-identical
+  implementations in both apps. Transport creation, availability checks, pairing-invalidation
+  classification and session restore are injected, so the same service drives Web HID/USB and
+  React Native BLE. The on-device identity pre-flight the extension had now applies to both.
+  Adds `@zondax/ledger-casper`, `@ledgerhq/hw-transport` and `rxjs` as dependencies.
+- **`createLedgerSigner`** — presents a `CasperLedgerService` as an `ICasperSigner`, so hardware
+  and software keys drive the same send paths. `supportsTransactionV1Cb` and the session-restore
+  callback are bound at signer construction rather than passed per transfer, and a `LedgerError`
+  raised inside a repository method reaches the caller unwrapped.
 - **`createPrivateKeySigner`** (`src/data/signers`) — an `ICasperSigner` over the
   `{publicKeyHex, secretKeyBase64}` pair both apps already store; the software-key counterpart to
   the Phase-2 Ledger signer.
