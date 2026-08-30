@@ -9,3 +9,4 @@ export * from './deploy';
 export * from './logger';
 export * from './signatureRequest';
 export * from './eip712';
+export * from './transactions';
