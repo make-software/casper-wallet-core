@@ -18,6 +18,7 @@ import {
   ISignMessageParams,
   ISignTransactionParams,
   ISignTransactionResponse,
+  LedgerError,
 } from '../../../domain';
 import { getBlockchainAmount } from '../../../utils/common';
 import { isTransactionSignedBy } from '../../../utils/transactions';
@@ -282,7 +283,11 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
   }
 
   protected _processError(e: unknown, type: CasperTransactionsErrorType): never {
-    if (isCasperTransactionsError(e) || e instanceof InvalidDeployError) {
+    if (
+      isCasperTransactionsError(e) ||
+      e instanceof InvalidDeployError ||
+      e instanceof LedgerError
+    ) {
       throw e;
     }
 

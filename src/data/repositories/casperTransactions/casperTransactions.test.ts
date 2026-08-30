@@ -14,6 +14,8 @@ import {
   ICasperSigner,
   INft,
   IToken,
+  LedgerError,
+  LedgerEventStatus,
 } from '../../../domain';
 import { createPrivateKeySigner } from '../../signers';
 import * as txBuildersModule from '../../../utils/casperSdk/tx-builders';
@@ -495,6 +497,25 @@ describe('composed sends', () => {
           signer,
         }),
       ).rejects.toMatchObject({ name: 'DeploysRepositoryError', type: 'invalidDeploy' });
+    });
+
+    it('rethrows a LedgerError from a nested signer untouched (not wrapped)', async () => {
+      mockGetStatus.mockResolvedValue(nodeStatus('2026-01-01T00:00:00.000Z'));
+      const { signer } = makeFakeSigner(sender);
+      const ledgerError = new LedgerError({ status: LedgerEventStatus.SignatureCanceled });
+      (signer.getSignedTransaction as jest.Mock).mockRejectedValueOnce(ledgerError);
+      const repo = new CasperTransactionsRepository(GrpcUrl);
+      await expect(
+        repo.sendTokenTransfer({
+          token: { ...CSPR_COIN },
+          network: 'testnet',
+          casperNetworkApiVersion: '2.0.0',
+          toPublicKeyHex: recipient,
+          amount: '1',
+          paymentAmount: '0.1',
+          signer,
+        }),
+      ).rejects.toBe(ledgerError);
     });
   });
 });
