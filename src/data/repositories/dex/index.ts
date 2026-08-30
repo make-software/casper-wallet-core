@@ -10,6 +10,7 @@ import {
   IBuildUnwrapParams,
   IBuildWrapParams,
   IBuiltDexTransaction,
+  ICasperRpcOptions,
   IDexConfig,
   IDexContractRepository,
   IDexTokenWithAmount,
@@ -19,16 +20,7 @@ import {
   MIN_DEADLINE,
   SwapQuoteType,
 } from '../../../domain';
-import {
-  Args,
-  CLTypeKey,
-  CLTypeUInt8,
-  CLValue,
-  HttpHandler,
-  Key,
-  PublicKey,
-  RpcClient,
-} from 'casper-js-sdk';
+import { Args, CLTypeKey, CLTypeUInt8, CLValue, Key, PublicKey, RpcClient } from 'casper-js-sdk';
 import { hexToBytes } from '@noble/hashes/utils';
 import Decimal from 'decimal.js';
 import {
@@ -36,6 +28,7 @@ import {
   getDictionaryValue,
   keysToHex,
 } from '../../../utils/casperSdk/dex-contract';
+import { createCasperRpcClient } from '../../../utils/casperSdk/rpcClient';
 import {
   calculateMaxAmountWithSlippage,
   calculateMinAmountWithSlippage,
@@ -61,6 +54,7 @@ export class DexContractRepository implements IDexContractRepository {
       // JavaScript consumers who bypass the compile-time contract.
       Partial<Pick<IDexConfig, 'getProxyWasm'>>,
     private _httpAuthorizationHeader?: string,
+    private _rpcOptions: ICasperRpcOptions = {},
   ) {}
 
   async getAllowance(params: {
@@ -524,13 +518,12 @@ export class DexContractRepository implements IDexContractRepository {
   }
 
   private _getClient(network: CasperNetwork): RpcClient {
-    const handler = new HttpHandler(this._grpcUrl[network], 'fetch');
-
-    if (this._httpAuthorizationHeader) {
-      handler.setCustomHeaders({ Authorization: this._httpAuthorizationHeader });
-    }
-
-    return new RpcClient(handler);
+    return createCasperRpcClient(this._grpcUrl[network], {
+      ...this._rpcOptions,
+      ...(this._httpAuthorizationHeader
+        ? { authorizationHeader: this._httpAuthorizationHeader }
+        : {}),
+    });
   }
 
   private _processError(e: unknown, type: DexErrorType): never {

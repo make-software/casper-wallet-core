@@ -1,4 +1,4 @@
-import { RpcClient } from 'casper-js-sdk';
+import { RpcClient, Transaction } from 'casper-js-sdk';
 import { isBefore, sub } from 'date-fns';
 import {
   AlreadySignedError,
@@ -7,9 +7,11 @@ import {
   CasperTransactionsErrorType,
   CSPR_COIN,
   ICasperRpcOptions,
+  ICasperTransactionsRepository,
   InvalidDeployError,
   isCasperTransactionsError,
   ISendDelegationParams,
+  ISendDexTransactionParams,
   ISendNftTransferParams,
   ISendSignedTransactionParams,
   ISendTokenTransferParams,
@@ -28,9 +30,7 @@ import {
   IBuiltCasperTransaction,
 } from '../../../utils/casperSdk/tx-builders';
 
-// (still no `implements ICasperTransactionsRepository` — Task 6 adds the clause together with
-// the last interface member, sendDexTransaction)
-export class CasperTransactionsRepository {
+export class CasperTransactionsRepository implements ICasperTransactionsRepository {
   constructor(
     private _grpcUrl: Record<CasperNetwork, string>,
     private _rpcOptions: ICasperRpcOptions = {},
@@ -202,6 +202,44 @@ export class CasperTransactionsRepository {
       return resp.deployHash.toHex();
     } catch (e) {
       this._processError(e, 'sendSignedTransaction');
+    }
+  }
+
+  async sendDexTransaction({ built, network, signer }: ISendDexTransactionParams): Promise<string> {
+    try {
+      const rpcClient = this._createRpcClient(network);
+
+      if (built.deploy) {
+        const signed = await signer.getSignedTransaction(Transaction.fromDeploy(built.deploy));
+        const deploy = signed.getDeploy();
+
+        if (!deploy) {
+          throw new InvalidDeployError('errors:deploy-rpc-error');
+        }
+
+        const resp = await rpcClient.putDeploy(deploy);
+
+        if (!resp) {
+          throw new InvalidDeployError('errors:deploy-rpc-error');
+        }
+
+        return resp.deployHash.toHex();
+      }
+
+      if (!built.transaction) {
+        throw new InvalidDeployError('errors:deploy-rpc-error');
+      }
+
+      const signed = await signer.getSignedTransaction(built.transaction);
+      const resp = await rpcClient.putTransaction(signed);
+
+      if (!resp) {
+        throw new InvalidDeployError('errors:deploy-rpc-error');
+      }
+
+      return resp.transactionHash.toHex();
+    } catch (e) {
+      this._processError(e, 'sendDexTransaction');
     }
   }
 

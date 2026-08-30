@@ -5,6 +5,21 @@ import {
   WrappedCsprContractPackageHash,
 } from '../../../domain';
 
+const mockSetReferrer = jest.fn();
+const mockSetCustomHeaders = jest.fn();
+const mockHttpHandlerCtor = jest.fn();
+
+jest.mock('casper-js-sdk', () => ({
+  ...jest.requireActual('casper-js-sdk'),
+  HttpHandler: class {
+    constructor(...args: unknown[]) {
+      mockHttpHandlerCtor(...args);
+    }
+    setReferrer = mockSetReferrer;
+    setCustomHeaders = mockSetCustomHeaders;
+  },
+}));
+
 const PUBLIC_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
 /** blake2b-256(accountKey.bytes() ++ tradeContractKey.bytes()) for PUBLIC_KEY on mainnet. */
 const ALLOWANCES_DICT_KEY = 'd3cf5c22d374ac6ec3e20c825ad6f38b47f15ba4db675ab3ab598d0fa6c03782';
@@ -250,6 +265,32 @@ describe('DexContractRepository', () => {
       stubClient(repo, makeClient({ getLatestBlock: jest.fn().mockRejectedValue(inner) }));
 
       await expect(repo.getLatestBlockTime({ network: 'mainnet' })).rejects.toBe(inner);
+    });
+  });
+
+  describe('_getClient', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it("default rpc options: 'fetch' handler + setReferrer, no Referer header", () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      (repo as any)._getClient('mainnet');
+      expect(mockHttpHandlerCtor).toHaveBeenCalledWith(GRPC_URL.mainnet, 'fetch');
+      expect(mockSetReferrer).toHaveBeenCalledWith('https://casperwallet.io');
+      expect(mockSetCustomHeaders).not.toHaveBeenCalled();
+    });
+
+    it("mobile rpc options: 'axios' handler + literal Referer header (+auth)", () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG, 'token', {
+        handlerType: 'axios',
+        referrerMode: 'referer-header',
+      });
+      (repo as any)._getClient('mainnet');
+      expect(mockHttpHandlerCtor).toHaveBeenCalledWith(GRPC_URL.mainnet, 'axios');
+      expect(mockSetCustomHeaders).toHaveBeenCalledWith({
+        Referer: 'https://casperwallet.io',
+        Authorization: 'token',
+      });
+      expect(mockSetReferrer).not.toHaveBeenCalled();
     });
   });
 });

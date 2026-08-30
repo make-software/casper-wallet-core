@@ -10,6 +10,7 @@ import {
   CasperTransactionsError,
   CSPR_COIN,
   GrpcUrl,
+  IBuiltDexTransaction,
   ICasperSigner,
   INft,
   IToken,
@@ -58,16 +59,16 @@ const generateKeysFixture = () => {
   };
 };
 
-const txFixture = () =>
-  Transaction.fromDeploy(
-    makeCsprTransferDeploy({
-      chainName: 'casper-test',
-      senderPublicKeyHex: sender,
-      recipientPublicKeyHex: recipient,
-      transferAmount: '2500000000',
-      timestamp: '2026-01-01T00:00:00.000Z',
-    }),
-  );
+const deployFixture = () =>
+  makeCsprTransferDeploy({
+    chainName: 'casper-test',
+    senderPublicKeyHex: sender,
+    recipientPublicKeyHex: recipient,
+    transferAmount: '2500000000',
+    timestamp: '2026-01-01T00:00:00.000Z',
+  });
+
+const txFixture = () => Transaction.fromDeploy(deployFixture());
 
 const makeFakeSigner = (publicKeyHex: string) => {
   const calls: { fallbackDeploy?: unknown }[] = [];
@@ -495,5 +496,83 @@ describe('composed sends', () => {
         }),
       ).rejects.toMatchObject({ name: 'DeploysRepositoryError', type: 'invalidDeploy' });
     });
+  });
+});
+
+describe('sendDexTransaction', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const dexBuilt = (over: Partial<IBuiltDexTransaction>): IBuiltDexTransaction =>
+    ({
+      kind: 'swap',
+      entryPoint: 'swap_exact_cspr_for_tokens',
+      paymentMotes: '15000000000',
+      ...over,
+    }) as IBuiltDexTransaction;
+
+  it('signs and submits a V1 artifact via putTransaction, no fallback option', async () => {
+    mockPutTransaction.mockResolvedValue({ transactionHash: { toHex: () => 'a1' } });
+    const { signer } = makeFakeSigner(sender);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+    await expect(
+      repo.sendDexTransaction({
+        built: dexBuilt({ transaction: txFixture() }),
+        network: 'mainnet',
+        signer,
+      }),
+    ).resolves.toBe('a1');
+    expect(mockPutDeploy).not.toHaveBeenCalled();
+    expect((signer.getSignedTransaction as jest.Mock).mock.calls[0][1]).toBeUndefined();
+  });
+
+  it('wraps, signs and submits a deploy artifact via putDeploy', async () => {
+    mockPutDeploy.mockResolvedValue({ deployHash: { toHex: () => 'b2' } });
+    const { signer } = makeFakeSigner(sender);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+    const deploy = deployFixture();
+    await expect(
+      repo.sendDexTransaction({ built: dexBuilt({ deploy }), network: 'mainnet', signer }),
+    ).resolves.toBe('b2');
+    expect(mockPutTransaction).not.toHaveBeenCalled();
+  });
+
+  it('V1 artifact: InvalidDeployError (not wrapped) when putTransaction resolves falsy', async () => {
+    mockPutTransaction.mockResolvedValue(null);
+    const { signer } = makeFakeSigner(sender);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+    await expect(
+      repo.sendDexTransaction({
+        built: dexBuilt({ transaction: txFixture() }),
+        network: 'mainnet',
+        signer,
+      }),
+    ).rejects.toMatchObject({ name: 'DeploysRepositoryError', message: 'errors:deploy-rpc-error' });
+  });
+
+  it('deploy artifact: InvalidDeployError (not wrapped) when putDeploy resolves falsy', async () => {
+    mockPutDeploy.mockResolvedValue(null);
+    const { signer } = makeFakeSigner(sender);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+    const deploy = deployFixture();
+    await expect(
+      repo.sendDexTransaction({ built: dexBuilt({ deploy }), network: 'mainnet', signer }),
+    ).rejects.toMatchObject({ name: 'DeploysRepositoryError', message: 'errors:deploy-rpc-error' });
+  });
+
+  it('rejects a malformed artifact and wraps plain errors with its own type', async () => {
+    const { signer } = makeFakeSigner(sender);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+    await expect(
+      repo.sendDexTransaction({ built: dexBuilt({}), network: 'mainnet', signer }),
+    ).rejects.toThrow('errors:deploy-rpc-error');
+
+    (signer.getSignedTransaction as jest.Mock).mockRejectedValueOnce(new Error('nope'));
+    await expect(
+      repo.sendDexTransaction({
+        built: dexBuilt({ transaction: txFixture() }),
+        network: 'mainnet',
+        signer,
+      }),
+    ).rejects.toMatchObject({ name: 'CasperTransactionsError', type: 'sendDexTransaction' });
   });
 });
