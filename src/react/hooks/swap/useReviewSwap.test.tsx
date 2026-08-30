@@ -9,7 +9,7 @@ import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../../__test-util
 import type { IBuiltDexTransaction, IDexContractRepository } from '../../../domain/dex';
 import { SwapQuoteType } from '../../../domain/swap';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
-import type { ISigner, ITransactionCallbacks } from '../../types';
+import type { IDexTransactionSender, ITransactionCallbacks } from '../../types';
 
 const BUILT = { kind: 'swap' } as IBuiltDexTransaction;
 
@@ -25,7 +25,7 @@ const token = (id: string): IDexTokenWithAmount =>
 /** A signer whose `send` drives the callbacks a real wallet provider would. */
 const makeSigner = (
   behaviour: (callbacks: ITransactionCallbacks) => void = cb => cb.onProcessed?.(),
-): ISigner => ({
+): IDexTransactionSender => ({
   publicKey: TEST_PUBLIC_KEY,
   supportsTransactionV1: true,
   send: jest.fn(async (_built: IBuiltDexTransaction, callbacks: ITransactionCallbacks) => {
@@ -33,7 +33,10 @@ const makeSigner = (
   }),
 });
 
-const setup = (over: Partial<IDexContractRepository> = {}, signer: ISigner = makeSigner()) => {
+const setup = (
+  over: Partial<IDexContractRepository> = {},
+  signer: IDexTransactionSender = makeSigner(),
+) => {
   const dexContractRepository = stubDexContractRepository({
     checkApprovalRequired: jest.fn().mockResolvedValue(true),
     buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT),

@@ -21,11 +21,11 @@ import {
 } from '../../__test-utils__/render-hook';
 import { SwapQuoteType } from '../../domain/swap';
 import type { IDexToken, IDexTokenWithAmount } from '../../domain/swap';
-import type { ISigner } from '../types';
+import type { IDexTransactionSender } from '../types';
 
 const network = 'mainnet' as const;
 
-const signer: ISigner = {
+const signer: IDexTransactionSender = {
   publicKey: TEST_PUBLIC_KEY,
   supportsTransactionV1: true,
   send: jest.fn().mockResolvedValue(undefined),

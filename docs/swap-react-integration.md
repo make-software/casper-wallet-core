@@ -155,18 +155,48 @@ function App() {
 }
 ```
 
-## 3. Implement `ISigner`
+## 3. Provide an `ICasperSigner` and build the transaction sender
 
-The library never signs or submits. Builders (`buildSwapTransaction`, `buildWrapTransaction`,
-`buildUnwrapTransaction`, `buildApprovalTransaction`) return an unsigned `IBuiltDexTransaction`
-(exactly one of `.transaction` / `.deploy`, selected by the `useTransactionV1` flag you pass
-in). Consumers implement `ISigner`:
+The library never signs or submits directly, but it does own the sign+submit pipeline: apps no
+longer implement a flow-level port themselves. Builders (`buildSwapTransaction`,
+`buildWrapTransaction`, `buildUnwrapTransaction`, `buildApprovalTransaction`) return an unsigned
+`IBuiltDexTransaction` (exactly one of `.transaction` / `.deploy`, selected by the
+`useTransactionV1` flag you pass in). Consumers supply only a key-level `ICasperSigner`
+(`createPrivateKeySigner` for a software key, `createLedgerSigner` for Ledger) and hand it,
+together with their own deploy-status monitoring, to `createDexTransactionSender`:
 
 ```ts
-export interface ISigner {
+import {
+  createDexTransactionSender,
+  createPrivateKeySigner,
+  setupRepositories,
+} from 'casper-wallet-core';
+
+const { casperTransactionsRepository } = setupRepositories();
+
+const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
+
+const dexTransactionSender = createDexTransactionSender({
+  signer,
+  casperTransactionsRepository,
+  network,
+  supportsTransactionV1:
+    casperNetworkApiVersion.startsWith('2.') && (isSoftwareKey || ledgerSupportsTransactionV1),
+  waitForTransaction: (transactionHash, network) =>
+    waitForDeployOrTransaction(transactionHash, network), // your own deploy/transaction-status monitoring
+  isCancellationError: error => isLedgerSignatureCancelled(error), // optional, default: never
+});
+```
+
+`createDexTransactionSender` produces the `IDexTransactionSender` the hooks' `signer` field
+expects:
+
+```ts
+export interface IDexTransactionSender {
   readonly publicKey: string;
-  /** true when the wallet provider supports signing TransactionV1 ('sign-transactionv1'). */
+  /** true when the signer supports signing TransactionV1 — passed in, not derived here. */
   readonly supportsTransactionV1: boolean;
+  /** Signs + submits via `sendDexTransaction`; resolves after submission. */
   send(built: IBuiltDexTransaction, callbacks: ITransactionCallbacks): Promise<void>;
 }
 
@@ -178,75 +208,46 @@ export interface ITransactionCallbacks {
 }
 ```
 
+`send` calls `sendDexTransaction({ built, network, signer })`, fires `onSent(hash)` once
+submitted, then resolves — settlement is reported later through `onProcessed`/`onError` as your
+injected `waitForTransaction` resolves or rejects. A rejection from `sendDexTransaction` itself
+routes to `onCancelled` when `isCancellationError` recognizes it, otherwise to `onError`.
+
 ### Example: CSPR.click adapter
 
-This maps CSPR.click's `send(payload, publicKey, statusUpdate)` status callback onto
-`ITransactionCallbacks`:
+CSPR.click only exposes `sign`/`signMessage`, not submission, so it becomes a sign-only
+`ICasperSigner` adapter — submission then goes through `casperTransactionsRepository`, not
+`click.send`:
 
 ```ts
-const csprClickSigner = (
-  clickRef: ICSPRClickSDK,
-  publicKey: string,
-  supportsTransactionV1: boolean,
-): ISigner => ({
-  publicKey,
-  supportsTransactionV1,
-  async send(built, callbacks) {
-    // Narrow rather than assert: `IBuiltDexTransaction` is a union, so this tells the compiler
-    // which half is present instead of promising it that one of them is.
-    const isDeploy = 'deploy' in built;
-
-    const statusUpdate = (status: string, data: SendResult) => {
-      if (status === 'sent') {
-        const hash = isDeploy ? data?.deployHash : data?.transactionHash;
-        if (hash) callbacks.onSent?.(hash);
-      }
-      if (status === 'processed') {
-        if (data?.error || data?.errorData) {
-          callbacks.onError?.(data.error || data.errorData);
-        } else {
-          callbacks.onProcessed?.();
-        }
-      }
-      if (status === 'expired')
-        callbacks.onError?.({ message: 'Transaction expired (TTL elapsed)' });
-      if (status === 'timeout') callbacks.onError?.({ message: 'Transaction monitoring timeout' });
-      if (status === 'error') {
-        callbacks.onError?.(
-          data?.error || data?.errorData || { message: 'Unexpected error occurred' },
-        );
-      }
-    };
-
-    const jsonPayload = isDeploy
-      ? JSON.stringify(Deploy.toJSON(built.deploy))
-      : JSON.stringify({ transaction: { Version1: built.transaction.toJSON() } });
-
-    const res = await clickRef.send(jsonPayload, publicKey, statusUpdate);
-
-    if (res?.cancelled) {
-      callbacks.onCancelled?.();
-      return;
-    }
-    if (res?.error) {
-      callbacks.onError?.(res.error);
-    }
+const csprClickSigner = (clickRef: ICSPRClickSDK, publicKeyHex: string): ICasperSigner => ({
+  publicKeyHex,
+  async signTransaction(tx) {
+    const { signature, signatureWithPrefix } = await clickRef.sign(tx, publicKeyHex);
+    return { signature, signatureWithPrefix };
+  },
+  async getSignedTransaction(tx) {
+    const { signatureWithPrefix } = await clickRef.sign(tx, publicKeyHex);
+    tx.setSignature(signatureWithPrefix);
+    return tx;
+  },
+  async signMessage(message) {
+    return clickRef.signMessage(message, publicKeyHex);
   },
 });
 ```
 
-`supportsTransactionV1` for CSPR.click is
-`clickRef.getActiveAccount()?.['providerSupports']?.includes('sign-transactionv1')`.
+A CSPR.click cancellation surfaces as a rejection from `clickRef.sign`/`signMessage` — recognize
+it and pass it as `isCancellationError` to `createDexTransactionSender` so it maps to
+`onCancelled` instead of `onError`.
 
 ### Extension / mobile signing pipelines
 
 The shape is identical for any signing backend — the extension's in-process keyring and the
-mobile app's native signing bridge both implement `ISigner` the same way: build the unsigned
-`Transaction`/`Deploy` (already done by the library), sign + submit it through your own
-pipeline, and translate its own progress notifications into the four `ITransactionCallbacks`.
-Neither needs the CSPR.click-specific JSON envelope — only the observed transaction/deploy hash
-lifecycle: submitted (`onSent`), confirmed (`onProcessed`), rejected by the user
-(`onCancelled`), or failed (`onError`).
+mobile app's native signing bridge both implement `ICasperSigner` the same way: sign the
+transaction hash (already built by the library) and hand the result back. Submission, node-time
+drift, and API-version detection are no longer the app's concern — `createDexTransactionSender`
+drives them through `casperTransactionsRepository.sendDexTransaction`.
 
 ## 4. Slippage and deadline
 
@@ -447,8 +448,9 @@ params type `Pick`s only the subset it needs from `ISwapDependencies`.
 
 ## Further reading
 
-- `src/react/types.ts` — the full `ISigner`, `ITransactionCallbacks`, and `ISwapDependencies`
-  contracts.
+- `src/domain/dex/entities.ts` — the full `IDexTransactionSender` and `ITransactionCallbacks`
+  contracts (re-exported from `src/react/types.ts`); `src/data/signers/dexTransactionSender.ts` —
+  `createDexTransactionSender`. `src/react/types.ts` — `ISwapDependencies`.
 - `src/domain/swap/`, `src/domain/dex/` — entities, repository interfaces, errors.
 - `src/domain/constants/config.ts` — fee/slippage/deadline constants and DEX gas amounts;
   `src/domain/constants/casperNetwork.ts` — the per-network trade API url and contract package

@@ -1,22 +1,9 @@
 import type { CasperNetwork } from '../domain/common/common';
-import type { IBuiltDexTransaction, IDexContractRepository } from '../domain/dex';
+import type { IDexContractRepository, IDexTransactionSender } from '../domain/dex';
 import type { ISwapRepository } from '../domain/swap';
 import type { ITokensRepository } from '../domain/tokens';
 
-export interface ITransactionCallbacks {
-  onSent?: (transactionHash: string) => void;
-  onProcessed?: () => void;
-  onError?: (error: unknown) => void;
-  onCancelled?: () => void;
-}
-
-export interface ISigner {
-  readonly publicKey: string;
-  /** true when the wallet provider supports signing TransactionV1 ('sign-transactionv1'). */
-  readonly supportsTransactionV1: boolean;
-  /** Signs and submits; resolves after submission. Status flows through the callbacks. */
-  send(built: IBuiltDexTransaction, callbacks: ITransactionCallbacks): Promise<void>;
-}
+export type { IDexTransactionSender, ITransactionCallbacks } from '../domain/dex';
 
 /** Everything the React hooks need from the host app. Each hook takes only the subset it uses. */
 export interface ISwapDependencies {
@@ -24,8 +11,8 @@ export interface ISwapDependencies {
   dexContractRepository: IDexContractRepository;
   tokensRepository: ITokensRepository;
   network: CasperNetwork;
-  /** The signing adapter for the connected account, or `null` when no wallet is connected. */
-  signer: ISigner | null;
+  /** The dex transaction sender for the connected account, or `null` when no wallet is connected. Built via `createDexTransactionSender`. */
+  signer: IDexTransactionSender | null;
   /** The connected account's public key, or `null` when no wallet is connected. */
   activePublicKey: string | null;
 }

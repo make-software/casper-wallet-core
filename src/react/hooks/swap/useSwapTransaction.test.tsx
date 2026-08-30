@@ -9,7 +9,7 @@ import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../../__test-util
 import { SwapQuoteType } from '../../../domain/swap';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
 import type { IBuiltDexTransaction } from '../../../domain/dex';
-import type { ISigner } from '../../types';
+import type { IDexTransactionSender } from '../../types';
 
 const SLIPPAGE = 3;
 const DEADLINE = 20;
@@ -33,13 +33,13 @@ const swapParams = {
   quoteType: SwapQuoteType.ExactIn,
 };
 
-const makeSigner = (supportsTransactionV1 = true): ISigner => ({
+const makeSigner = (supportsTransactionV1 = true): IDexTransactionSender => ({
   publicKey: TEST_PUBLIC_KEY,
   supportsTransactionV1,
   send: jest.fn().mockResolvedValue(undefined),
 });
 
-const setup = (signer: ISigner | null) => {
+const setup = (signer: IDexTransactionSender | null) => {
   const buildSwapTransaction = jest.fn().mockResolvedValue(BUILT);
   const { result } = renderHook(() =>
     useSwapTransaction({
