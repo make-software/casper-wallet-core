@@ -27,8 +27,8 @@ optional peers in the package's `package.json`, so `yarn`/`npm` won't install th
 yarn add react@^18 @tanstack/react-query@^5
 ```
 
-Wrap your app (or the subtree that needs swap/wrap) in a `QueryClientProvider` — the hooks in
-`src/react/hooks/api` and `src/react/hooks/token` are all built on `@tanstack/react-query`.
+Wrap your app (or the subtree that needs swap/wrap) in a `QueryClientProvider` — every exported
+hook that fetches is built on `@tanstack/react-query`.
 
 ## 1. Call `setupRepositories`
 
@@ -67,12 +67,15 @@ interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
   wrappedCsprContractPackageHash?: Record<CasperNetwork, string>; // default WrappedCsprContractPackageHash
   gasPriceTolerance?: number; // default 1
-  getProxyWasm?: () => Promise<Uint8Array>; // required for swap and wrap/unwrap builders
+  getProxyWasm: () => Promise<Uint8Array>; // required for swap and wrap/unwrap builders
 }
 ```
 
 Everything is optional except `getProxyWasm`, which every swap and wrap/unwrap build call
-needs (approval does not — it's a direct contract-package call, not proxied).
+needs (approval does not — it's a direct contract-package call, not proxied). `dexConfig`
+itself is optional: omit it entirely and `dexContractRepository` still builds approvals, but
+swap, wrap and unwrap reject. Supply it and the compiler requires `getProxyWasm`, so the
+failure lands at setup rather than at the Confirm button.
 
 ### Supplying the proxy WASM
 
@@ -95,8 +98,9 @@ const getProxyWasm = async () => {
 
 Every hook in `src/react/` takes its dependencies as fields on its single object parameter —
 there is no context to mount. The only provider still required above the hooks is
-`QueryClientProvider`, for the hooks in `src/react/hooks/api` and `src/react/hooks/token` that
-are built on `@tanstack/react-query`:
+`QueryClientProvider`, for every exported hook that fetches. That is all of `src/react/hooks/api`
+plus anything reaching them transitively — including the page-level `useSwapTokens` and
+`useWrapTokens`, and `useSwapRouteTokens`, which issues its own `useQueries`:
 
 ```tsx
 import { useMemo } from 'react';
@@ -245,10 +249,13 @@ lifecycle: submitted (`onSent`), confirmed (`onProcessed`), rejected by the user
 
 ## 4. Slippage and deadline
 
-The library keeps no settings state of its own. `slippage` (percent) and `deadline` (minutes)
-are required parameters of `useSwapTokens`, `useSwapTransaction`, and `useReviewSwap` — where
-that state lives (in-memory, `localStorage`, `AsyncStorage`, redux-persist, ...) and how it
-survives a remount is entirely up to the host app.
+The library keeps no settings state of its own. `slippage` (percent) is a required parameter of
+`useSwapTokens`, `useSwapTransaction` and `useReviewSwap`; `deadline` (minutes) is a required
+parameter of `useSwapTransaction` and `useReviewSwap` only. `useSwapTokens` does **not** thread
+`deadline` anywhere — it quotes and validates the form, it does not build the transaction — so
+a consumer that stops at the orchestrator never supplies one. Where that state lives (in-memory,
+`localStorage`, `AsyncStorage`, redux-persist, ...) and how it survives a remount is entirely up
+to the host app.
 
 The library exports the clamp helpers and bounds it used to apply internally, so a consumer can
 apply the same limits before persisting or passing a value in:
@@ -269,8 +276,18 @@ import {
 `clampSlippageValue`/`clampDeadlineValue` clamp to `MIN_SLIPPAGE`/`MAX_SLIPPAGE` and
 `MIN_DEADLINE`/`MAX_DEADLINE` respectively (also falling back to the minimum for `NaN`).
 `DEFAULT_SLIPPAGE = 3` and `DEFAULT_DEADLINE = 20` are the values to start a fresh consumer's
-state with. Clamping is the consumer's call — the hooks take whatever `slippage`/`deadline`
-number they're given, unclamped.
+state with. The hooks pass whatever `slippage`/`deadline` number they're given straight through,
+so clamping for the settings UI is the consumer's call — but `buildSwapTransaction` rejects a
+`slippage` outside `[0, MAX_SLIPPAGE]` or a `deadline` outside `[MIN_DEADLINE, MAX_DEADLINE]`
+with a `DexError` rather than encoding it. Watch the units: a quote's `recommendedSlippageBps`
+is in **basis points**, and `slippage` is in **percent**.
+
+### Warning thresholds (consumer-owned)
+
+`SWAP_PRICE_IMPACT_WARNING_THRESHOLD` (10%) and `HIGH_SLIPPAGE_WARNING_THRESHOLD` (10%) are
+exported for a consumer's UI to compare against a quote's `priceImpact` and the configured
+`slippage`. The library does not gate on either — `isFormValid` ignores price impact entirely,
+so showing (or blocking on) a high-impact warning is the host app's decision.
 
 ## Error shape: `SwapError`
 
@@ -305,6 +322,55 @@ not poll. If your flow needs a fresher CSPR balance than "on account switch" (fo
 right after a transaction is confirmed), call the `refetchCsprBalance` function
 `useTokenBalances` returns — `useWrapTokens`'s `onWrapSuccess` is the reference example.
 
+## Swap review flow
+
+`useSwapTokens` drives the trade form; `useReviewSwap` drives the review modal that follows it.
+The orchestrator hands over the two amounted tokens, the quoted `path` and the `quoteType`, and
+`useReviewSwap` runs the CEP-18 approval (skipped for a native CSPR input) before the swap:
+
+```tsx
+import { useSwapTokens, useReviewSwap } from 'casper-wallet-core/src/react';
+
+function SwapPage({ slippage, deadline }: { slippage: number; deadline: number }) {
+  const deps = useMemo<ISwapDependencies>(/* as in step 2 */);
+
+  const {
+    selectedTokens,
+    tokenAmounts,
+    path,
+    quoteType,
+    isReviewModalOpen,
+    closeReviewModal,
+    onSwapSuccess,
+    ...rest
+  } = useSwapTokens({ ...deps, slippage });
+
+  const { step, transactionState, isProcessing, confirmSwap, transactionHash } = useReviewSwap({
+    ...deps,
+    slippage,
+    deadline,
+    firstToken: { ...selectedTokens.first!, ...tokenAmounts.first },
+    secondToken: { ...selectedTokens.second!, ...tokenAmounts.second },
+    path,
+    quoteType,
+    isOpen: isReviewModalOpen,
+    onSwapSuccess,
+    onClose: closeReviewModal,
+  });
+
+  // ...render form + review modal using the above
+}
+```
+
+`firstToken`/`secondToken` carry the **transaction** amounts (`tokenAmounts.first.raw` is the
+raw amount the user typed, not their balance). `slippage` must be the same value passed to
+`useSwapTokens`, so the quote the user saw and the bound encoded into the payload agree; the
+approval amount is derived from it and needs nothing else from the caller.
+
+`path` must come from the quote for the pair currently selected — `buildSwapTransaction`
+rejects a route whose first hop is not the input token or whose last hop is not the output
+token, since `amount_out_min` bounds how much the user receives but not which token it is.
+
 ## Wrap / unwrap flow
 
 WCSPR wrap/unwrap composes the same building blocks as swap, with no approval step (`withdraw`
@@ -331,6 +397,7 @@ function WrapPage() {
     amount,
     sourceToken,
     destinationToken,
+    sourceRawAmount,
     isFormValid,
     isReviewModalOpen,
     openReviewModal,
@@ -347,7 +414,9 @@ function WrapPage() {
     sourceToken: {
       ...sourceToken,
       amountFormatted: amount,
-      amountRaw: rest.getRawTokenBalance('first'),
+      // The transaction amount, not the balance: this is what lands in the on-chain
+      // `amount` / `attached_value` arg.
+      amountRaw: sourceRawAmount,
     },
     isOpen: isReviewModalOpen,
     onWrapSuccess,

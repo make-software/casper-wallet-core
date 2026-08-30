@@ -27,7 +27,11 @@ export interface ISetupSigningRepositoriesParams extends Pick<
   casperWalletApiByEnvUrl: Record<IEnv, string>;
   grpcUrl?: Record<CasperNetwork, string>;
   httpAuthorizationHeader?: string;
-  /** DEX contract-package hashes, gas price and the proxy WASM loader; all optional, defaulted. */
+  /**
+   * DEX contract-package hashes, gas price and the proxy WASM loader. Optional as a whole —
+   * omit it and `dexContractRepository` still builds approvals but no swap, wrap or unwrap.
+   * Supply it and `getProxyWasm` is mandatory; the hashes and gas price default.
+   */
   dexConfig?: IDexConfig;
   log: ILogger;
 }
@@ -40,7 +44,7 @@ export const setupSigningRepositories = ({
   casperWalletApiByEnvUrl,
   grpcUrl = GrpcUrl,
   httpAuthorizationHeader,
-  dexConfig = {},
+  dexConfig,
   log,
 }: ISetupSigningRepositoriesParams) => {
   const txSignatureRequestRepository = new TxSignatureRequestRepository(
@@ -60,11 +64,11 @@ export const setupSigningRepositories = ({
   const dexContractRepository = new DexContractRepository(
     grpcUrl,
     {
-      tradeContractPackageHash: dexConfig.tradeContractPackageHash ?? TradeContractPackageHash,
+      tradeContractPackageHash: dexConfig?.tradeContractPackageHash ?? TradeContractPackageHash,
       wrappedCsprContractPackageHash:
-        dexConfig.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash,
-      gasPriceTolerance: dexConfig.gasPriceTolerance ?? 1,
-      getProxyWasm: dexConfig.getProxyWasm,
+        dexConfig?.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash,
+      gasPriceTolerance: dexConfig?.gasPriceTolerance ?? 1,
+      getProxyWasm: dexConfig?.getProxyWasm,
     },
     httpAuthorizationHeader,
   );

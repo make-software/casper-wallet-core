@@ -24,6 +24,11 @@ describe('amounts', () => {
         '994999999999999999999',
       );
     });
+
+    // 100 would yield '0' — a bound that accepts any output at all.
+    it.each([100, 150, -1, NaN, Infinity])('throws on slippage %p', slippage => {
+      expect(() => calculateMinAmountWithSlippage('1000', slippage)).toThrow('outside [0, 100)');
+    });
   });
 
   describe('calculateMaxAmountWithSlippage', () => {
@@ -33,6 +38,12 @@ describe('amounts', () => {
 
     it('ceils the max amount', () => {
       expect(calculateMaxAmountWithSlippage('1000000000', 3)).toBe('1030000000');
+    });
+
+    it.each([-1, NaN, Infinity])('throws on slippage %p', slippage => {
+      expect(() => calculateMaxAmountWithSlippage('1000', slippage)).toThrow(
+        'finite, non-negative',
+      );
     });
   });
 
@@ -85,11 +96,17 @@ describe('amounts', () => {
   });
 
   describe('calculateApprovalAmount', () => {
-    it('adds a 20% buffer over the balance', () => {
+    it('adds a 20% buffer over the required amount', () => {
       expect(calculateApprovalAmount('1000000000')).toBe('1200000000');
     });
 
-    it('returns 0 for an empty or zero balance', () => {
+    it('always clears the amount it was derived from', () => {
+      const required = calculateMaxAmountWithSlippage('1000000000', 50);
+
+      expect(Number(calculateApprovalAmount(required))).toBeGreaterThan(Number(required));
+    });
+
+    it('returns 0 for an empty or zero amount', () => {
       expect(calculateApprovalAmount('')).toBe('0');
       expect(calculateApprovalAmount('0')).toBe('0');
     });

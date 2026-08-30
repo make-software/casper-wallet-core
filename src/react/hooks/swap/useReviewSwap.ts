@@ -27,7 +27,6 @@ export interface IUseReviewSwapParams extends Pick<
   deadline: number;
   firstToken: IDexTokenWithAmount;
   secondToken: IDexTokenWithAmount;
-  firstRawTokenBalance?: string;
   path: string[];
   quoteType: SwapQuoteType;
   isOpen: boolean;
@@ -53,7 +52,6 @@ export const useReviewSwap = ({
   deadline,
   firstToken,
   secondToken,
-  firstRawTokenBalance = '0',
   path,
   quoteType,
   isOpen,
@@ -165,10 +163,12 @@ export const useReviewSwap = ({
         ? firstTokenAmountRaw
         : calculateMaxAmountWithSlippage(firstTokenAmountRaw, slippage);
 
-      // For approval execution, use full balance + buffer strategy.
+      // The grant is derived from the same amount the check is made against, so the approval
+      // always clears `checkApprovalRequired` — a grant derived from any other basis can fail
+      // the check it was made for and leave the flow re-prompting for an approval fee forever.
       const approvalAmount = isFirstTokenNative
         ? firstTokenAmountRaw // CSPR doesn't need approval, but keep for consistency
-        : calculateApprovalAmount(firstRawTokenBalance);
+        : calculateApprovalAmount(requiredAmount);
 
       const firstCheckConfig = {
         contractPackageHash: firstToken.packageHash,
@@ -176,7 +176,7 @@ export const useReviewSwap = ({
       };
       const firstExecuteConfig = {
         contractPackageHash: firstToken.packageHash,
-        balance: approvalAmount,
+        approvalAmount,
       };
 
       setApprovalRequirements(prev => ({ ...prev, isChecking: true }));
@@ -206,7 +206,6 @@ export const useReviewSwap = ({
     activePublicKey,
     checkAndApprove,
     checkApprovalRequired,
-    firstRawTokenBalance,
     firstToken.amountRaw,
     firstToken.id,
     firstToken.packageHash,

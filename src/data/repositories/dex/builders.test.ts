@@ -12,7 +12,10 @@ import {
   CasperSdkNetworkName,
   DEX_PAYMENT_AMOUNT,
   DEX_TRANSACTION_TTL_MS,
+  DexError,
   IDexTokenWithAmount,
+  MAX_DEADLINE,
+  MAX_SLIPPAGE,
   SwapQuoteType,
   TradeContractPackageHash,
   WrappedCsprContractPackageHash,
@@ -227,7 +230,13 @@ describe('DexContractRepository builders', () => {
     ...overrides,
   });
 
-  const NATIVE = makeToken({ id: 'cspr', symbol: 'CSPR' });
+  // The token DTO maps the WCSPR record onto the synthetic `cspr` id while keeping the real
+  // on-chain package hash, so the native fixture carries the WCSPR hash here too.
+  const NATIVE = makeToken({
+    id: 'cspr',
+    symbol: 'CSPR',
+    packageHash: WrappedCsprContractPackageHash[NETWORK],
+  });
   const TOKEN_A = makeToken({
     id: 'tokA',
     packageHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -250,11 +259,21 @@ describe('DexContractRepository builders', () => {
     amountRaw: SECOND_AMOUNT_RAW,
   });
 
-  const PATH = [TOKEN_A.packageHash, TOKEN_B.packageHash];
   const SLIPPAGE = 3;
   const DEADLINE_MINUTES = 20;
   const AMOUNT_OUT_MIN = '1940'; // calculateMinAmountWithSlippage('2000', 3)
   const AMOUNT_IN_MAX = '1030'; // calculateMaxAmountWithSlippage('1000', 3)
+  const BLOCK_TIME_MS = 1_700_000_000_000;
+
+  /** A repository whose chain-time read is stubbed, so the built deadline is deterministic. */
+  const makeRepo = (
+    dexConfig: ReturnType<typeof makeDexConfig> = makeDexConfig(),
+  ): DexContractRepository => {
+    const repo = new DexContractRepository(GRPC_URL, dexConfig);
+    jest.spyOn(repo, 'getLatestBlockTime').mockResolvedValue(BLOCK_TIME_MS);
+
+    return repo;
+  };
 
   /** Decodes the byte-array inner args carried inside the proxy envelope's `args` field. */
   const decodeInnerArgs = (outerRuntimeArgs: Args): Args => {
@@ -266,18 +285,26 @@ describe('DexContractRepository builders', () => {
     return Args.fromBytes(bytes);
   };
 
-  const swapParams = (overrides: {
+  const swapParams = ({
+    path,
+    ...overrides
+  }: {
     firstToken: IDexTokenWithAmount;
     secondToken: IDexTokenWithAmount;
     quoteType: SwapQuoteType;
     useTransactionV1?: boolean;
+    slippage?: number;
+    deadline?: number;
+    path?: string[];
   }) => ({
     network: NETWORK,
     publicKey: PUBLIC_KEY,
-    path: PATH,
     slippage: SLIPPAGE,
     deadline: DEADLINE_MINUTES,
     useTransactionV1: true,
+    // The route the builder accepts has to start at the input token and end at the output
+    // token; each case therefore derives it from its own pair unless it overrides it.
+    path: path ?? [overrides.firstToken.packageHash, overrides.secondToken.packageHash],
     ...overrides,
   });
 
@@ -361,7 +388,7 @@ describe('DexContractRepository builders', () => {
         const spy = jest
           .spyOn(transactionBuilders, 'createSessionWasmTransaction')
           .mockResolvedValue({ fake: 'transaction' } as unknown as Transaction);
-        const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+        const repo = makeRepo();
 
         await repo.buildSwapTransaction(params);
 
@@ -394,7 +421,7 @@ describe('DexContractRepository builders', () => {
     );
 
     it('both tokens native: rejects with "Invalid swap entry point"', async () => {
-      const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+      const repo = makeRepo();
 
       await expect(
         repo.buildSwapTransaction(
@@ -414,7 +441,7 @@ describe('DexContractRepository builders', () => {
       const spy = jest
         .spyOn(transactionBuilders, 'createSessionWasmTransaction')
         .mockResolvedValue({ fake: 'transaction' } as unknown as Transaction);
-      const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+      const repo = makeRepo();
 
       await repo.buildSwapTransaction(
         swapParams({
@@ -434,7 +461,7 @@ describe('DexContractRepository builders', () => {
     });
 
     it('supportsTransactionV1=true: returns a real Transaction (transaction set, deploy undefined), kind "swap"', async () => {
-      const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+      const repo = makeRepo();
       jest.spyOn(repo as any, '_getClient').mockReturnValue({
         getStatus: jest.fn().mockResolvedValue({ apiVersion: '2.0.0' }),
       });
@@ -454,7 +481,7 @@ describe('DexContractRepository builders', () => {
     });
 
     it('supportsTransactionV1=false: returns a real Deploy (deploy set, transaction undefined), kind "swap"', async () => {
-      const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+      const repo = makeRepo();
 
       const result = await repo.buildSwapTransaction(
         swapParams({
@@ -470,8 +497,172 @@ describe('DexContractRepository builders', () => {
       expect(result.transaction).toBeUndefined();
     });
 
+    describe('route endpoints', () => {
+      const expectRejectedRoute = async (path: string[], expectedMessage: string) => {
+        const repo = makeRepo();
+
+        await expect(
+          repo.buildSwapTransaction(
+            swapParams({
+              firstToken: asFirst(TOKEN_A),
+              secondToken: asSecond(TOKEN_B),
+              quoteType: SwapQuoteType.ExactIn,
+              path,
+            }),
+          ),
+        ).rejects.toMatchObject({
+          name: 'DexRepositoryError',
+          type: 'buildSwapTransaction',
+          message: expect.stringContaining(expectedMessage),
+        });
+      };
+
+      it('rejects a route whose terminal hop is not the selected output token', async () => {
+        const attackerToken = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+
+        await expectRejectedRoute([TOKEN_A.packageHash, attackerToken], 'route ends at');
+      });
+
+      it('rejects a route whose first hop is not the selected input token', async () => {
+        await expectRejectedRoute([TOKEN_B.packageHash, TOKEN_B.packageHash], 'route starts at');
+      });
+
+      it('rejects a route with fewer than two hops', async () => {
+        await expectRejectedRoute([TOKEN_A.packageHash], 'at least 2 hops');
+      });
+
+      it('accepts a multi-hop route whose ends match the selected pair', async () => {
+        const spy = jest
+          .spyOn(transactionBuilders, 'createSessionWasmTransaction')
+          .mockResolvedValue({ fake: 'transaction' } as unknown as Transaction);
+        const repo = makeRepo();
+
+        await repo.buildSwapTransaction(
+          swapParams({
+            firstToken: asFirst(TOKEN_A),
+            secondToken: asSecond(TOKEN_B),
+            quoteType: SwapQuoteType.ExactIn,
+            path: [TOKEN_A.packageHash, NATIVE.packageHash, TOKEN_B.packageHash],
+          }),
+        );
+
+        expect(spy).toHaveBeenCalledTimes(1);
+      });
+
+      it('matches endpoints case-insensitively', async () => {
+        const spy = jest
+          .spyOn(transactionBuilders, 'createSessionWasmTransaction')
+          .mockResolvedValue({ fake: 'transaction' } as unknown as Transaction);
+        const repo = makeRepo();
+
+        await repo.buildSwapTransaction(
+          swapParams({
+            firstToken: asFirst(TOKEN_A),
+            secondToken: asSecond(TOKEN_B),
+            quoteType: SwapQuoteType.ExactIn,
+            path: [TOKEN_A.packageHash.toUpperCase(), TOKEN_B.packageHash.toUpperCase()],
+          }),
+        );
+
+        expect(spy).toHaveBeenCalledTimes(1);
+      });
+
+      it('resolves a native leg against the configured WCSPR hash', async () => {
+        const repo = makeRepo();
+
+        await expect(
+          repo.buildSwapTransaction(
+            swapParams({
+              firstToken: asFirst(NATIVE),
+              secondToken: asSecond(TOKEN_B),
+              quoteType: SwapQuoteType.ExactIn,
+              path: [TOKEN_A.packageHash, TOKEN_B.packageHash],
+            }),
+          ),
+        ).rejects.toMatchObject({
+          message: expect.stringContaining(WrappedCsprContractPackageHash[NETWORK]),
+        });
+      });
+    });
+
+    describe('slippage and deadline bounds', () => {
+      const expectRejected = async (
+        overrides: { slippage?: number; deadline?: number },
+        expectedMessage: string,
+      ) => {
+        const repo = makeRepo();
+
+        await expect(
+          repo.buildSwapTransaction(
+            swapParams({
+              firstToken: asFirst(TOKEN_A),
+              secondToken: asSecond(TOKEN_B),
+              quoteType: SwapQuoteType.ExactIn,
+              ...overrides,
+            }),
+          ),
+        ).rejects.toMatchObject({
+          name: 'DexRepositoryError',
+          type: 'buildSwapTransaction',
+          message: expect.stringContaining(expectedMessage),
+        });
+      };
+
+      // 100 is what a basis-points/percent confusion on `recommendedSlippageBps` produces for a
+      // backend-recommended 1%, and it would encode `amount_out_min: 0`.
+      it.each([100, 100.5, -1, NaN, Infinity])('rejects slippage %p', async slippage => {
+        await expectRejected({ slippage }, 'Invalid slippage');
+      });
+
+      it('rejects a slippage above MAX_SLIPPAGE', async () => {
+        await expectRejected({ slippage: MAX_SLIPPAGE + 0.01 }, 'Invalid slippage');
+      });
+
+      it.each([0, -5, NaN, Infinity, MAX_DEADLINE + 1])('rejects deadline %p', async deadline => {
+        await expectRejected({ deadline }, 'Invalid deadline');
+      });
+    });
+
+    it('derives the deadline from chain time, not the device clock', async () => {
+      const spy = jest
+        .spyOn(transactionBuilders, 'createSessionWasmTransaction')
+        .mockResolvedValue({ fake: 'transaction' } as unknown as Transaction);
+      const repo = makeRepo();
+      jest.spyOn(Date, 'now').mockReturnValue(BLOCK_TIME_MS + 60 * 60 * 1000);
+
+      await repo.buildSwapTransaction(
+        swapParams({
+          firstToken: asFirst(TOKEN_A),
+          secondToken: asSecond(TOKEN_B),
+          quoteType: SwapQuoteType.ExactIn,
+        }),
+      );
+
+      const innerArgs = decodeInnerArgs(spy.mock.calls[0][0].runtimeArgs);
+      expect(innerArgs.args.get('deadline')?.ui64?.toString()).toBe(
+        String(BLOCK_TIME_MS + DEADLINE_MINUTES * 60_000),
+      );
+    });
+
+    it('rejects when the chain-time read fails, rather than falling back to the device clock', async () => {
+      const repo = new DexContractRepository(GRPC_URL, makeDexConfig());
+      jest
+        .spyOn(repo, 'getLatestBlockTime')
+        .mockRejectedValue(new DexError(new Error('rpc down'), 'getLatestBlockTime'));
+
+      await expect(
+        repo.buildSwapTransaction(
+          swapParams({
+            firstToken: asFirst(TOKEN_A),
+            secondToken: asSecond(TOKEN_B),
+            quoteType: SwapQuoteType.ExactIn,
+          }),
+        ),
+      ).rejects.toMatchObject({ name: 'DexRepositoryError', message: 'rpc down' });
+    });
+
     it('rejects a DexError typed "buildSwapTransaction" naming getProxyWasm when the config omits it', async () => {
-      const repo = new DexContractRepository(GRPC_URL, makeDexConfig({ getProxyWasm: undefined }));
+      const repo = makeRepo(makeDexConfig({ getProxyWasm: undefined }));
 
       await expect(
         repo.buildSwapTransaction(

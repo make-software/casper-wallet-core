@@ -9,7 +9,8 @@ interface IApprovalCheckConfig {
 
 interface IApprovalExecuteConfig {
   contractPackageHash: string;
-  balance: string;
+  /** Raw amount to grant the trade contract. Must cover the check's `requiredAmount`. */
+  approvalAmount: string;
 }
 
 export interface IUseTokenApprovalFlowParams extends Pick<
@@ -61,7 +62,7 @@ export const useTokenApprovalFlow = ({
         network,
         publicKey: activePublicKey,
         contractPackageHash: config.contractPackageHash,
-        amount: config.balance,
+        amount: config.approvalAmount,
         useTransactionV1: signer.supportsTransactionV1,
       });
 

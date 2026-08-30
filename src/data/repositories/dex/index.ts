@@ -12,7 +12,11 @@ import {
   IBuiltDexTransaction,
   IDexConfig,
   IDexContractRepository,
+  IDexTokenWithAmount,
   isDexError,
+  MAX_DEADLINE,
+  MAX_SLIPPAGE,
+  MIN_DEADLINE,
   SwapQuoteType,
 } from '../../../domain';
 import {
@@ -32,7 +36,11 @@ import {
   getDictionaryValue,
   keysToHex,
 } from '../../../utils/casperSdk/dex-contract';
-import { calculateMaxAmountWithSlippage, calculateMinAmountWithSlippage } from '../../../utils';
+import {
+  calculateMaxAmountWithSlippage,
+  calculateMinAmountWithSlippage,
+  isKeysEqual,
+} from '../../../utils';
 import {
   createContractDeploy,
   createContractPackageCallTransaction,
@@ -49,7 +57,9 @@ export class DexContractRepository implements IDexContractRepository {
         'tradeContractPackageHash' | 'wrappedCsprContractPackageHash' | 'gasPriceTolerance'
       >
     > &
-      Pick<IDexConfig, 'getProxyWasm'>,
+      // Optional here, required on `IDexConfig`: the runtime guard still has to hold for
+      // JavaScript consumers who bypass the compile-time contract.
+      Partial<Pick<IDexConfig, 'getProxyWasm'>>,
     private _httpAuthorizationHeader?: string,
   ) {}
 
@@ -187,6 +197,10 @@ export class DexContractRepository implements IDexContractRepository {
     } = params;
 
     try {
+      this._assertSlippage(slippage);
+      this._assertDeadline(deadline);
+      this._assertRouteEndpoints({ network, path, firstToken, secondToken });
+
       const firstTokenAmountRaw = firstToken.amountRaw;
       const secondTokenAmountRaw = secondToken.amountRaw;
 
@@ -230,7 +244,10 @@ export class DexContractRepository implements IDexContractRepository {
         );
       }
 
-      const deadlineArg = Date.now() + 1000 * 60 * deadline;
+      // Block time, not device time: the contract compares the deadline against the chain's
+      // clock, so a drifted device clock would otherwise shorten or silently extend it.
+      const blockTime = await this.getLatestBlockTime({ network });
+      const deadlineArg = blockTime + 1000 * 60 * deadline;
       const account = PublicKey.fromHex(publicKey).accountHash().toPrefixedString();
 
       const amountArg = isFirstTokenNative
@@ -443,6 +460,65 @@ export class DexContractRepository implements IDexContractRepository {
       return { kind: 'unwrap', entryPoint, paymentMotes, deploy };
     } catch (e) {
       this._processError(e, 'buildUnwrapTransaction');
+    }
+  }
+
+  /**
+   * The slippage bound is the user's only defence against a sandwich attack, and at `100` it
+   * degenerates to `amount_out_min: 0`. Enforced here rather than left to `clampSlippageValue`,
+   * because this is the chokepoint every consumer's payload passes through.
+   */
+  private _assertSlippage(slippage: number): void {
+    if (!Number.isFinite(slippage) || slippage < 0 || slippage > MAX_SLIPPAGE) {
+      throw new Error(
+        `Invalid slippage "${slippage}": expected a percent in [0, ${MAX_SLIPPAGE}]. Note that the quote's \`recommendedSlippageBps\` is in basis points, not percent.`,
+      );
+    }
+  }
+
+  private _assertDeadline(deadline: number): void {
+    if (!Number.isFinite(deadline) || deadline < MIN_DEADLINE || deadline > MAX_DEADLINE) {
+      throw new Error(
+        `Invalid deadline "${deadline}": expected minutes in [${MIN_DEADLINE}, ${MAX_DEADLINE}]`,
+      );
+    }
+  }
+
+  /**
+   * The route comes from the trade API and is encoded verbatim into the signed payload, while
+   * the UI renders the locally-selected tokens. `amount_out_min` bounds the quantity delivered
+   * but not its identity, so a substituted terminal hop would pay the user in a token they
+   * never chose. Pin both ends to the tokens the user actually selected.
+   */
+  private _assertRouteEndpoints(params: {
+    network: CasperNetwork;
+    path: string[];
+    firstToken: IDexTokenWithAmount;
+    secondToken: IDexTokenWithAmount;
+  }): void {
+    const { network, path, firstToken, secondToken } = params;
+
+    if (path.length < 2) {
+      throw new Error(`Invalid swap route: expected at least 2 hops, got ${path.length}`);
+    }
+
+    const wrappedCspr = this._dexConfig.wrappedCsprContractPackageHash[network];
+    const onChainHash = (token: IDexTokenWithAmount): string =>
+      token.id === CSPR_NATIVE_TOKEN_ID ? wrappedCspr : token.packageHash;
+
+    const expectedIn = onChainHash(firstToken);
+    const expectedOut = onChainHash(secondToken);
+
+    if (!isKeysEqual(path[0], expectedIn)) {
+      throw new Error(
+        `Invalid swap route: route starts at "${path[0]}", expected the selected input token "${expectedIn}"`,
+      );
+    }
+
+    if (!isKeysEqual(path[path.length - 1], expectedOut)) {
+      throw new Error(
+        `Invalid swap route: route ends at "${path[path.length - 1]}", expected the selected output token "${expectedOut}"`,
+      );
     }
   }
 

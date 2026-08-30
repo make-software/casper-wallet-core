@@ -17,5 +17,10 @@ export interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
   wrappedCsprContractPackageHash?: Record<CasperNetwork, string>; // default WrappedCsprContractPackageHash
   gasPriceTolerance?: number; // default 1
-  getProxyWasm?: () => Promise<Uint8Array>; // required for the swap and wrap/unwrap builders
+  /**
+   * Loader for the `proxy_caller.wasm` bytes. Required: the swap, wrap and unwrap builders
+   * cannot construct a transaction without it, so a `dexConfig` that omits it produces a
+   * repository whose only working method is `buildApprovalTransaction`.
+   */
+  getProxyWasm: () => Promise<Uint8Array>;
 }

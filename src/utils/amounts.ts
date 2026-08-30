@@ -5,11 +5,21 @@ import { AmountDecimal as D } from './decimal';
 /**
  * Minimum acceptable amount with slippage protection:
  * `expectedAmount * (1 - slippagePercent / 100)`, rounded DOWN to protect the user.
+ *
+ * @throws if `slippagePercent` is not a finite number in `[0, 100)`. A slippage of `100`
+ * would yield `0` — a bound that permits any output at all — so it fails closed rather than
+ * returning an unprotected amount.
  */
 export const calculateMinAmountWithSlippage = (
   expectedAmount: string,
   slippagePercent: number,
 ): string => {
+  if (!Number.isFinite(slippagePercent) || slippagePercent < 0 || slippagePercent >= 100) {
+    throw new Error(
+      `Failed to calculate min amount with slippage: slippage="${slippagePercent}" is outside [0, 100)`,
+    );
+  }
+
   try {
     const factor = new D(1).minus(new D(slippagePercent).div(100));
 
@@ -24,11 +34,20 @@ export const calculateMinAmountWithSlippage = (
 /**
  * Maximum acceptable amount with slippage protection:
  * `expectedAmount * (1 + slippagePercent / 100)`, rounded UP to protect the protocol.
+ *
+ * @throws if `slippagePercent` is not a finite, non-negative number. A negative value would
+ * invert the bound into a minimum.
  */
 export const calculateMaxAmountWithSlippage = (
   expectedAmount: string,
   slippagePercent: number,
 ): string => {
+  if (!Number.isFinite(slippagePercent) || slippagePercent < 0) {
+    throw new Error(
+      `Failed to calculate max amount with slippage: slippage="${slippagePercent}" must be a finite, non-negative number`,
+    );
+  }
+
   try {
     const factor = new D(1).plus(new D(slippagePercent).div(100));
 
@@ -87,16 +106,17 @@ export const doesAmountExceedBalance = (amount: string, balance: string | number
 const APPROVAL_BUFFER_PERCENT = 20;
 
 /**
- * Raw amount to approve for a spender: the balance plus a {@link APPROVAL_BUFFER_PERCENT}%
- * buffer, so a balance that grows slightly between approval and swap still clears. Truncated
- * to whole base units.
+ * Raw amount to approve for a spender: `requiredAmount` plus a
+ * {@link APPROVAL_BUFFER_PERCENT}% buffer, truncated to whole base units. Pass the same
+ * amount the approval check is made against, so the grant always clears the check.
+ * Returns `'0'` for an empty or zero input.
  */
-export const calculateApprovalAmount = (balance: string): string => {
-  if (!balance || balance === '0') {
+export const calculateApprovalAmount = (requiredAmount: string): string => {
+  if (!requiredAmount || requiredAmount === '0') {
     return '0';
   }
 
-  return new D(balance)
+  return new D(requiredAmount)
     .times(100 + APPROVAL_BUFFER_PERCENT)
     .div(100)
     .toFixed(0, Decimal.ROUND_DOWN);
