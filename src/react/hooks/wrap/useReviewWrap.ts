@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import { initialWrapFlowState, wrapFlowReducer } from '../../../domain/flows';
+import { FlowError, initialWrapFlowState, wrapFlowReducer } from '../../../domain/flows';
 import type { IStartWrapFlowParams, IWrapFlowHandle } from '../../../domain/flows';
 import type { WrapDirection } from '../../../domain/dex';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
@@ -34,13 +34,19 @@ export const useReviewWrap = ({
   const [handle, setHandle] = useState<IWrapFlowHandle | null>(null);
   const [state, dispatch] = useReducer(wrapFlowReducer, initialWrapFlowState);
   const succeededRef = useRef(false);
-  // `confirmWrap` can be invoked twice within the same tick, before the `handle` state update
-  // from the first call has re-rendered — a ref guards synchronously where state cannot.
+  // Non-null exactly while a flow is live. A ref rather than state because `confirmWrap` can be
+  // invoked twice within the same tick, before the first call's `handle` update has re-rendered.
   const handleRef = useRef<IWrapFlowHandle | null>(null);
   // Held in a ref rather than a dependency: an inline callback would change identity every
   // render, resubscribing and restarting the fold.
   const onWrapSuccessRef = useRef(onWrapSuccess);
   onWrapSuccessRef.current = onWrapSuccess;
+
+  const releaseGuard = useCallback((settled: IWrapFlowHandle) => {
+    if (handleRef.current === settled) {
+      handleRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     // Unsubscribing while the surface is closed only stops the hook from applying events; the
@@ -69,6 +75,12 @@ export const useReviewWrap = ({
   const confirmWrap = useCallback(() => {
     if (handleRef.current || !wrapFlowRunner || !activePublicKey) return;
 
+    if (wrapFlowRunner.publicKey !== activePublicKey) {
+      dispatch({ type: 'failed', error: new FlowError('runner-account-mismatch') });
+
+      return;
+    }
+
     const params: IStartWrapFlowParams = {
       direction,
       rawAmount: sourceToken.amountRaw,
@@ -77,7 +89,11 @@ export const useReviewWrap = ({
     const newHandle = wrapFlowRunner.start(params);
     handleRef.current = newHandle;
     setHandle(newHandle);
-  }, [activePublicKey, direction, sourceToken.amountRaw, wrapFlowRunner]);
+    // The guard tracks liveness, not identity: every terminal path resolves `done`, and only that
+    // releases it. Clearing on the subscription instead would miss a flow that ended while closed.
+    const release = () => releaseGuard(newHandle);
+    newHandle.done.then(release, release);
+  }, [activePublicKey, direction, releaseGuard, sourceToken.amountRaw, wrapFlowRunner]);
 
   const handleCloseSuccessModal = useCallback(() => {
     onClose();

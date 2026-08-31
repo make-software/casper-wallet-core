@@ -272,6 +272,8 @@ export const createSwapFlowRunner = (deps: ISwapFlowDeps): ISwapFlowRunner => {
   const active = new Map<string, ISwapFlowHandle>();
 
   return {
+    publicKey: deps.publicKey,
+
     start(params: IStartSwapFlowParams): ISwapFlowHandle {
       const id = uuid();
 

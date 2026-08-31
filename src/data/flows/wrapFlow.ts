@@ -150,6 +150,8 @@ export const createWrapFlowRunner = (deps: IWrapFlowDeps): IWrapFlowRunner => {
   const active = new Map<string, IWrapFlowHandle>();
 
   return {
+    publicKey: deps.publicKey,
+
     start(params: IStartWrapFlowParams): IWrapFlowHandle {
       const id = uuid();
 

@@ -5,9 +5,10 @@ import type {
   ISwapFlowState,
   IStartSwapFlowParams,
   ISwapFlowHandle,
+  ISwapQuotedTrade,
   SwapFlowEvent,
 } from '../../../domain/flows';
-import type { IDexTokenWithAmount, SwapQuoteType } from '../../../domain/swap';
+import { FlowError } from '../../../domain/flows';
 import type { ISwapDependencies, TransactionStatus } from '../../types';
 
 export interface IUseReviewSwapParams extends Pick<
@@ -18,10 +19,11 @@ export interface IUseReviewSwapParams extends Pick<
   slippage: number;
   /** Transaction deadline in minutes. */
   deadline: number;
-  firstToken: IDexTokenWithAmount;
-  secondToken: IDexTokenWithAmount;
-  path: string[];
-  quoteType: SwapQuoteType;
+  /**
+   * The tokens, amounts, route and quote type of one quote — `useSwapTokens` returns it as
+   * `quotedTrade`. `null` while no quote is in hand, which makes `confirmSwap` a no-op.
+   */
+  trade: ISwapQuotedTrade | null;
   isOpen: boolean;
   onSwapSuccess: () => void;
   onClose: () => void;
@@ -53,10 +55,7 @@ export const useReviewSwap = ({
   swapFlowRunner,
   slippage,
   deadline,
-  firstToken,
-  secondToken,
-  path,
-  quoteType,
+  trade,
   isOpen,
   onSwapSuccess,
   onClose,
@@ -64,13 +63,19 @@ export const useReviewSwap = ({
   const [handle, setHandle] = useState<ISwapFlowHandle | null>(null);
   const [state, dispatch] = useReducer(swapViewReducer, initialSwapFlowState);
   const succeededRef = useRef(false);
-  // `confirmSwap` can be invoked twice within the same tick, before the `handle` state update
-  // from the first call has re-rendered — a ref guards synchronously where state cannot.
+  // Non-null exactly while a flow is live. A ref rather than state because `confirmSwap` can be
+  // invoked twice within the same tick, before the first call's `handle` update has re-rendered.
   const handleRef = useRef<ISwapFlowHandle | null>(null);
   // Held in a ref rather than a dependency: an inline callback would change identity every
   // render, resubscribing and restarting the fold.
   const onSwapSuccessRef = useRef(onSwapSuccess);
   onSwapSuccessRef.current = onSwapSuccess;
+
+  const releaseGuard = useCallback((settled: ISwapFlowHandle) => {
+    if (handleRef.current === settled) {
+      handleRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     // Unsubscribing while the surface is closed only stops the hook from applying events; the
@@ -97,34 +102,35 @@ export const useReviewSwap = ({
   }, [handle, isOpen]);
 
   const confirmSwap = useCallback(() => {
-    if (handleRef.current || !swapFlowRunner || !activePublicKey) return;
+    if (handleRef.current || !swapFlowRunner || !activePublicKey || !trade) return;
 
-    const params: IStartSwapFlowParams = {
-      firstToken,
-      secondToken,
-      path,
-      quoteType,
-      slippage,
-      deadline,
-    };
+    if (swapFlowRunner.publicKey !== activePublicKey) {
+      dispatch({
+        type: 'failed',
+        leg: 'swap',
+        error: new FlowError('runner-account-mismatch'),
+      });
+
+      return;
+    }
+
+    const params: IStartSwapFlowParams = { ...trade, slippage, deadline };
 
     const newHandle = swapFlowRunner.start(params);
     handleRef.current = newHandle;
     setHandle(newHandle);
-  }, [
-    activePublicKey,
-    deadline,
-    firstToken,
-    path,
-    quoteType,
-    secondToken,
-    slippage,
-    swapFlowRunner,
-  ]);
+    // The guard tracks liveness, not identity: every terminal path resolves `done`, and only that
+    // releases it. Clearing on the subscription instead would miss a flow that ended while closed.
+    const release = () => releaseGuard(newHandle);
+    newHandle.done.then(release, release);
+  }, [activePublicKey, deadline, releaseGuard, slippage, swapFlowRunner, trade]);
 
   const resetForm = useCallback(() => {
+    // Refusing while a flow is live is what stops a second approval and a second swap against the
+    // same balance. Stopping a flow is `handle.cancel()`, never this.
+    if (handleRef.current) return;
+
     succeededRef.current = false;
-    handleRef.current = null;
     setHandle(null);
     dispatch({ type: 'reset' });
   }, []);

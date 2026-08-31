@@ -2,32 +2,62 @@
  * @jest-environment jsdom
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { Subject } from 'rxjs';
+import { ReplaySubject } from 'rxjs';
 
 import { useReviewSwap } from './useReviewSwap';
 
 import { TEST_PUBLIC_KEY } from '../../../__test-utils__/render-hook';
 import type { ILedgerEvent } from '../../../domain/ledger';
 import { SwapQuoteType } from '../../../domain/swap';
-import type { SwapFlowEvent } from '../../../domain/flows';
+import type { ISwapFlowHandle, ISwapFlowResult, SwapFlowEvent } from '../../../domain/flows';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
 
 const token = (id: string): IDexTokenWithAmount =>
   ({ id, packageHash: id, decimals: 9, amountRaw: '1000000000', amountFormatted: '1' }) as never;
 
-/** A runner whose single handle is driven by the test through `events$`. */
-const makeRunner = () => {
-  const events$ = new Subject<SwapFlowEvent>();
+/**
+ * A runner whose handles the test drives. `events$` is a `ReplaySubject` like the real one, so an
+ * event emitted while the surface is closed is still there when it resubscribes, and `settle`
+ * resolves `done` — which is what releases the hook's re-entrancy guard.
+ */
+const makeRunner = (publicKey = TEST_PUBLIC_KEY) => {
   const cancel = jest.fn();
-  const handle = {
-    id: 'flow-1',
-    events$: events$.asObservable(),
-    done: new Promise(() => {}),
-    cancel,
-  };
-  const start = jest.fn(() => handle);
+  const flows: Array<{
+    events$: ReplaySubject<SwapFlowEvent>;
+    settle: (result: ISwapFlowResult) => void;
+    handle: ISwapFlowHandle;
+  }> = [];
 
-  return { events$, cancel, start, handle, getActive: jest.fn(() => handle) };
+  const start = jest.fn((): ISwapFlowHandle => {
+    const events$ = new ReplaySubject<SwapFlowEvent>(Infinity);
+    let settle!: (result: ISwapFlowResult) => void;
+    const done = new Promise<ISwapFlowResult>(resolve => {
+      settle = resolve;
+    });
+    const handle: ISwapFlowHandle = {
+      id: `flow-${flows.length + 1}`,
+      events$: events$.asObservable(),
+      done,
+      cancel,
+    };
+
+    flows.push({ events$, settle, handle });
+
+    return handle;
+  });
+
+  const current = () => flows[flows.length - 1];
+
+  return {
+    cancel,
+    start,
+    publicKey,
+    getActive: jest.fn(() => current()?.handle ?? null),
+    get events$() {
+      return current().events$;
+    },
+    settle: (result: ISwapFlowResult = { status: 'success' }) => current().settle(result),
+  };
 };
 
 const setup = (runner: ReturnType<typeof makeRunner>, isOpen = true) =>
@@ -39,10 +69,12 @@ const setup = (runner: ReturnType<typeof makeRunner>, isOpen = true) =>
         swapFlowRunner: runner as never,
         slippage: 1,
         deadline: 20,
-        firstToken: token('in'),
-        secondToken: token('out'),
-        path: ['in', 'out'],
-        quoteType: SwapQuoteType.ExactIn,
+        trade: {
+          firstToken: token('in'),
+          secondToken: token('out'),
+          path: ['in', 'out'],
+          quoteType: SwapQuoteType.ExactIn,
+        },
         isOpen: props.isOpen,
         onSwapSuccess: jest.fn(),
         onClose: jest.fn(),
@@ -115,7 +147,7 @@ describe('useReviewSwap', () => {
     expect(result.current.transactionState.approval.status).toBe('success');
   });
 
-  it('returns to a retryable confirm step after a failure', async () => {
+  it('returns to a retryable confirm step after a failure, and actually retries', async () => {
     const runner = makeRunner();
     const { result } = setup(runner);
 
@@ -130,6 +162,122 @@ describe('useReviewSwap', () => {
 
     await waitFor(() => expect(result.current.step).toBe('confirm'));
     expect(result.current.isProcessing).toBe(false);
+
+    await act(async () => {
+      runner.settle({ status: 'failed' });
+    });
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    expect(runner.start).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses a second start while the first flow is still unsettled', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'failed', leg: 'swap', error: new Error('nope') });
+    });
+
+    await waitFor(() => expect(result.current.step).toBe('confirm'));
+
+    await act(async () => {
+      result.current.resetForm();
+      result.current.confirmSwap();
+    });
+
+    expect(runner.start).toHaveBeenCalledTimes(1);
+    expect(result.current.transactionState.swap.error).toBe('nope');
+  });
+
+  it('refuses to start against a runner bound to a different account', async () => {
+    const runner = makeRunner('other-account');
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    expect(runner.start).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(result.current.transactionState.swap.error).toContain('runner-account-mismatch'),
+    );
+  });
+
+  it('does not start without a quoted trade', async () => {
+    const runner = makeRunner();
+    const { result } = renderHook(() =>
+      useReviewSwap({
+        network: 'testnet',
+        activePublicKey: TEST_PUBLIC_KEY,
+        swapFlowRunner: runner as never,
+        slippage: 1,
+        deadline: 20,
+        trade: null,
+        isOpen: true,
+        onSwapSuccess: jest.fn(),
+        onClose: jest.fn(),
+      }),
+    );
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    expect(runner.start).not.toHaveBeenCalled();
+  });
+
+  it('replays progress the surface missed while it was closed', async () => {
+    const runner = makeRunner();
+    const onSwapSuccess = jest.fn();
+    const { result, rerender } = renderHook(
+      (props: { isOpen: boolean }) =>
+        useReviewSwap({
+          network: 'testnet',
+          activePublicKey: TEST_PUBLIC_KEY,
+          swapFlowRunner: runner as never,
+          slippage: 1,
+          deadline: 20,
+          trade: {
+            firstToken: token('in'),
+            secondToken: token('out'),
+            path: ['in', 'out'],
+            quoteType: SwapQuoteType.ExactIn,
+          },
+          isOpen: props.isOpen,
+          onSwapSuccess,
+          onClose: jest.fn(),
+        }),
+      { initialProps: { isOpen: true } },
+    );
+
+    await act(async () => {
+      result.current.confirmSwap();
+    });
+
+    rerender({ isOpen: false });
+
+    act(() => {
+      runner.events$.next({ type: 'swap:sent', hash: '0xb' });
+      runner.events$.next({
+        type: 'swap:confirmed',
+        outcome: { hash: '0xb', status: 'success', blockHeight: 1 },
+      });
+    });
+
+    expect(onSwapSuccess).not.toHaveBeenCalled();
+
+    rerender({ isOpen: true });
+
+    await waitFor(() => expect(result.current.step).toBe('success'));
+    expect(onSwapSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('never starts a second flow while one is already running', async () => {
@@ -206,10 +354,12 @@ describe('useReviewSwap', () => {
         swapFlowRunner: runner as never,
         slippage: 1,
         deadline: 20,
-        firstToken: token('in'),
-        secondToken: token('out'),
-        path: ['in', 'out'],
-        quoteType: SwapQuoteType.ExactIn,
+        trade: {
+          firstToken: token('in'),
+          secondToken: token('out'),
+          path: ['in', 'out'],
+          quoteType: SwapQuoteType.ExactIn,
+        },
         isOpen: true,
         onSwapSuccess,
         onClose: jest.fn(),

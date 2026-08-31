@@ -17,6 +17,7 @@ import {
   TOKEN_DISPLAY_DECIMALS,
   USD_CURRENCY_CODE,
 } from '../../../domain/constants';
+import type { ISwapQuotedTrade } from '../../../domain/flows';
 import type { IDexToken } from '../../../domain/swap';
 import { SwapQuoteType } from '../../../domain/swap';
 import { isAmountInputValid, isPositiveAmount } from '../../../utils/amounts';
@@ -358,6 +359,42 @@ export const useSwapTokens = ({
   });
   const path = quoteData.data?.path ?? [];
 
+  /**
+   * The one bundle a swap may be started from. Every field is read off the same `quoteData.data`,
+   * so an amount can never be paired with a different quote's route or output bound — the form's
+   * own `tokenAmounts` lag the quote by the input debounce and must not be used here.
+   */
+  const quotedTrade = useMemo<ISwapQuotedTrade | null>(() => {
+    const quoteResult = quoteData.data;
+    const { first, second } = selectedTokens;
+
+    if (
+      !first ||
+      !second ||
+      !quoteResult?.amountInDecimal ||
+      !quoteResult?.amountOutDecimal ||
+      typeof first.decimals !== 'number' ||
+      typeof second.decimals !== 'number'
+    ) {
+      return null;
+    }
+
+    return {
+      firstToken: {
+        ...first,
+        amountFormatted: quoteResult.amountInDecimal,
+        amountRaw: getBlockchainAmount(quoteResult.amountInDecimal, first.decimals, '0'),
+      },
+      secondToken: {
+        ...second,
+        amountFormatted: quoteResult.amountOutDecimal,
+        amountRaw: getBlockchainAmount(quoteResult.amountOutDecimal, second.decimals, '0'),
+      },
+      path: quoteResult.path,
+      quoteType,
+    };
+  }, [quoteData.data, quoteType, selectedTokens]);
+
   // `setInitialTokens` takes `(first, second)`; `useTokenPreselection` passes a single
   // `{ first, second }` object — adapt here rather than changing either hook's signature.
   const setInitialTokensForPreselection = useCallback(
@@ -420,6 +457,7 @@ export const useSwapTokens = ({
     swapRoutes,
     path,
     quoteType,
+    quotedTrade,
     firstTokenFiatAmount,
     secondTokenFiatAmount,
     tokens,

@@ -2,30 +2,60 @@
  * @jest-environment jsdom
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { Subject } from 'rxjs';
+import { ReplaySubject } from 'rxjs';
 
 import { useReviewWrap } from './useReviewWrap';
 
 import { TEST_PUBLIC_KEY } from '../../../__test-utils__/render-hook';
-import type { WrapFlowEvent } from '../../../domain/flows';
+import type { IWrapFlowHandle, IWrapFlowResult, WrapFlowEvent } from '../../../domain/flows';
 import type { IDexTokenWithAmount } from '../../../domain/swap';
 
 const token = (id: string): IDexTokenWithAmount =>
   ({ id, packageHash: id, decimals: 9, amountRaw: '1000000000', amountFormatted: '1' }) as never;
 
-/** A runner whose single handle is driven by the test through `events$`. */
-const makeRunner = () => {
-  const events$ = new Subject<WrapFlowEvent>();
+/**
+ * A runner whose handles the test drives. `events$` is a `ReplaySubject` like the real one, so an
+ * event emitted while the surface is closed is still there when it resubscribes, and `settle`
+ * resolves `done` — which is what releases the hook's re-entrancy guard.
+ */
+const makeRunner = (publicKey = TEST_PUBLIC_KEY) => {
   const cancel = jest.fn();
-  const handle = {
-    id: 'flow-1',
-    events$: events$.asObservable(),
-    done: new Promise(() => {}),
-    cancel,
-  };
-  const start = jest.fn(() => handle);
+  const flows: Array<{
+    events$: ReplaySubject<WrapFlowEvent>;
+    settle: (result: IWrapFlowResult) => void;
+    handle: IWrapFlowHandle;
+  }> = [];
 
-  return { events$, cancel, start, handle, getActive: jest.fn(() => handle) };
+  const start = jest.fn((): IWrapFlowHandle => {
+    const events$ = new ReplaySubject<WrapFlowEvent>(Infinity);
+    let settle!: (result: IWrapFlowResult) => void;
+    const done = new Promise<IWrapFlowResult>(resolve => {
+      settle = resolve;
+    });
+    const handle: IWrapFlowHandle = {
+      id: `flow-${flows.length + 1}`,
+      events$: events$.asObservable(),
+      done,
+      cancel,
+    };
+
+    flows.push({ events$, settle, handle });
+
+    return handle;
+  });
+
+  const current = () => flows[flows.length - 1];
+
+  return {
+    cancel,
+    start,
+    publicKey,
+    getActive: jest.fn(() => current()?.handle ?? null),
+    get events$() {
+      return current().events$;
+    },
+    settle: (result: IWrapFlowResult = { status: 'success' }) => current().settle(result),
+  };
 };
 
 const setup = (runner: ReturnType<typeof makeRunner>, isOpen = true) =>
@@ -83,6 +113,71 @@ describe('useReviewWrap', () => {
     await waitFor(() => expect(result.current.step).toBe('confirm'));
     expect(result.current.error).toBe('nope');
     expect(result.current.isProcessing).toBe(false);
+  });
+
+  it('retries in place after a failure once the flow has settled', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmWrap();
+    });
+
+    act(() => {
+      runner.events$.next({ type: 'failed', error: new Error('nope') });
+    });
+
+    await waitFor(() => expect(result.current.step).toBe('confirm'));
+
+    await act(async () => {
+      runner.settle({ status: 'failed' });
+    });
+
+    await act(async () => {
+      result.current.confirmWrap();
+    });
+
+    expect(runner.start).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries after a success once the flow has settled', async () => {
+    const runner = makeRunner();
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmWrap();
+    });
+
+    act(() => {
+      runner.events$.next({
+        type: 'wrap:confirmed',
+        outcome: { hash: '0xw', status: 'success', blockHeight: 1 },
+      });
+    });
+
+    await waitFor(() => expect(result.current.step).toBe('success'));
+
+    await act(async () => {
+      runner.settle();
+    });
+
+    await act(async () => {
+      result.current.confirmWrap();
+    });
+
+    expect(runner.start).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses to start against a runner bound to a different account', async () => {
+    const runner = makeRunner('other-account');
+    const { result } = setup(runner);
+
+    await act(async () => {
+      result.current.confirmWrap();
+    });
+
+    expect(runner.start).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.error).toContain('runner-account-mismatch'));
   });
 
   it('never starts a second flow while one is already running', async () => {

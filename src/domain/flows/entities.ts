@@ -82,6 +82,16 @@ export interface IStartSwapFlowParams {
   awaitSettlement?: boolean;
 }
 
+/**
+ * The four fields that must all come from the same quote. `amount_out_min` is derived from
+ * `secondToken.amountRaw` and is only a slippage bound on the trade `firstToken.amountRaw` and
+ * `path` describe — mixing a fresh amount with a previous quote's output is an unprotected fill.
+ */
+export type ISwapQuotedTrade = Pick<
+  IStartSwapFlowParams,
+  'firstToken' | 'secondToken' | 'path' | 'quoteType'
+>;
+
 export interface IStartWrapFlowParams {
   direction: WrapDirection;
   /** Raw units: motes to wrap, or WCSPR units to burn. */
@@ -89,13 +99,22 @@ export interface IStartWrapFlowParams {
   awaitSettlement?: boolean;
 }
 
-export interface ISwapFlowRunner {
+/**
+ * A runner is bound to one account for its lifetime: the swap is built from, paid by, signed by
+ * and delivered to this key, whatever the surface is currently showing. Rebuild the runner when
+ * the active account changes, and check this before starting a flow.
+ */
+export interface IFlowRunnerAccount {
+  readonly publicKey: string;
+}
+
+export interface ISwapFlowRunner extends IFlowRunnerAccount {
   start(params: IStartSwapFlowParams): ISwapFlowHandle;
   /** The handle for a still-running flow, so a remounted surface can reattach. */
   getActive(id: string): ISwapFlowHandle | null;
 }
 
-export interface IWrapFlowRunner {
+export interface IWrapFlowRunner extends IFlowRunnerAccount {
   start(params: IStartWrapFlowParams): IWrapFlowHandle;
   getActive(id: string): IWrapFlowHandle | null;
 }

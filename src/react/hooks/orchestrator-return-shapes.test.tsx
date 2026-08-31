@@ -28,6 +28,7 @@ const network = 'mainnet' as const;
 
 /** Never emits — this suite only asserts the hook's initial return shape. */
 const swapFlowRunner: ISwapFlowRunner = {
+  publicKey: TEST_PUBLIC_KEY,
   start: jest.fn(() => ({
     id: 'flow-1',
     events$: NEVER,
@@ -39,6 +40,7 @@ const swapFlowRunner: ISwapFlowRunner = {
 
 /** Never emits — this suite only asserts the hook's initial return shape. */
 const wrapFlowRunner: IWrapFlowRunner = {
+  publicKey: TEST_PUBLIC_KEY,
   start: jest.fn(() => ({
     id: 'flow-2',
     events$: NEVER,
@@ -118,6 +120,7 @@ describe('orchestrator return shapes', () => {
       'quote',
       'quoteData',
       'quoteType',
+      'quotedTrade',
       'resetForm',
       'secondTokenFiatAmount',
       'selectToken',
@@ -173,10 +176,12 @@ describe('orchestrator return shapes', () => {
         swapFlowRunner,
         slippage: 3,
         deadline: 20,
-        firstToken: token('tokA'),
-        secondToken: token('tokB'),
-        path: ['tokA', 'tokB'],
-        quoteType: SwapQuoteType.ExactIn,
+        trade: {
+          firstToken: token('tokA'),
+          secondToken: token('tokB'),
+          path: ['tokA', 'tokB'],
+          quoteType: SwapQuoteType.ExactIn,
+        },
         isOpen: true,
         onSwapSuccess: noop,
         onClose: noop,
@@ -219,6 +224,7 @@ describe('orchestrator return shapes', () => {
       'error',
       'handleCloseSuccessModal',
       'isProcessing',
+      'ledgerEvent',
       'status',
       'step',
       'transactionHash',
