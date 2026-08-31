@@ -1,4 +1,4 @@
-import { CasperWalletApiByEnvUrl, GrpcUrl } from './domain';
+import { CasperWalletApiByEnvUrl, GrpcUrl, WrappedCsprContractPackageHash } from './domain';
 import { setupDataRepositories } from './setupData';
 import { setupSigningRepositories } from './setupSigning';
 import type { ISetupDataRepositoriesParams } from './setupData';
@@ -28,7 +28,16 @@ export const setupRepositories = ({
   rpcOptions,
   ...dataParams
 }: ISetupRepositoriesParams = {}) => {
-  const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories(dataParams);
+  // One hash for both halves: `SwapRepository` keys its synthetic native-CSPR token off it and
+  // `DexContractRepository` validates swap routes against it, so a divergence rejects every
+  // native-CSPR swap as an invalid route.
+  const wrappedCsprContractPackageHash =
+    dataParams.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash;
+
+  const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories({
+    ...dataParams,
+    wrappedCsprContractPackageHash,
+  });
 
   const signingRepositories = setupSigningRepositories({
     httpDataProvider,
@@ -37,6 +46,7 @@ export const setupRepositories = ({
     contractPackageRepository: dataRepositories.contractPackageRepository,
     casperWalletApiByEnvUrl: dataParams.casperWalletApiByEnvUrl ?? CasperWalletApiByEnvUrl,
     grpcUrl,
+    wrappedCsprContractPackageHash,
     httpAuthorizationHeader: dataParams.httpAuthorizationHeader,
     dexConfig,
     rpcOptions,

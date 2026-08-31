@@ -139,6 +139,26 @@ describe('CasperTransactionsRepository rpc plumbing', () => {
     jest.useRealTimers();
   });
 
+  it('logs the node-time read that sent it back to the device clock', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:10.000Z'));
+    const log = {
+      log: jest.fn(),
+      logGroup: jest.fn(),
+      logGroupEnd: jest.fn(),
+      reportError: jest.fn(),
+    };
+    mockGetStatus.mockRejectedValue(new Error('down'));
+    const repo = new CasperTransactionsRepository(GrpcUrl, {}, log);
+
+    await expect(repo.getDateForTransaction('mainnet')).resolves.toBe('2026-01-01T00:00:08.000Z');
+
+    expect(log.reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.stringContaining('getDateForTransaction'),
+    );
+    jest.useRealTimers();
+  });
+
   it('getNetworkApiVersion returns apiVersion and wraps RPC failures', async () => {
     mockGetStatus.mockResolvedValue(nodeStatus('2026-01-01T00:00:00.000Z', '1.5.8'));
     const repo = new CasperTransactionsRepository(GrpcUrl);

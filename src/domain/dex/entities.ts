@@ -22,9 +22,14 @@ export type IBuiltDexTransaction = IBuiltDexTransactionBase &
     | { readonly deploy: Deploy; readonly transaction?: never }
   );
 
+/**
+ * The wrapped-CSPR hash is deliberately *not* here: `SwapRepository`'s synthetic native-CSPR
+ * token keys off it too, and two independently-defaulting knobs for one address means every
+ * native-CSPR swap fails route validation the moment a consumer sets only one of them. It is a
+ * parameter of the setup factories instead.
+ */
 export interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
-  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>; // default WrappedCsprContractPackageHash
   gasPriceTolerance?: number; // default 1
   /**
    * Loader for the `proxy_caller.wasm` bytes. Required: the swap, wrap and unwrap builders

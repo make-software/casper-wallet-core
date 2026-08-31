@@ -37,6 +37,10 @@ const DEX_CONFIG = {
   gasPriceTolerance: 1,
 };
 
+/** The shape the sdk throws for an RPC error: the code rides on the wrapped `sourceErr`. */
+const rpcError = (code: number) =>
+  Object.assign(new Error(`rpc ${code}`), { statusCode: code, sourceErr: { code } });
+
 /** Fake RpcClient — only the methods a given test exercises need to be present. */
 const makeClient = (overrides: Record<string, jest.Mock> = {}) => overrides;
 
@@ -113,7 +117,8 @@ describe('DexContractRepository', () => {
         repo,
         makeClient({
           queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
-          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('key not found')),
+          // ErrorCode.QueryFailed — the node answered and the item is not in state.
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(rpcError(-32003)),
         }),
       );
 
@@ -124,6 +129,94 @@ describe('DexContractRepository', () => {
           publicKey: PUBLIC_KEY,
         }),
       ).resolves.toBe('');
+    });
+
+    it('rejects rather than reading "" when the dictionary lookup itself fails', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('socket hang up')),
+        }),
+      );
+
+      await expect(
+        repo.getAllowance({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+        }),
+      ).rejects.toMatchObject({ name: 'DexRepositoryError', type: 'getAllowance' });
+    });
+
+    it('reads a transient allowance failure as "approval required", and logs it', async () => {
+      const log = {
+        reportError: jest.fn(),
+        log: jest.fn(),
+        logGroup: jest.fn(),
+        logGroupEnd: jest.fn(),
+      };
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG, undefined, {}, log);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('socket hang up')),
+        }),
+      );
+
+      await expect(
+        repo.checkApprovalRequired({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+          requiredAmount: '1',
+        }),
+      ).resolves.toBe(true);
+      expect(log.reportError).toHaveBeenCalled();
+    });
+  });
+
+  describe('unconfigured networks', () => {
+    const UNCONFIGURED = {
+      tradeContractPackageHash: { ...TradeContractPackageHash, devnet: '' },
+      wrappedCsprContractPackageHash: { ...WrappedCsprContractPackageHash, devnet: '' },
+      gasPriceTolerance: 1,
+      getProxyWasm: async () => new Uint8Array([1]),
+    };
+
+    it('refuses to build an approval against an empty trade contract package hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, UNCONFIGURED);
+
+      await expect(
+        repo.buildApprovalTransaction({
+          network: 'devnet',
+          publicKey: PUBLIC_KEY,
+          contractPackageHash: 'cph',
+          amount: '1',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('No trade contract package hash configured'),
+      });
+    });
+
+    it('refuses to build a wrap against an empty wrapped-CSPR contract package hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, UNCONFIGURED);
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'devnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('No wrapped-CSPR contract package hash configured'),
+      });
     });
   });
 

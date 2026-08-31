@@ -14,6 +14,7 @@ import {
   IDexConfig,
   IDexContractRepository,
   IDexTokenWithAmount,
+  ILogger,
   isDexError,
   MAX_DEADLINE,
   MAX_SLIPPAGE,
@@ -41,20 +42,26 @@ import {
   createWASMContractDeploy,
 } from './transactionBuilders';
 
+/**
+ * `IDexConfig` with every default already applied by the setup factory, and with the wrapped-CSPR
+ * hash the whole setup shares rather than a dex-only knob.
+ */
+export interface IResolvedDexConfig {
+  tradeContractPackageHash: Record<CasperNetwork, string>;
+  wrappedCsprContractPackageHash: Record<CasperNetwork, string>;
+  gasPriceTolerance: number;
+  // Optional here, required on `IDexConfig`: the runtime guard still has to hold for JavaScript
+  // consumers who bypass the compile-time contract.
+  getProxyWasm?: IDexConfig['getProxyWasm'];
+}
+
 export class DexContractRepository implements IDexContractRepository {
   constructor(
     private _grpcUrl: Record<CasperNetwork, string>,
-    private _dexConfig: Required<
-      Pick<
-        IDexConfig,
-        'tradeContractPackageHash' | 'wrappedCsprContractPackageHash' | 'gasPriceTolerance'
-      >
-    > &
-      // Optional here, required on `IDexConfig`: the runtime guard still has to hold for
-      // JavaScript consumers who bypass the compile-time contract.
-      Partial<Pick<IDexConfig, 'getProxyWasm'>>,
+    private _dexConfig: IResolvedDexConfig,
     private _httpAuthorizationHeader?: string,
     private _rpcOptions: ICasperRpcOptions = {},
+    private _log?: ILogger,
   ) {}
 
   async getAllowance(params: {
@@ -73,16 +80,15 @@ export class DexContractRepository implements IDexContractRepository {
         Key.newKey(PublicKey.fromHex(publicKey).accountHash().toPrefixedString()),
       );
       const operator = CLValue.newCLKey(
-        Key.newKey(
-          operatorContractPackageHash ?? this._dexConfig.tradeContractPackageHash[network],
-        ),
+        Key.newKey(operatorContractPackageHash ?? this._tradeContractPackageHash(network)),
       );
 
       const dictKey = keysToHex(key, operator);
 
       const allowanceResult = await getDictionaryValue(client, contractHash, 'allowances', dictKey);
 
-      // '' is the genuinely-absent case: the dictionary has no entry for this spender.
+      // '' is the genuinely-absent case: the dictionary has no entry for this spender. A failed
+      // read throws out of `getDictionaryValue` rather than arriving here as an empty allowance.
       return allowanceResult?.toString() ?? '';
     } catch (e) {
       this._processError(e, 'getAllowance');
@@ -98,7 +104,7 @@ export class DexContractRepository implements IDexContractRepository {
     const { network, contractPackageHash, publicKey, requiredAmount } = params;
 
     // CSPR (wrapped as WCSPR on-chain) doesn't require approval.
-    if (contractPackageHash === this._dexConfig.wrappedCsprContractPackageHash[network]) {
+    if (contractPackageHash === this._wrappedCsprContractPackageHash(network)) {
       return false;
     }
 
@@ -107,14 +113,16 @@ export class DexContractRepository implements IDexContractRepository {
         network,
         contractPackageHash,
         publicKey,
-        operatorContractPackageHash: this._dexConfig.tradeContractPackageHash[network],
+        operatorContractPackageHash: this._tradeContractPackageHash(network),
       });
 
       return new Decimal(allowance || '0').lt(new Decimal(requiredAmount || '0'));
+    } catch (e) {
       // Fail-safe: an unreadable allowance must read as "approval required", never as
-      // "already approved".
-      // eslint-disable-next-line no-restricted-syntax -- deliberate
-    } catch {
+      // "already approved". It costs the user an approval they may not have needed, so it is
+      // logged rather than silent.
+      this._log?.reportError(e, 'DexContractRepository.checkApprovalRequired: allowance read');
+
       return true;
     }
   }
@@ -140,7 +148,7 @@ export class DexContractRepository implements IDexContractRepository {
       const chainName = CasperSdkNetworkName[network];
 
       const runtimeArgs = Args.fromMap({
-        spender: CLValue.newCLKey(Key.newKey(this._dexConfig.tradeContractPackageHash[network])),
+        spender: CLValue.newCLKey(Key.newKey(this._tradeContractPackageHash(network))),
         amount: CLValue.newCLUInt256(amount),
       });
 
@@ -288,7 +296,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
-          hexToBytes(this._dexConfig.tradeContractPackageHash[network].replace('hash-', '')),
+          hexToBytes(this._tradeContractPackageHash(network).replace('hash-', '')),
         ),
         entry_point: CLValue.newCLString(entryPoint),
         args: CLValue.newCLList(CLTypeUInt8, argsBytes),
@@ -353,7 +361,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
-          hexToBytes(this._dexConfig.wrappedCsprContractPackageHash[network].replace('hash-', '')),
+          hexToBytes(this._wrappedCsprContractPackageHash(network).replace('hash-', '')),
         ),
         entry_point: CLValue.newCLString(entryPoint),
         args: CLValue.newCLList(CLTypeUInt8, argsBytes),
@@ -418,7 +426,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
-          hexToBytes(this._dexConfig.wrappedCsprContractPackageHash[network].replace('hash-', '')),
+          hexToBytes(this._wrappedCsprContractPackageHash(network).replace('hash-', '')),
         ),
         entry_point: CLValue.newCLString(entryPoint),
         args: CLValue.newCLList(CLTypeUInt8, argsBytes),
@@ -497,7 +505,7 @@ export class DexContractRepository implements IDexContractRepository {
       throw new Error(`Invalid swap route: expected at least 2 hops, got ${path.length}`);
     }
 
-    const wrappedCspr = this._dexConfig.wrappedCsprContractPackageHash[network];
+    const wrappedCspr = this._wrappedCsprContractPackageHash(network);
     const onChainHash = (token: IDexTokenWithAmount): string =>
       token.id === CSPR_NATIVE_TOKEN_ID ? wrappedCspr : token.packageHash;
 
@@ -524,6 +532,41 @@ export class DexContractRepository implements IDexContractRepository {
         ? { authorizationHeader: this._httpAuthorizationHeader }
         : {}),
     });
+  }
+
+  /**
+   * The shipped defaults are `''` for devnet and integration, and a consumer supplying their own
+   * map naturally does the same for networks they do not support. An empty hash builds a
+   * zero-length byte array that is signed and submitted, then reverts on chain.
+   */
+  private _requireContractPackageHash(
+    hash: string | undefined,
+    kind: 'trade' | 'wrapped-CSPR',
+    network: CasperNetwork,
+  ): string {
+    if (!hash) {
+      throw new Error(
+        `No ${kind} contract package hash configured for "${network}". Supply one through \`dexConfig\`.`,
+      );
+    }
+
+    return hash;
+  }
+
+  private _tradeContractPackageHash(network: CasperNetwork): string {
+    return this._requireContractPackageHash(
+      this._dexConfig.tradeContractPackageHash[network],
+      'trade',
+      network,
+    );
+  }
+
+  private _wrappedCsprContractPackageHash(network: CasperNetwork): string {
+    return this._requireContractPackageHash(
+      this._dexConfig.wrappedCsprContractPackageHash[network],
+      'wrapped-CSPR',
+      network,
+    );
   }
 
   private _processError(e: unknown, type: DexErrorType): never {

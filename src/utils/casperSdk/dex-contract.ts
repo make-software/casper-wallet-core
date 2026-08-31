@@ -46,28 +46,61 @@ export const getContractHash = async (
   };
 };
 
-/** Reads a dictionary value by contract-named-key identifier; `null` on any failure. */
+/**
+ * `ErrorCode.QueryFailed` / `ErrorCode.FailedToGetDictionaryURef` — the node answered and the
+ * item is not in state. Anything else (transport, HTTP, a node error) is a failed read.
+ */
+const ABSENT_DICTIONARY_RPC_CODES = [-32003, -32010];
+
+/**
+ * The sdk reports an RPC error as `HttpError(code, RpcError)`, so the code sits on `statusCode`
+ * and on the wrapped `sourceErr` — never on the thrown error itself.
+ */
+const isAbsentDictionaryError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const { code, statusCode, sourceErr } = error as {
+    code?: unknown;
+    statusCode?: unknown;
+    sourceErr?: { code?: unknown };
+  };
+
+  return [code, statusCode, sourceErr?.code]
+    .filter(value => value != null)
+    .map(Number)
+    .some(value => ABSENT_DICTIONARY_RPC_CODES.includes(value));
+};
+
+/**
+ * Reads a dictionary value by contract-named-key identifier.
+ *
+ * `null` means the entry is genuinely absent. A failed read — an unreachable node, an HTTP
+ * error, a malformed response — throws, so a caller cannot mistake "we could not look" for
+ * "there is nothing there".
+ */
 export const getDictionaryValue = async (
   client: RpcClient,
   contractHash: string,
   dictionaryName: string,
   dictKey: string,
 ): Promise<CLValue | null> => {
-  try {
-    const identifier = new ParamDictionaryIdentifier(
-      undefined,
-      new ParamDictionaryIdentifierContractNamedKey(
-        `hash-${contractHash}`,
-        dictionaryName,
-        dictKey,
-      ),
-    );
+  const identifier = new ParamDictionaryIdentifier(
+    undefined,
+    new ParamDictionaryIdentifierContractNamedKey(`hash-${contractHash}`, dictionaryName, dictKey),
+  );
 
+  try {
     const result = await client.getDictionaryItemByIdentifier(null, identifier);
 
     return result.storedValue?.clValue ?? null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (isAbsentDictionaryError(error)) {
+      return null;
+    }
+
+    throw error;
   }
 };
 

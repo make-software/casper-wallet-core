@@ -18,6 +18,7 @@ import {
   ISignMessageParams,
   ISignTransactionParams,
   ISignTransactionResponse,
+  ILogger,
   LedgerError,
 } from '../../../domain';
 import { getBlockchainAmount } from '../../../utils/common';
@@ -35,6 +36,7 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
   constructor(
     private _grpcUrl: Record<CasperNetwork, string>,
     private _rpcOptions: ICasperRpcOptions = {},
+    private _log?: ILogger,
   ) {}
 
   async getNetworkApiVersion(network: CasperNetwork): Promise<string> {
@@ -51,6 +53,11 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
     return createCasperRpcClient(this._grpcUrl[network], this._rpcOptions);
   }
 
+  /**
+   * Node time, or the device clock when the node cannot be read. The fallback is deliberate —
+   * every transfer and delegation is timestamped from this — but a skewed device clock has the
+   * node reject them as future-dated or expire them early, so a failed read is logged.
+   */
   async getDateForTransaction(network: CasperNetwork): Promise<string> {
     const defaultDate = sub(new Date(), { seconds: 2 });
 
@@ -59,7 +66,12 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
       const nodeDate = resp.lastProgress.toDate();
 
       return isBefore(nodeDate, defaultDate) ? defaultDate.toISOString() : nodeDate.toISOString();
-    } catch {
+    } catch (e) {
+      this._log?.reportError(
+        e,
+        'CasperTransactionsRepository.getDateForTransaction: falling back to the device clock',
+      );
+
       return defaultDate.toISOString();
     }
   }
