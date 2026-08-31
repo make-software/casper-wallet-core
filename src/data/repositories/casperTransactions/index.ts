@@ -211,7 +211,9 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
       const rpcClient = this._createRpcClient(network);
 
       if (built.deploy) {
-        const signed = await signer.getSignedTransaction(Transaction.fromDeploy(built.deploy));
+        const signed = await signer.getSignedTransaction(Transaction.fromDeploy(built.deploy), {
+          fallbackDeploy: built.deploy,
+        });
         const deploy = signed.getDeploy();
 
         if (!deploy) {

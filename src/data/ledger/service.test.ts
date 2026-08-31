@@ -361,6 +361,20 @@ describe('CasperLedgerService', () => {
       });
     });
 
+    it('does not attempt a transport when availability check fails', async () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const transportCreator = jest.fn(async () => makeTransport());
+
+      await expect(
+        service.connect(transportCreator as never, async () => false),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining(LedgerEventStatus.NotAvailable),
+      });
+
+      expect(transportCreator).not.toHaveBeenCalled();
+      expect(service.isConnected).toBe(false);
+    });
+
     it('rejects with Disconnected when not connected', async () => {
       const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
 
@@ -439,10 +453,34 @@ describe('CasperLedgerService', () => {
       const { service } = await connectService(app);
       const { events, restore } = spyOnEvents();
 
-      await service.getAccountList({ size: 1, offset: 0 });
+      await expect(service.getAccountList({ size: 1, offset: 0 })).rejects.toBeInstanceOf(
+        LedgerError,
+      );
       restore();
 
       expect(events.some(e => e.status === LedgerEventStatus.DeviceLocked)).toBe(true);
+      expect(events.some(e => e.status === LedgerEventStatus.AccountListUpdated)).toBe(false);
+      expect(service.cachedAccounts).toHaveLength(0);
+    });
+
+    it('stops getAccountList when the Casper app is not loaded', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 0x6e01,
+          publicKey: Buffer.alloc(33),
+        })),
+      });
+      const { service } = await connectService(app);
+      const { events, restore } = spyOnEvents();
+
+      await expect(service.getAccountList({ size: 1, offset: 0 })).rejects.toBeInstanceOf(
+        LedgerError,
+      );
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.CasperAppNotLoaded)).toBe(true);
+      expect(events.some(e => e.status === LedgerEventStatus.AccountListUpdated)).toBe(false);
+      expect(service.cachedAccounts).toHaveLength(0);
     });
 
     it('checkAppInfo returns WaitingToSignPrevDeploy for returnCode 65535 (0xffff)', async () => {
@@ -598,7 +636,9 @@ describe('CasperLedgerService', () => {
       service.ledgerEvents$.subscribe(evt => seen.push(evt.status));
       const before = seen.length;
 
-      await service.getAccountList({ size: 1, offset: 0 });
+      await expect(service.getAccountList({ size: 1, offset: 0 })).rejects.toBeInstanceOf(
+        LedgerError,
+      );
 
       expect(seen.length).toBeGreaterThan(before);
     });

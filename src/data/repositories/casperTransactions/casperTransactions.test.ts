@@ -11,13 +11,14 @@ import {
   CSPR_COIN,
   GrpcUrl,
   IBuiltDexTransaction,
+  ICasperLedgerService,
   ICasperSigner,
   INft,
   IToken,
   LedgerError,
   LedgerEventStatus,
 } from '../../../domain';
-import { createPrivateKeySigner } from '../../signers';
+import { createLedgerSigner, createPrivateKeySigner } from '../../signers';
 import * as txBuildersModule from '../../../utils/casperSdk/tx-builders';
 import { CasperTransactionsRepository } from './index';
 
@@ -519,6 +520,22 @@ describe('composed sends', () => {
   });
 });
 
+const makeOldAppLedgerService = () => ({
+  getSignedTransaction: jest.fn(
+    async (
+      tx: Transaction,
+      _account: unknown,
+      fallbackTxFromDeploy?: Transaction,
+    ): Promise<Transaction> => {
+      if (!fallbackTxFromDeploy) {
+        throw new LedgerError({ status: LedgerEventStatus.TransactionForOldAppVersion });
+      }
+
+      return fallbackTxFromDeploy;
+    },
+  ),
+});
+
 describe('sendDexTransaction', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -554,6 +571,24 @@ describe('sendDexTransaction', () => {
       repo.sendDexTransaction({ built: dexBuilt({ deploy }), network: 'mainnet', signer }),
     ).resolves.toBe('b2');
     expect(mockPutTransaction).not.toHaveBeenCalled();
+    expect((signer.getSignedTransaction as jest.Mock).mock.calls[0][1]).toEqual({
+      fallbackDeploy: deploy,
+    });
+  });
+
+  it('a Ledger on a pre-v3 app signs the deploy artifact instead of being told to update', async () => {
+    mockPutDeploy.mockResolvedValue({ deployHash: { toHex: () => 'c3' } });
+    const deploy = deployFixture();
+    const ledgerService = makeOldAppLedgerService();
+    const signer = createLedgerSigner({
+      service: ledgerService as unknown as ICasperLedgerService,
+      publicKeyHex: sender,
+    });
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+
+    await expect(
+      repo.sendDexTransaction({ built: dexBuilt({ deploy }), network: 'mainnet', signer }),
+    ).resolves.toBe('c3');
   });
 
   it('V1 artifact: InvalidDeployError (not wrapped) when putTransaction resolves falsy', async () => {

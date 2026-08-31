@@ -75,6 +75,8 @@ export class CasperLedgerService implements ICasperLedgerService {
         const evt = { status: LedgerEventStatus.NotAvailable };
         this.#ledgerEventStatusSubject.next(evt);
         reject(new LedgerError(evt));
+
+        return;
       }
 
       const connectionObserver: Observer<ILedgerEvent> = {
@@ -194,13 +196,9 @@ export class CasperLedgerService implements ICasperLedgerService {
 
       if (!response || response.returnCode !== 0x9000) {
         if (response?.returnCode === 0xffff || response.returnCode === 21781) {
-          this.#ledgerEventStatusSubject.next({
-            status: LedgerEventStatus.DeviceLocked,
-          });
+          this.#processError({ status: LedgerEventStatus.DeviceLocked });
         } else if (response?.returnCode === 0x6e01) {
-          this.#ledgerEventStatusSubject.next({
-            status: LedgerEventStatus.CasperAppNotLoaded,
-          });
+          this.#processError({ status: LedgerEventStatus.CasperAppNotLoaded });
         } else {
           this.#processError({ status: LedgerEventStatus.AccountListFailed });
         }

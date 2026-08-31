@@ -86,5 +86,6 @@ export const useReviewWrap = ({
     isProcessing: state.step === 'signing',
     confirmWrap,
     handleCloseSuccessModal,
+    ledgerEvent: state.ledgerEvent,
   };
 };
