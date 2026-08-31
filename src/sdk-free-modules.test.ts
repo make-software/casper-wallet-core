@@ -28,6 +28,10 @@ const SDK_FREE_ENTRY_POINTS = [
   // The data repositories a home screen renders from. `src/setup.ts` builds the signing
   // repositories too and links the SDK by design; this is the half that must not.
   'src/setupData.ts',
+  // The React hook layer, documented in the README as deep-importable without the SDK. Its
+  // repository dependencies arrive as injected interfaces, so nothing here may value-import an
+  // implementation.
+  'src/react/index.ts',
 ];
 
 interface Import {

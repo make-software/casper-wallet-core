@@ -66,9 +66,9 @@ SDK out of a balances-only bundle, `swapRepository` and `tokensRepository` come 
 ```ts
 interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
-  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>; // default WrappedCsprContractPackageHash
   gasPriceTolerance?: number; // default 1
   getProxyWasm: () => Promise<Uint8Array>; // required for swap and wrap/unwrap builders
+  expectedProxyWasmSha256?: string; // strongly recommended, see below
 }
 ```
 
@@ -78,15 +78,24 @@ itself is optional: omit it entirely and `dexContractRepository` still builds ap
 swap, wrap and unwrap reject. Supply it and the compiler requires `getProxyWasm`, so the
 failure lands at setup rather than at the Confirm button.
 
+The wrapped-CSPR contract package hash is **not** part of `dexConfig`. `swapRepository` keys its
+synthetic native-CSPR token off the same address, so it is one parameter of the setup factories
+(`setupRepositories({ wrappedCsprContractPackageHash })`) rather than two knobs that can
+disagree — a divergence rejects every native-CSPR swap as an invalid route.
+
+A network whose `tradeContractPackageHash` or `wrappedCsprContractPackageHash` is empty — which
+is the shipped default for devnet and integration — refuses to build rather than signing a call
+against a zero-length address. Supply both if you support those networks.
+
 ### Supplying the proxy WASM
 
 Every swap and wrap/unwrap transaction runs through a WASM proxy (`proxy_caller.wasm`). The
 library cannot bundle binary assets, so each platform supplies the bytes itself:
 
 ```ts
-// Web (Vite/webpack, asset import):
-import proxyWasmUrl from './assets/proxy_caller.wasm?url';
-const getProxyWasm = async () => new Uint8Array(await (await fetch(proxyWasmUrl)).arrayBuffer());
+// Web (Vite/webpack — inline the bytes at build time, do not fetch them at runtime):
+import proxyWasm from './assets/proxy_caller.wasm';
+const getProxyWasm = async () => new Uint8Array(proxyWasm);
 
 // React Native (bundled asset + a base64/file read appropriate to your RN setup):
 const getProxyWasm = async () => {
@@ -94,6 +103,23 @@ const getProxyWasm = async () => {
   return Uint8Array.from(Buffer.from(base64, 'base64'));
 };
 ```
+
+**Ship the bytes as a build-time asset, and set `expectedProxyWasmSha256`.** These bytes execute
+as session code in the caller's account context, with access to their main purse — it is the most
+powerful payload the library builds, and unlike the bounded `approve` call neither the wallet UI
+nor the Ledger prompt shows the user more than "ModuleBytes". A runtime `fetch` widens the
+exposure from your own asset pipeline to whatever that URL resolves to on the day.
+
+```ts
+dexConfig: {
+  getProxyWasm,
+  // shasum -a 256 proxy_caller.wasm
+  expectedProxyWasmSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+}
+```
+
+The bytes are hashed once per repository and the build is refused on a mismatch. Without it they
+are used as supplied, and nothing downstream can tell a correct binary from a substituted one.
 
 ## 2. Build the dependency object
 
@@ -142,11 +168,14 @@ runners and `activePublicKey` until a wallet is connected.
 **Repositories and flow runners must be stable references.** These hooks put dependency objects
 in `useCallback`/`useEffect` dependency arrays, so a dependency that gets a new identity on every
 render re-triggers those effects — `useTokenBalances`'s CSPR refetch loops indefinitely if
-`tokensRepository` is rebuilt on every render instead of held as a stable singleton, and a
-`swapFlowRunner` rebuilt on every render breaks `useReviewSwap`'s duplicate-submission guard the
-same way. Keep `swapRepository`, `dexContractRepository`, `tokensRepository`, `swapFlowRunner`
-and `wrapFlowRunner` as module-level (or memoized-once) singletons, and memoize the `deps` object
-itself, as in the example above.
+`tokensRepository` is rebuilt on every render instead of held as a stable singleton. A
+`swapFlowRunner` rebuilt on every render loses something different: `getActive(id)` is backed by
+a map on the runner instance, so every in-flight flow becomes unreachable and a remounted surface
+can no longer reattach to a swap that is still running. Keep `swapRepository`,
+`dexContractRepository` and `tokensRepository` as module-level (or memoized-once) singletons, and
+memoize the `deps` object itself, as in the example above.
+
+**The flow runners are the exception: they are stable per account, not per app.** See step 3.
 
 Above `TradeScreen`, only `QueryClientProvider` is required:
 
@@ -173,11 +202,12 @@ import {
   createPrivateKeySigner,
   createSwapFlowRunner,
   createWrapFlowRunner,
+  isLedgerSignatureCancelled,
   setupRepositories,
 } from 'casper-wallet-core';
 
 const { casperTransactionsRepository, dexContractRepository, transactionStatusRepository } =
-  setupRepositories({ dexConfig: { getProxyWasm } });
+  setupRepositories({ dexConfig: { getProxyWasm, expectedProxyWasmSha256 } });
 
 const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
 
@@ -192,7 +222,9 @@ const swapFlowRunner = createSwapFlowRunner({
   transactionStatusRepository,
   // Optional: device prompts interleave with flow progress in the same stream.
   ledgerEvents$: ledgerService?.ledgerEvents$,
-  isCancellationError: error => isLedgerSignatureCancelled(error),
+  // Optional: the default already classifies a Ledger `SignatureCanceled` /
+  // `MsgSignatureCanceled` as a cancellation. Supply one only for a signer of your own.
+  isCancellationError: isLedgerSignatureCancelled,
 });
 ```
 
@@ -200,8 +232,32 @@ const swapFlowRunner = createSwapFlowRunner({
 `deps` object (wrap simply never calls the approval builders). `transactionStatusRepository`
 (`ITransactionStatusRepository`) is core-owned: it polls node RPC until the submitted
 transaction executes, so there is no `waitForTransaction` callback left for a consumer to
-implement. Both runners are typically built once, alongside your other repositories, and passed
-into `ISwapDependencies` as `swapFlowRunner`/`wrapFlowRunner` — see step 2.
+implement.
+
+**A runner is bound to the `publicKey` and `signer` it was built with, for its whole lifetime.**
+The swap is built from, paid by, signed by and delivered to that key — the `to` recipient is
+derived from it, not from anything the surface passes at Confirm time. So **rebuild both runners
+when the active account changes**, memoized on `activePublicKey`:
+
+```ts
+const { swapFlowRunner, wrapFlowRunner } = useMemo(() => {
+  if (!activePublicKey || !signer) return { swapFlowRunner: null, wrapFlowRunner: null };
+
+  const flowDeps = { network, publicKey: activePublicKey, signer, ...repositories };
+
+  return {
+    swapFlowRunner: createSwapFlowRunner(flowDeps),
+    wrapFlowRunner: createWrapFlowRunner(flowDeps),
+  };
+}, [activePublicKey, signer, network]);
+```
+
+Both runners expose `publicKey`, and `useReviewSwap` / `useReviewWrap` refuse to start a flow when
+it disagrees with `activePublicKey`, surfacing a `FlowError` rather than signing for the wrong
+account. That is a backstop, not the mechanism: rebuild the runners.
+
+Rebuilding drops the previous runner's `getActive` map, so do it on account change only — not on
+every render.
 
 `runner.start(params)` returns an `ISwapFlowHandle` / `IWrapFlowHandle` — a running flow, not a
 one-shot promise. `src/react/hooks/swap/useReviewSwap.ts` and
@@ -342,8 +398,9 @@ right after a transaction is confirmed), call the `refetchCsprBalance` function
 ## Swap review flow
 
 `useSwapTokens` drives the trade form; `useReviewSwap` drives the review modal that follows it.
-The orchestrator hands over the two amounted tokens, the quoted `path` and the `quoteType`, and
-`useReviewSwap` runs the CEP-18 approval (skipped for a native CSPR input) before the swap:
+The orchestrator hands over one `quotedTrade` bundle — the two amounted tokens, the route and the
+quote type, all read off the same quote — and `useReviewSwap` runs the CEP-18 approval (skipped
+for a native CSPR input) before the swap:
 
 ```tsx
 import { useSwapTokens, useReviewSwap } from 'casper-wallet-core/src/react';
@@ -354,8 +411,7 @@ function SwapPage({ slippage, deadline }: { slippage: number; deadline: number }
   const {
     selectedTokens,
     tokenAmounts,
-    path,
-    quoteType,
+    quotedTrade,
     isReviewModalOpen,
     closeReviewModal,
     onSwapSuccess,
@@ -375,10 +431,7 @@ function SwapPage({ slippage, deadline }: { slippage: number; deadline: number }
     ...deps,
     slippage,
     deadline,
-    firstToken: { ...selectedTokens.first!, ...tokenAmounts.first },
-    secondToken: { ...selectedTokens.second!, ...tokenAmounts.second },
-    path,
-    quoteType,
+    trade: quotedTrade,
     isOpen: isReviewModalOpen,
     onSwapSuccess,
     onClose: closeReviewModal,
@@ -388,25 +441,56 @@ function SwapPage({ slippage, deadline }: { slippage: number; deadline: number }
 }
 ```
 
-`firstToken`/`secondToken` carry the **transaction** amounts (`tokenAmounts.first.raw` is the
-raw amount the user typed, not their balance). `slippage` must be the same value passed to
-`useSwapTokens`, so the quote the user saw and the bound encoded into the payload agree; the
-approval amount is derived from it and needs nothing else from the caller.
+**Pass `quotedTrade` whole; do not assemble the four fields yourself.** They carry the
+**transaction** amounts, not balances, and they must all come from one quote: `amount_out_min` is
+derived from `secondToken.amountRaw` and is only a slippage bound on the trade that
+`firstToken.amountRaw` and `path` describe. Pairing a fresh input amount with a previous quote's
+output is an unprotected fill if the amount grew and a wasted-gas revert if it shrank, and
+`buildSwapTransaction` cannot catch it — it validates the route's token _identity_, not its
+amounts. `quotedTrade` is `null` whenever no quote is in hand, and `confirmSwap` is a no-op then.
 
-`path` must come from the quote for the pair currently selected — `buildSwapTransaction`
-rejects a route whose first hop is not the input token or whose last hop is not the output
-token, since `amount_out_min` bounds how much the user receives but not which token it is.
+The form's own `tokenAmounts` lag the quote by the input debounce, so they are for rendering, not
+for building. `slippage` must be the same value passed to `useSwapTokens`, so the quote the user
+saw and the bound encoded into the payload agree; the approval amount is derived from it and
+needs nothing else from the caller.
 
 `confirmSwap` calls `swapFlowRunner.start(...)` and subscribes to the resulting handle;
 `transactionState` is the reducer's fold of the flow's events into `{ approval, swap }` leg
-status, `ledgerEvent` is the most recent device-prompt event forwarded through
+status, and `ledgerEvent` is the most recent device-prompt event forwarded through
 `ledgerEvents$` (`undefined` until one arrives, or if the runner was built without a Ledger
-stream), and `resetForm` clears the hook's local state — it does not cancel a running flow.
+stream).
+
 Closing the modal (`isOpen: false`) unsubscribes the hook from `events$`, which stops it from
 applying further events but never cancels the underlying flow: a submitted swap keeps running.
 Reopening the modal resubscribes, replays the flow's full history through the reducer, and
 reconstructs the true current state rather than a reset form. See "The flow handle and
 cancellation semantics" in step 3.
+
+### The allowance a swap leaves behind
+
+A CEP-18 swap approves a bounded amount derived from the trade — never an infinite allowance —
+but whatever the swap did not spend stays granted afterwards, including after one that reverted
+on chain. Read the standing amount with `dexContractRepository.getAllowance(...)`, and build a
+revocation with `dexContractRepository.buildRevokeApprovalTransaction(...)` (an `approve` of `0`,
+submitted the same way as any other build).
+
+Nothing revokes automatically. It is a third signature, confirmation and payment on top of the
+swap, it cannot run on the paths where signing itself failed, and it throws away the saving of a
+still-sufficient allowance on the user's next swap of the same token. Whether to offer it — and
+whether to surface a standing allowance at all — is the surface's call.
+
+### Retrying, and `resetForm`
+
+A flow that fails or is cancelled leaves `step` at `'confirm'` with the error in
+`transactionState`, and **pressing Confirm again starts a new flow** — the hook's guard is
+released when the flow settles, not when the surface asks. You do not need `resetForm` to retry,
+and calling it would clear the error message the user is reading.
+
+`resetForm` clears the hook's local state, and **refuses to do anything while a flow is still
+live**. That is deliberate: wiring it to a modal's close handler would otherwise let a second
+Confirm start a second approval and a second swap against the same balance, which can stay in
+flight for the full settlement timeout. It does not cancel a running flow either — stopping one
+is `handle.cancel()`, and nothing else.
 
 ## Wrap / unwrap flow
 
@@ -446,7 +530,7 @@ function WrapPage() {
     ...rest
   } = useWrapTokens(deps);
 
-  const { step, status, error, confirmWrap, handleCloseSuccessModal } = useReviewWrap({
+  const { step, status, error, confirmWrap, handleCloseSuccessModal, ledgerEvent } = useReviewWrap({
     ...deps,
     direction,
     sourceToken: {
@@ -472,10 +556,12 @@ function WrapPage() {
   `dexContractRepository.buildWrapTransaction`/`buildUnwrapTransaction` (direction-dispatched)
   and submits through the signer baked into the runner (step 3). `onWrapSuccess` fires as soon
   as the flow's `'wrap:confirmed'` event arrives, not on modal close. A cancelled signature
-  resets `status` back to `'idle'` (the `'confirm'` step, so the user can retry); a submission or
-  on-chain failure sets `status` to `'error'` with a message in `error`. As with swap, closing the
-  modal unsubscribes but never cancels a submitted wrap — see "The flow handle and cancellation
-  semantics" in step 3.
+  resets `status` back to `'idle'` (the `'confirm'` step); a submission or on-chain failure sets
+  `status` to `'error'` with a message in `error`. Either way pressing Confirm again starts a new
+  flow, the same as swap — there is no reset to call. `ledgerEvent` carries device prompts and
+  should be rendered here exactly as on the swap side; without it the modal sits at signing with
+  nothing explaining the wait. As with swap, closing the modal unsubscribes but never cancels a
+  submitted wrap — see "The flow handle and cancellation semantics" in step 3.
 
 For swap (approval-then-swap, with slippage/deadline as consumer-owned parameters — see
 "Slippage and deadline" above), the equivalent entry points are `useSwapTokens` (form
