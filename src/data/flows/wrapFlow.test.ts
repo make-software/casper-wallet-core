@@ -2,6 +2,8 @@ import { Subject, firstValueFrom, toArray } from 'rxjs';
 
 import { createWrapFlowRunner } from './wrapFlow';
 
+import type { ITransactionOutcome } from '../../domain/transactionStatus';
+
 import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../__test-utils__/render-hook';
 import { TransactionTimeoutError } from '../../domain/transactionStatus';
 import type { ILedgerEvent } from '../../domain/ledger';
@@ -11,12 +13,14 @@ import type { IWrapFlowDeps } from './wrapFlow';
 const BUILT_WRAP = { kind: 'wrap', transaction: {} } as never;
 const BUILT_UNWRAP = { kind: 'unwrap', transaction: {} } as never;
 
-const outcome = (hash: string, status: 'success' | 'failure', errorMessage?: string) => ({
-  hash,
-  status,
-  blockHeight: 1,
-  ...(errorMessage ? { errorMessage } : {}),
-});
+const outcome = (
+  hash: string,
+  status: 'success' | 'failure',
+  errorMessage?: string,
+): ITransactionOutcome =>
+  status === 'failure'
+    ? { hash, status, blockHeight: 1, errorMessage }
+    : { hash, status, blockHeight: 1 };
 
 const makeDeps = (over: Partial<IWrapFlowDeps> = {}): IWrapFlowDeps => ({
   network: 'testnet',

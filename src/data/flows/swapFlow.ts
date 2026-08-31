@@ -15,6 +15,7 @@ import type {
   IDexContractRepository,
   ILedgerEvent,
   ITransactionOutcome,
+  ITransactionSuccessOutcome,
   ITransactionStatusRepository,
   ISwapFlowHandle,
   ISwapFlowResult,
@@ -48,7 +49,7 @@ const legSigningEvent = (leg: SwapLeg): SwapFlowEvent =>
 const legSentEvent = (leg: SwapLeg, hash: string): SwapFlowEvent =>
   leg === 'approval' ? { type: 'approval:sent', hash } : { type: 'swap:sent', hash };
 
-const legConfirmedEvent = (leg: SwapLeg, outcome: ITransactionOutcome): SwapFlowEvent =>
+const legConfirmedEvent = (leg: SwapLeg, outcome: ITransactionSuccessOutcome): SwapFlowEvent =>
   leg === 'approval' ? { type: 'approval:confirmed' } : { type: 'swap:confirmed', outcome };
 
 /**
@@ -239,32 +240,43 @@ const runSwap = async function* (
 };
 
 const toResult = (events: SwapFlowEvent[]): ISwapFlowResult => {
-  const result: ISwapFlowResult = { status: 'success' };
+  let approvalHash: string | undefined;
+  let swapHash: string | undefined;
+  let outcome: ITransactionSuccessOutcome | undefined;
+  let failure: { error: unknown } | undefined;
+  let cancelled = false;
 
   for (const event of events) {
     switch (event.type) {
       case 'approval:sent':
-        result.approvalHash = event.hash;
+        approvalHash = event.hash;
         break;
       case 'swap:sent':
-        result.swapHash = event.hash;
+        swapHash = event.hash;
         break;
       case 'swap:confirmed':
-        result.outcome = event.outcome;
+        outcome = event.outcome;
         break;
       case 'failed':
-        result.status = 'failed';
-        result.error = event.error;
+        failure = { error: event.error };
         break;
       case 'cancelled':
-        result.status = 'cancelled';
+        cancelled = true;
         break;
       default:
         break;
     }
   }
 
-  return result;
+  if (failure) {
+    return { status: 'failed', approvalHash, swapHash, error: failure.error };
+  }
+
+  if (cancelled) {
+    return { status: 'cancelled', approvalHash, swapHash };
+  }
+
+  return { status: 'success', approvalHash, swapHash, outcome };
 };
 
 /** Builds the approve-then-swap flow as a hot, replayed handle per {@link IStartSwapFlowParams}. */

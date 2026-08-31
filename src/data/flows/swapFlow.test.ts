@@ -2,6 +2,8 @@ import { Subject, firstValueFrom, tap, toArray } from 'rxjs';
 
 import { createSwapFlowRunner } from './swapFlow';
 
+import type { ITransactionOutcome } from '../../domain/transactionStatus';
+
 import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../__test-utils__/render-hook';
 import { CSPR_NATIVE_TOKEN_ID } from '../../domain/constants';
 import {
@@ -26,12 +28,14 @@ const token = (id: string): IDexTokenWithAmount =>
 const BUILT_APPROVAL = { kind: 'approval', transaction: {} } as never;
 const BUILT_SWAP = { kind: 'swap', transaction: {} } as never;
 
-const outcome = (hash: string, status: 'success' | 'failure', errorMessage?: string) => ({
-  hash,
-  status,
-  blockHeight: 1,
-  ...(errorMessage ? { errorMessage } : {}),
-});
+const outcome = (
+  hash: string,
+  status: 'success' | 'failure',
+  errorMessage?: string,
+): ITransactionOutcome =>
+  status === 'failure'
+    ? { hash, status, blockHeight: 1, errorMessage }
+    : { hash, status, blockHeight: 1 };
 
 const makeDeps = (over: Partial<ISwapFlowDeps> = {}): ISwapFlowDeps => ({
   network: 'testnet',

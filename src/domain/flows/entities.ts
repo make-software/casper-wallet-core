@@ -3,7 +3,7 @@ import type { Observable } from 'rxjs';
 import type { WrapDirection } from '../dex';
 import type { ILedgerEvent } from '../ledger';
 import type { IDexTokenWithAmount, SwapQuoteType } from '../swap';
-import type { ITransactionOutcome } from '../transactionStatus';
+import type { ITransactionSuccessOutcome } from '../transactionStatus';
 
 /** Per-leg progress. 'awaiting' means submitted and waiting for the chain. */
 export type TransactionStatus = 'idle' | 'pending' | 'awaiting' | 'success' | 'error';
@@ -18,7 +18,7 @@ export type SwapFlowEvent =
   | { type: 'approval:confirmed' }
   | { type: 'swap:signing' }
   | { type: 'swap:sent'; hash: string }
-  | { type: 'swap:confirmed'; outcome: ITransactionOutcome }
+  | { type: 'swap:confirmed'; outcome: ITransactionSuccessOutcome }
   | { type: 'ledger'; event: ILedgerEvent }
   | { type: 'cancelled'; leg: SwapLeg }
   | { type: 'failed'; leg: SwapLeg; error: unknown };
@@ -26,7 +26,7 @@ export type SwapFlowEvent =
 export type WrapFlowEvent =
   | { type: 'wrap:signing' }
   | { type: 'wrap:sent'; hash: string }
-  | { type: 'wrap:confirmed'; outcome: ITransactionOutcome }
+  | { type: 'wrap:confirmed'; outcome: ITransactionSuccessOutcome }
   | { type: 'ledger'; event: ILedgerEvent }
   | { type: 'cancelled' }
   | { type: 'failed'; error: unknown };
@@ -48,20 +48,29 @@ export interface IFlowHandle<TEvent, TResult> {
 
 export type FlowStatus = 'success' | 'failed' | 'cancelled';
 
-export interface ISwapFlowResult {
-  status: FlowStatus;
+/** Hashes are on every arm: a cancelled or failed flow may still have submitted a leg. */
+interface ISwapFlowHashes {
   approvalHash?: string;
   swapHash?: string;
-  outcome?: ITransactionOutcome;
-  error?: unknown;
 }
 
-export interface IWrapFlowResult {
-  status: FlowStatus;
-  wrapHash?: string;
-  outcome?: ITransactionOutcome;
-  error?: unknown;
-}
+/**
+ * How a swap flow ended. Discriminated on `status`, so "failed with no error" and "success with a
+ * reverted outcome" are unrepresentable.
+ *
+ * On the success arm `outcome` is absent when `awaitSettlement` was `false` — the swap was
+ * submitted, not observed landing. Read it, not `status`, to tell the two apart.
+ */
+export type ISwapFlowResult =
+  | (ISwapFlowHashes & { status: 'success'; outcome?: ITransactionSuccessOutcome; error?: never })
+  | (ISwapFlowHashes & { status: 'failed'; outcome?: never; error: unknown })
+  | (ISwapFlowHashes & { status: 'cancelled'; outcome?: never; error?: never });
+
+/** See {@link ISwapFlowResult}. */
+export type IWrapFlowResult =
+  | { status: 'success'; wrapHash?: string; outcome?: ITransactionSuccessOutcome; error?: never }
+  | { status: 'failed'; wrapHash?: string; outcome?: never; error: unknown }
+  | { status: 'cancelled'; wrapHash?: string; outcome?: never; error?: never };
 
 export type ISwapFlowHandle = IFlowHandle<SwapFlowEvent, ISwapFlowResult>;
 export type IWrapFlowHandle = IFlowHandle<WrapFlowEvent, IWrapFlowResult>;

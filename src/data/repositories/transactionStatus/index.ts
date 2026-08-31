@@ -149,12 +149,10 @@ export class TransactionStatusRepository implements ITransactionStatusRepository
     }
 
     const errorMessage = executionInfo.executionResult?.errorMessage;
+    const blockHeight = executionInfo.blockHeight;
 
-    return {
-      hash,
-      status: errorMessage ? 'failure' : 'success',
-      blockHeight: executionInfo.blockHeight,
-      ...(errorMessage ? { errorMessage } : {}),
-    };
+    return errorMessage
+      ? { hash, status: 'failure', blockHeight, errorMessage }
+      : { hash, status: 'success', blockHeight };
   }
 }

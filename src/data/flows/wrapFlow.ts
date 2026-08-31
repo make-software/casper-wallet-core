@@ -7,6 +7,7 @@ import { isLedgerSignatureCancelled } from '../../domain/ledger';
 
 import type {
   IBuiltDexTransaction,
+  ITransactionSuccessOutcome,
   IStartWrapFlowParams,
   IWrapFlowHandle,
   IWrapFlowResult,
@@ -120,29 +121,39 @@ const runWrap = async function* (
 };
 
 const toResult = (events: WrapFlowEvent[]): IWrapFlowResult => {
-  const result: IWrapFlowResult = { status: 'success' };
+  let wrapHash: string | undefined;
+  let outcome: ITransactionSuccessOutcome | undefined;
+  let failure: { error: unknown } | undefined;
+  let cancelled = false;
 
   for (const event of events) {
     switch (event.type) {
       case 'wrap:sent':
-        result.wrapHash = event.hash;
+        wrapHash = event.hash;
         break;
       case 'wrap:confirmed':
-        result.outcome = event.outcome;
+        outcome = event.outcome;
         break;
       case 'failed':
-        result.status = 'failed';
-        result.error = event.error;
+        failure = { error: event.error };
         break;
       case 'cancelled':
-        result.status = 'cancelled';
+        cancelled = true;
         break;
       default:
         break;
     }
   }
 
-  return result;
+  if (failure) {
+    return { status: 'failed', wrapHash, error: failure.error };
+  }
+
+  if (cancelled) {
+    return { status: 'cancelled', wrapHash };
+  }
+
+  return { status: 'success', wrapHash, outcome };
 };
 
 /** Builds the single-leg wrap/unwrap flow as a hot, replayed handle per {@link IStartWrapFlowParams}. */

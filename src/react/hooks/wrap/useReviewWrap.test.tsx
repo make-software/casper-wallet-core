@@ -130,7 +130,7 @@ describe('useReviewWrap', () => {
     await waitFor(() => expect(result.current.step).toBe('confirm'));
 
     await act(async () => {
-      runner.settle({ status: 'failed' });
+      runner.settle({ status: 'failed', error: new Error('nope') });
     });
 
     await act(async () => {
