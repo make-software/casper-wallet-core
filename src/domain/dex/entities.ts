@@ -37,4 +37,14 @@ export interface IDexConfig {
    * repository whose only working method is `buildApprovalTransaction`.
    */
   getProxyWasm: () => Promise<Uint8Array>;
+  /**
+   * Hex sha256 of the expected `proxy_caller.wasm`, `0x`-prefixed or not. When set, the loaded
+   * bytes are verified against it once and the build is refused on a mismatch.
+   *
+   * Strongly recommended. The bytes execute as session code in the caller's account context with
+   * access to their main purse, and both the wallet UI and the Ledger prompt show only
+   * "ModuleBytes", so this is the only place a substituted binary can be caught. Compute it with
+   * `shasum -a 256 proxy_caller.wasm`.
+   */
+  expectedProxyWasmSha256?: string;
 }

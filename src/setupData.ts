@@ -81,8 +81,11 @@ export const setupDataRepositories = ({
     httpDataProvider,
     casperWalletApiByNetworkUrl,
   );
+  // Its own provider, deliberately without the wallet-API credential: the trade API is a
+  // different host, and `setAuthHeader` writes `Authorization` as a default on the whole apisauce
+  // instance rather than per request. If `api.cspr.trade` ever needs a credential it gets its own.
   const swapRepository = new SwapRepository(
-    httpDataProvider,
+    new HttpDataProvider(debug ? log : null),
     tradeApiByNetworkUrl,
     wrappedCsprContractPackageHash,
   );

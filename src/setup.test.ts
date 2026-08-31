@@ -32,6 +32,22 @@ describe('setupRepositories', () => {
     );
   });
 
+  it('keeps the wallet-API credential off the trade API provider', () => {
+    const repos = setupRepositories({ httpAuthorizationHeader: 'secret-token' });
+
+    const defaultHeaders = (provider: unknown) =>
+      (provider as { instance: { headers?: Record<string, string> } }).instance.headers;
+
+    // eslint-disable-next-line dot-notation
+    const walletProvider = repos.tokensRepository['_httpProvider'];
+    // eslint-disable-next-line dot-notation
+    const tradeProvider = repos.swapRepository['_httpProvider'];
+
+    expect(tradeProvider).not.toBe(walletProvider);
+    expect(defaultHeaders(tradeProvider)?.Authorization).toBeUndefined();
+    expect(defaultHeaders(walletProvider)?.Authorization).toBe('secret-token');
+  });
+
   it('threads grpcUrl, auth header and rpcOptions', () => {
     const grpcUrl = {
       mainnet: 'https://x/rpc',

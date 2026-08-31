@@ -81,6 +81,7 @@ export const setupSigningRepositories = ({
       tradeContractPackageHash: dexConfig?.tradeContractPackageHash ?? TradeContractPackageHash,
       wrappedCsprContractPackageHash,
       gasPriceTolerance: dexConfig?.gasPriceTolerance ?? 1,
+      expectedProxyWasmSha256: dexConfig?.expectedProxyWasmSha256,
       getProxyWasm: dexConfig?.getProxyWasm,
     },
     httpAuthorizationHeader,

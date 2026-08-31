@@ -18,6 +18,17 @@ export interface IDexContractRepository {
   }): Promise<boolean>;
   getLatestBlockTime(params: { network: CasperNetwork }): Promise<number>;
   buildApprovalTransaction(params: IBuildApprovalParams): Promise<IBuiltDexTransaction>;
+  /**
+   * Sets the trade contract's allowance for this token back to zero.
+   *
+   * A swap approves a bounded amount derived from the trade, but the unspent remainder stays
+   * granted after the swap settles — and after one that reverted. The grant is made to a
+   * *contract package*, whose owner can upgrade the implementation behind it, so a surface that
+   * wants to leave nothing standing should offer this. Nothing revokes automatically: it is a
+   * third signature, confirmation and payment, and it undoes the saving of a still-sufficient
+   * allowance on the user's next swap. Read the standing amount with {@link getAllowance}.
+   */
+  buildRevokeApprovalTransaction(params: IBuildRevokeApprovalParams): Promise<IBuiltDexTransaction>;
   buildSwapTransaction(params: IBuildSwapParams): Promise<IBuiltDexTransaction>;
   buildWrapTransaction(params: IBuildWrapParams): Promise<IBuiltDexTransaction>;
   buildUnwrapTransaction(params: IBuildUnwrapParams): Promise<IBuiltDexTransaction>;
@@ -44,6 +55,8 @@ export interface IBuildApprovalParams {
   amount: string; // raw motes/base units to approve
   useTransactionV1: boolean;
 }
+
+export type IBuildRevokeApprovalParams = Omit<IBuildApprovalParams, 'amount'>;
 
 export interface IBuildSwapParams {
   network: CasperNetwork;

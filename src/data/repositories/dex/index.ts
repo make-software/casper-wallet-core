@@ -6,6 +6,7 @@ import {
   DexError,
   DexErrorType,
   IBuildApprovalParams,
+  IBuildRevokeApprovalParams,
   IBuildSwapParams,
   IBuildUnwrapParams,
   IBuildWrapParams,
@@ -22,7 +23,8 @@ import {
   SwapQuoteType,
 } from '../../../domain';
 import { Args, CLTypeKey, CLTypeUInt8, CLValue, Key, PublicKey, RpcClient } from 'casper-js-sdk';
-import { hexToBytes } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import Decimal from 'decimal.js';
 import {
   getContractHash,
@@ -50,6 +52,7 @@ export interface IResolvedDexConfig {
   tradeContractPackageHash: Record<CasperNetwork, string>;
   wrappedCsprContractPackageHash: Record<CasperNetwork, string>;
   gasPriceTolerance: number;
+  expectedProxyWasmSha256?: string;
   // Optional here, required on `IDexConfig`: the runtime guard still has to hold for JavaScript
   // consumers who bypass the compile-time contract.
   getProxyWasm?: IDexConfig['getProxyWasm'];
@@ -63,6 +66,8 @@ export class DexContractRepository implements IDexContractRepository {
     private _rpcOptions: ICasperRpcOptions = {},
     private _log?: ILogger,
   ) {}
+
+  private _verifiedProxyWasm?: Uint8Array;
 
   async getAllowance(params: {
     network: CasperNetwork;
@@ -136,6 +141,13 @@ export class DexContractRepository implements IDexContractRepository {
     } catch (e) {
       this._processError(e, 'getLatestBlockTime');
     }
+  }
+
+  /** See {@link IDexContractRepository.buildRevokeApprovalTransaction}. */
+  async buildRevokeApprovalTransaction(
+    params: IBuildRevokeApprovalParams,
+  ): Promise<IBuiltDexTransaction> {
+    return this.buildApprovalTransaction({ ...params, amount: '0' });
   }
 
   /** Direct contract-package call, no WASM proxy. Returns an unsigned transaction or deploy. */
@@ -241,12 +253,6 @@ export class DexContractRepository implements IDexContractRepository {
         throw new Error('Invalid swap entry point');
       }
 
-      if (!this._dexConfig.getProxyWasm) {
-        throw new Error(
-          'dexConfig.getProxyWasm is required to build swap transactions (proxy_caller.wasm bytes)',
-        );
-      }
-
       // Block time, not device time: the contract compares the deadline against the chain's
       // clock, so a drifted device clock would otherwise shorten or silently extend it.
       const blockTime = await this.getLatestBlockTime({ network });
@@ -292,7 +298,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       const argsBytes = Array.from(rawArgsBytes, byte => CLValue.newCLUint8(byte));
 
-      const wasmBinary = await this._dexConfig.getProxyWasm();
+      const wasmBinary = await this._loadProxyWasm();
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
@@ -346,18 +352,12 @@ export class DexContractRepository implements IDexContractRepository {
     const { network, publicKey, motesAmount, useTransactionV1 } = params;
 
     try {
-      if (!this._dexConfig.getProxyWasm) {
-        throw new Error(
-          'dexConfig.getProxyWasm is required to build wrap transactions (proxy_caller.wasm bytes)',
-        );
-      }
-
       const entryPoint = 'deposit';
 
       const rawArgsBytes = Args.fromMap({}).toBytes();
       const argsBytes = Array.from(rawArgsBytes, byte => CLValue.newCLUint8(byte));
 
-      const wasmBinary = await this._dexConfig.getProxyWasm();
+      const wasmBinary = await this._loadProxyWasm();
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
@@ -409,12 +409,6 @@ export class DexContractRepository implements IDexContractRepository {
     const { network, publicKey, rawAmount, useTransactionV1 } = params;
 
     try {
-      if (!this._dexConfig.getProxyWasm) {
-        throw new Error(
-          'dexConfig.getProxyWasm is required to build unwrap transactions (proxy_caller.wasm bytes)',
-        );
-      }
-
       const entryPoint = 'withdraw';
 
       const rawArgsBytes = Args.fromMap({
@@ -422,7 +416,7 @@ export class DexContractRepository implements IDexContractRepository {
       }).toBytes();
       const argsBytes = Array.from(rawArgsBytes, byte => CLValue.newCLUint8(byte));
 
-      const wasmBinary = await this._dexConfig.getProxyWasm();
+      const wasmBinary = await this._loadProxyWasm();
 
       const runtimeArgs = Args.fromMap({
         package_hash: CLValue.newCLByteArray(
@@ -532,6 +526,43 @@ export class DexContractRepository implements IDexContractRepository {
         ? { authorizationHeader: this._httpAuthorizationHeader }
         : {}),
     });
+  }
+
+  /**
+   * The `proxy_caller.wasm` bytes, verified once per repository and reused.
+   *
+   * These execute as session code in the caller's account context, with access to their main
+   * purse, and neither the wallet UI nor the Ledger prompt shows more than "ModuleBytes" — so a
+   * substituted binary is invisible to the user. `expectedProxyWasmSha256` is the only place it
+   * can be caught; without it the bytes are used as supplied.
+   */
+  private async _loadProxyWasm(): Promise<Uint8Array> {
+    if (!this._dexConfig.getProxyWasm) {
+      throw new Error(
+        'dexConfig.getProxyWasm is required to build swap, wrap and unwrap transactions (proxy_caller.wasm bytes)',
+      );
+    }
+
+    if (this._verifiedProxyWasm) {
+      return this._verifiedProxyWasm;
+    }
+
+    const wasmBinary = await this._dexConfig.getProxyWasm();
+    const { expectedProxyWasmSha256 } = this._dexConfig;
+
+    if (expectedProxyWasmSha256) {
+      const actual = bytesToHex(sha256(wasmBinary));
+
+      if (actual.toLowerCase() !== expectedProxyWasmSha256.toLowerCase().replace(/^0x/, '')) {
+        throw new Error(
+          `proxy_caller.wasm does not match the expected sha256: got "${actual}", expected "${expectedProxyWasmSha256}"`,
+        );
+      }
+    }
+
+    this._verifiedProxyWasm = wasmBinary;
+
+    return wasmBinary;
   }
 
   /**

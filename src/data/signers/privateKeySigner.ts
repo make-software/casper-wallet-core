@@ -4,7 +4,9 @@ import {
   ICasperSigner,
   ISignTransactionOptions,
   ISignTransactionResponse,
+  KeyPairMismatchError,
 } from '../../domain';
+import { isKeysEqual } from '../../utils/common';
 import { convertBase64ToBytes } from '../../utils/crypto';
 import { createCasperMessageBytes, getPrivateKeyHexFromSecretKey } from '../../utils/transactions';
 
@@ -18,15 +20,34 @@ export const createPrivateKeySigner = ({
   publicKeyHex,
   secretKeyBase64,
 }: ICreatePrivateKeySignerParams): ICasperSigner => {
+  let cachedPrivateKey: PrivateKey | undefined;
+
+  /**
+   * The algorithm comes from the caller's `publicKeyHex`, not from the secret material, so a
+   * mismatched pair produces a well-formed signature under the wrong curve that only the node
+   * rejects — after the payment is committed. Derived once and checked before any signing.
+   */
   const getPrivateKey = (): PrivateKey => {
+    if (cachedPrivateKey) {
+      return cachedPrivateKey;
+    }
+
     const publicKey = PublicKey.fromHex(publicKeyHex);
 
-    return PrivateKey.fromHex(
+    const privateKey = PrivateKey.fromHex(
       getPrivateKeyHexFromSecretKey(
         Conversions.encodeBase16(convertBase64ToBytes(secretKeyBase64)),
       ),
       publicKey.cryptoAlg,
     );
+
+    if (!isKeysEqual(privateKey.publicKey.toHex(), publicKeyHex)) {
+      throw new KeyPairMismatchError();
+    }
+
+    cachedPrivateKey = privateKey;
+
+    return privateKey;
   };
 
   const sign = (data: Uint8Array, withAlgorithmPrefix: boolean): Uint8Array => {

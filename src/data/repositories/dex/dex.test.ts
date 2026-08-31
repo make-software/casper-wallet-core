@@ -178,6 +178,79 @@ describe('DexContractRepository', () => {
     });
   });
 
+  describe('proxy WASM integrity', () => {
+    const WASM = new Uint8Array([0x00, 0x61, 0x73, 0x6d]);
+    // sha256 of those four bytes.
+    const WASM_SHA256 = 'cd5d4935a48c0672cb06407bb443bc0087aff947c6b864bac886982c73b3027f';
+
+    const configWith = (expectedProxyWasmSha256?: string) => ({
+      ...DEX_CONFIG,
+      expectedProxyWasmSha256,
+      getProxyWasm: jest.fn(async () => WASM),
+    });
+
+    it('refuses to build when the loaded bytes do not match the expected hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, configWith('00'.repeat(32)));
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('does not match the expected sha256'),
+      });
+    });
+
+    it('verifies once and reuses the bytes across builds', async () => {
+      const dexConfig = configWith(WASM_SHA256);
+      const repo = new DexContractRepository(GRPC_URL, dexConfig);
+      const build = () =>
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: false,
+        });
+
+      await expect(build()).resolves.toMatchObject({ kind: 'wrap' });
+      await expect(build()).resolves.toMatchObject({ kind: 'wrap' });
+      expect(dexConfig.getProxyWasm).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the bytes as supplied when no expected hash is configured', async () => {
+      const repo = new DexContractRepository(GRPC_URL, configWith());
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: false,
+        }),
+      ).resolves.toMatchObject({ kind: 'wrap' });
+    });
+  });
+
+  describe('revoking an approval', () => {
+    it('builds an approve of 0 to the trade contract', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const spy = jest.spyOn(repo, 'buildApprovalTransaction');
+
+      await repo.buildRevokeApprovalTransaction({
+        network: 'mainnet',
+        publicKey: PUBLIC_KEY,
+        contractPackageHash: 'ab'.repeat(32),
+        useTransactionV1: true,
+      });
+
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ amount: '0' }));
+    });
+  });
+
   describe('unconfigured networks', () => {
     const UNCONFIGURED = {
       tradeContractPackageHash: { ...TradeContractPackageHash, devnet: '' },

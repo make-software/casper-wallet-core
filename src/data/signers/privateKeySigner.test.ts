@@ -7,7 +7,7 @@ import {
 } from 'casper-js-sdk';
 import { createPrivateKeySigner } from './privateKeySigner';
 import { isTransactionSignedBy } from '../../utils/transactions';
-import { EmptySignatureError } from '../../domain';
+import { EmptySignatureError, KeyPairMismatchError } from '../../domain';
 
 const TS = '2026-01-01T00:00:00.000Z';
 
@@ -71,4 +71,24 @@ it('throws EmptySignatureError when the SDK returns a falsy signature', async ()
   const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
   jest.spyOn(PrivateKey.prototype, 'sign').mockReturnValueOnce(undefined as never);
   await expect(signer.signTransaction(tx)).rejects.toThrow(EmptySignatureError);
+});
+
+describe('key pair validation', () => {
+  it('refuses to sign when the public key does not belong to the secret key', async () => {
+    const { secretKeyBase64, tx } = makeFixture(KeyAlgorithm.ED25519);
+    const { publicKeyHex } = makeFixture(KeyAlgorithm.ED25519);
+    const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
+
+    await expect(signer.signTransaction(tx)).rejects.toThrow(KeyPairMismatchError);
+    await expect(signer.getSignedTransaction(tx)).rejects.toThrow(KeyPairMismatchError);
+    await expect(signer.signMessage('msg')).rejects.toThrow(KeyPairMismatchError);
+  });
+
+  it('refuses a pair whose algorithms differ', async () => {
+    const { secretKeyBase64, tx } = makeFixture(KeyAlgorithm.ED25519);
+    const { publicKeyHex } = makeFixture(KeyAlgorithm.SECP256K1);
+    const signer = createPrivateKeySigner({ publicKeyHex, secretKeyBase64 });
+
+    await expect(signer.signTransaction(tx)).rejects.toThrow();
+  });
 });

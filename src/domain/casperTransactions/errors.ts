@@ -41,3 +41,14 @@ export class EmptySignatureError extends CasperTransactionsError {
     super(new Error('errors:empty-signature'), 'signature');
   }
 }
+
+/**
+ * The supplied `publicKeyHex` does not belong to the supplied secret key. Raised before signing:
+ * the algorithm is taken from the public key, so a mismatched pair signs under the wrong curve
+ * and the node rejects it only after the payment is committed.
+ */
+export class KeyPairMismatchError extends CasperTransactionsError {
+  constructor() {
+    super(new Error('errors:key-pair-mismatch'), 'signature');
+  }
+}
