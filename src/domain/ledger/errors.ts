@@ -1,7 +1,7 @@
 import { ILedgerEvent, LedgerEventStatus } from './entities';
 
 export class LedgerError extends Error {
-  constructor(ledgerEvent: ILedgerEvent) {
+  constructor(readonly ledgerEvent: ILedgerEvent) {
     super(JSON.stringify(ledgerEvent));
   }
 }
@@ -26,3 +26,17 @@ export const LEDGER_ERROR_STATUSES: ReadonlySet<LedgerEventStatus> = new Set([
 
 export const isLedgerErrorEvent = (event: ILedgerEvent): boolean =>
   LEDGER_ERROR_STATUSES.has(event.status);
+
+/** The two statuses that mean the user declined on the device, rather than anything going wrong. */
+export const LEDGER_CANCELLATION_STATUSES: ReadonlySet<LedgerEventStatus> = new Set([
+  LedgerEventStatus.SignatureCanceled,
+  LedgerEventStatus.MsgSignatureCanceled,
+]);
+
+/**
+ * Whether an unknown error is a user's on-device rejection. This is the default
+ * `isCancellationError` for the swap and wrap flows, so a declined signature is reported as a
+ * cancellation rather than a failure.
+ */
+export const isLedgerSignatureCancelled = (error: unknown): boolean =>
+  error instanceof LedgerError && LEDGER_CANCELLATION_STATUSES.has(error.ledgerEvent.status);

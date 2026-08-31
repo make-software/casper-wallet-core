@@ -1,3 +1,4 @@
+import { LedgerError, LedgerEventStatus } from '../domain/ledger';
 import type { IDexToken } from '../domain/swap/entities';
 import { SwapQuoteType } from '../domain/swap/entities';
 import {
@@ -224,6 +225,17 @@ describe('swap', () => {
 
     it('falls back to a custom fallback', () => {
       expect(getTransactionErrorMessage({}, 'Custom fallback')).toBe('Custom fallback');
+    });
+
+    it('renders a LedgerError as its device status, never its JSON payload', () => {
+      const error = new LedgerError({
+        status: LedgerEventStatus.SignatureCanceled,
+        publicKey: '02abc',
+        txHash: 'deadbeef',
+      } as never);
+
+      expect(getTransactionErrorMessage(error)).toBe(LedgerEventStatus.SignatureCanceled);
+      expect(getTransactionErrorMessage(error)).not.toContain('02abc');
     });
   });
 

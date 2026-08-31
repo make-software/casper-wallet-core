@@ -7,6 +7,7 @@ import {
   Observable,
   of,
   repeat,
+  take,
   tap,
   throwError,
   timeout,
@@ -123,7 +124,9 @@ export class TransactionStatusRepository implements ITransactionStatusRepository
       );
     });
 
-    return signal ? merge(poll$, abortAsError$(signal, hash)) : poll$;
+    // `take(1)` is what completes the merge: `abortAsError$` never completes on its own, so
+    // without it the outcome arrives and the stream hangs, and the abort listener is never removed.
+    return signal ? merge(poll$, abortAsError$(signal, hash)).pipe(take(1)) : poll$;
   }
 
   waitForTransaction(params: IWaitForTransactionParams): Promise<ITransactionOutcome> {

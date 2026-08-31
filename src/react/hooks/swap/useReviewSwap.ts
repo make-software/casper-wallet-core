@@ -78,13 +78,18 @@ export const useReviewSwap = ({
     // state already folded — every reducer case overwrites, so that converges rather than doubles.
     if (!handle || !isOpen) return;
 
-    const subscription = handle.events$.subscribe(event => {
-      dispatch(event);
+    const subscription = handle.events$.subscribe({
+      next: event => {
+        dispatch(event);
 
-      if (event.type === 'swap:confirmed' && !succeededRef.current) {
-        succeededRef.current = true;
-        onSwapSuccessRef.current();
-      }
+        if (event.type === 'swap:confirmed' && !succeededRef.current) {
+          succeededRef.current = true;
+          onSwapSuccessRef.current();
+        }
+      },
+      // The flow itself never errors the stream; a merged `ledgerEvents$` still can, and without
+      // a handler rxjs would rethrow it out of band, leaving the modal on `confirm` with no reason.
+      error: (error: unknown) => dispatch({ type: 'failed', leg: 'swap', error }),
     });
 
     // Unsubscribe only — cancelling here would abandon a submitted swap.

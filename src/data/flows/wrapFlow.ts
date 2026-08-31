@@ -3,6 +3,8 @@ import { v4 as uuid } from 'uuid';
 
 import { createFlowHandle } from './runner';
 
+import { isLedgerSignatureCancelled } from '../../domain/ledger';
+
 import type {
   IBuiltDexTransaction,
   IStartWrapFlowParams,
@@ -65,7 +67,9 @@ const runWrap = async function* (
       signer: deps.signer,
     });
   } catch (error) {
-    yield deps.isCancellationError?.(error) ? { type: 'cancelled' } : { type: 'failed', error };
+    yield (deps.isCancellationError ?? isLedgerSignatureCancelled)(error)
+      ? { type: 'cancelled' }
+      : { type: 'failed', error };
 
     return;
   }
@@ -152,6 +156,7 @@ export const createWrapFlowRunner = (deps: IWrapFlowDeps): IWrapFlowRunner => {
       const handle = createFlowHandle<WrapFlowEvent, IWrapFlowResult>({
         id,
         generator: signal => runWrap(deps, params, signal),
+        toFailureEvent: (error): WrapFlowEvent => ({ type: 'failed', error }),
         sideEvents$: deps.ledgerEvents$?.pipe(
           map((event): WrapFlowEvent => ({ type: 'ledger', event })),
         ),

@@ -13,6 +13,7 @@ import {
   SWAP_PROTOCOL_FEE,
   TOKEN_DISPLAY_DECIMALS,
 } from '../domain/constants';
+import { LedgerError } from '../domain/ledger/errors';
 import type { IDexToken } from '../domain/swap/entities';
 import { SwapQuoteType } from '../domain/swap/entities';
 import {
@@ -231,11 +232,18 @@ export const calculateMaxUsableBalance = (params: {
  * Failures arrive in several shapes — an Error instance (cancellation / send error), a plain
  * `{ message }` object (processed-with-error / expired / timeout callbacks), or a bare string
  * — so the UI can show the real reason instead of a generic fallback.
+ *
+ * A `LedgerError` returns its device status alone. Its `message` is the JSON of the whole event,
+ * which carries the public key and transaction hash and is not something to render.
  */
 export const getTransactionErrorMessage = (
   error: unknown,
   fallback = 'Transaction failed',
 ): string => {
+  if (error instanceof LedgerError) {
+    return error.ledgerEvent.status;
+  }
+
   if (error instanceof Error) {
     return error.message;
   }

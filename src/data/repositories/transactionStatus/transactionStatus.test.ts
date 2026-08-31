@@ -313,6 +313,27 @@ describe('TransactionStatusRepository', () => {
     });
   });
 
+  it('completes observeTransaction after the outcome even when a signal is supplied', async () => {
+    installRpc([async () => settled(42)]);
+    const controller = new AbortController();
+    const seen: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      makeRepository()
+        .observeTransaction(params({ signal: controller.signal }))
+        .subscribe({
+          next: () => seen.push('next'),
+          error: reject,
+          complete: () => {
+            seen.push('complete');
+            resolve();
+          },
+        });
+    });
+
+    expect(seen).toEqual(['next', 'complete']);
+  });
+
   it('watches for as long as a transaction stays valid on chain', () => {
     expect(DEFAULT_SETTLEMENT_POLL_INTERVAL_MS).toBe(2_000);
     expect(DEFAULT_SETTLEMENT_TIMEOUT_MS).toBe(DEX_TRANSACTION_TTL_MS);

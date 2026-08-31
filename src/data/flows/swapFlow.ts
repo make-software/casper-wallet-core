@@ -6,6 +6,7 @@ import { createFlowHandle } from './runner';
 
 import { calculateApprovalAmount, calculateMaxAmountWithSlippage } from '../../utils/amounts';
 import { CSPR_NATIVE_TOKEN_ID } from '../../domain/constants';
+import { isLedgerSignatureCancelled } from '../../domain/ledger';
 import type {
   CasperNetwork,
   ICasperSigner,
@@ -34,7 +35,10 @@ export interface ISwapFlowDeps {
   transactionStatusRepository: ITransactionStatusRepository;
   /** Merged into `events$` so device prompts interleave with flow progress. */
   ledgerEvents$?: Observable<ILedgerEvent>;
-  /** Classifies a signing rejection as a user cancellation. Default: never. */
+  /**
+   * Classifies a signing rejection as a user cancellation rather than a failure.
+   * Default: {@link isLedgerSignatureCancelled}.
+   */
   isCancellationError?: (error: unknown) => boolean;
 }
 
@@ -78,7 +82,7 @@ const submitLeg = async function* (
       signer: deps.signer,
     });
   } catch (error) {
-    yield deps.isCancellationError?.(error)
+    yield (deps.isCancellationError ?? isLedgerSignatureCancelled)(error)
       ? { type: 'cancelled', leg }
       : { type: 'failed', leg, error };
 
@@ -154,12 +158,21 @@ const runSwap = async function* (
   } = params;
   const isNative = firstToken.id === CSPR_NATIVE_TOKEN_ID;
 
-  const requiredAmount = isNative
-    ? firstToken.amountRaw
-    : calculateMaxAmountWithSlippage(firstToken.amountRaw, slippage);
+  let requiredAmount: string;
+  let approvalAmount: string;
 
-  // The grant is derived from the amount the check runs against, so an approval always clears it.
-  const approvalAmount = isNative ? firstToken.amountRaw : calculateApprovalAmount(requiredAmount);
+  try {
+    requiredAmount = isNative
+      ? firstToken.amountRaw
+      : calculateMaxAmountWithSlippage(firstToken.amountRaw, slippage);
+
+    // The grant is derived from the amount the check runs against, so an approval always clears it.
+    approvalAmount = isNative ? firstToken.amountRaw : calculateApprovalAmount(requiredAmount);
+  } catch (error) {
+    yield { type: 'failed', leg: 'approval', error };
+
+    return;
+  }
 
   yield { type: 'approval:checking' };
 
@@ -265,6 +278,7 @@ export const createSwapFlowRunner = (deps: ISwapFlowDeps): ISwapFlowRunner => {
       const handle = createFlowHandle<SwapFlowEvent, ISwapFlowResult>({
         id,
         generator: signal => runSwap(deps, params, signal),
+        toFailureEvent: (error): SwapFlowEvent => ({ type: 'failed', leg: 'swap', error }),
         sideEvents$: deps.ledgerEvents$?.pipe(
           map((event): SwapFlowEvent => ({ type: 'ledger', event })),
         ),

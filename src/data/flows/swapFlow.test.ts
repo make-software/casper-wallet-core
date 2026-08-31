@@ -1,4 +1,4 @@
-import { Subject, firstValueFrom, toArray } from 'rxjs';
+import { Subject, firstValueFrom, tap, toArray } from 'rxjs';
 
 import { createSwapFlowRunner } from './swapFlow';
 
@@ -9,6 +9,7 @@ import {
   TransactionWatchCancelledError,
 } from '../../domain/transactionStatus';
 import { SwapQuoteType } from '../../domain/swap';
+import { LedgerError, LedgerEventStatus } from '../../domain/ledger';
 import type { ILedgerEvent } from '../../domain/ledger';
 import type { IDexTokenWithAmount } from '../../domain/swap';
 import type { ISwapFlowDeps } from './swapFlow';
@@ -428,5 +429,36 @@ describe('createSwapFlowRunner', () => {
     const handle = createSwapFlowRunner(deps).start(startParams());
 
     await expect(handle.done).resolves.toMatchObject({ status: 'failed' });
+  });
+
+  it('reports an unclamped slippage as a failed approval leg, not a rejected done', async () => {
+    const deps = makeDeps();
+    const errored = jest.fn();
+    const handle = createSwapFlowRunner(deps).start(startParams({ slippage: Number.NaN }));
+
+    const events = await firstValueFrom(
+      handle.events$.pipe(toArray()).pipe(tap({ error: errored })),
+    );
+
+    expect(events.map(e => e.type)).toEqual(['failed']);
+    expect(errored).not.toHaveBeenCalled();
+    await expect(handle.done).resolves.toMatchObject({ status: 'failed' });
+    expect(deps.dexContractRepository.checkApprovalRequired).not.toHaveBeenCalled();
+  });
+
+  it('classifies an on-device rejection as cancelled without a supplied classifier', async () => {
+    const deps = makeDeps({
+      casperTransactionsRepository: {
+        sendDexTransaction: jest
+          .fn()
+          .mockRejectedValue(new LedgerError({ status: LedgerEventStatus.SignatureCanceled })),
+      },
+    });
+
+    const { types, result } = await collect(deps);
+
+    expect(types).toContain('cancelled');
+    expect(types).not.toContain('failed');
+    expect(result.status).toBe('cancelled');
   });
 });
