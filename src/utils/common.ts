@@ -13,11 +13,14 @@ export const capitalizeFirstLetter = (str: string): string =>
 export interface IFormatFiatBalanceOptions {
   /** ISO 4217 code. Defaults to USD. */
   currencyCode?: string;
-  /** Pads short amounts — 2 renders `$5` as `$5.00`. */
+  /** Pads short amounts — 2 renders `$5` as `$5.00`. Clamped to at most `decimals`. */
   minFractionDigits?: number;
 }
 
 const MIN_DISPLAYED_FIAT_AMOUNT = new Decimal('0.01');
+
+/** The sub-cent label needs two places to say "one cent" at all, whatever `decimals` is. */
+const MIN_DISPLAYED_FIAT_DECIMALS = 2;
 
 /**
  * Format a fiat amount. Anything under one cent renders as `<$0.01`, whatever `decimals` is.
@@ -31,12 +34,14 @@ export const formatFiatBalance = (
   decimals = FIAT_DECIMALS,
   { currencyCode = 'USD', minFractionDigits = 0 }: IFormatFiatBalanceOptions = {},
 ): string => {
-  const format = (value: Decimal): string =>
+  const format = (value: Decimal, maxFractionDigits = decimals): string =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
-      minimumFractionDigits: minFractionDigits,
-      maximumFractionDigits: decimals,
+      // `Intl.NumberFormat` throws a `RangeError` when the minimum exceeds the maximum, and this
+      // is a render-path helper.
+      minimumFractionDigits: Math.min(minFractionDigits, maxFractionDigits),
+      maximumFractionDigits: maxFractionDigits,
     }).format(value.toNumber());
 
   if (!balance) {
@@ -46,7 +51,7 @@ export const formatFiatBalance = (
   const amount = new Decimal(balance);
 
   if (amount.lt(MIN_DISPLAYED_FIAT_AMOUNT)) {
-    return `<${format(MIN_DISPLAYED_FIAT_AMOUNT)}`;
+    return `<${format(MIN_DISPLAYED_FIAT_AMOUNT, Math.max(decimals, MIN_DISPLAYED_FIAT_DECIMALS))}`;
   }
 
   return format(amount.toDecimalPlaces(decimals));

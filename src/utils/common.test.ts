@@ -67,6 +67,16 @@ describe('common utils', () => {
       expect(formatFiatBalance('0.005', undefined, 2, { currencyCode: 'EUR' })).toBe('<€0.01');
     });
 
+    it('keeps the one-cent bound legible at whole-currency decimals', () => {
+      expect(formatFiatBalance('0.005', undefined, 0)).toBe('<$0.01');
+      expect(formatFiatBalance('0.005', undefined, 1)).toBe('<$0.01');
+    });
+
+    it('does not throw when minFractionDigits exceeds decimals', () => {
+      expect(formatFiatBalance('5', null, 0, { minFractionDigits: 2 })).toBe('$5');
+      expect(formatFiatBalance('5', null, 2, { minFractionDigits: 2 })).toBe('$5.00');
+    });
+
     it('formats in the requested currency, padding to minFractionDigits', () => {
       expect(formatFiatBalance('5', null, 2, { currencyCode: 'EUR', minFractionDigits: 2 })).toBe(
         '€5.00',

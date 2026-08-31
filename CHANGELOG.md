@@ -132,6 +132,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   swap: it changes the rendered fiat string on existing deploy-history rows and CEP-18 token
   rows, through `formatFiatAmount`, `getCep18FiatAmount` and `getCsprFiatAmount`. `getFiatAmount`
   passes `decimals: 4` and is unaffected.
+- **`getDecimalTokenBalance` is now exact at any size.** It previously divided through decimal.js
+  at the default 20-significant-digit precision; it now shifts the decimal point, so a raw balance
+  above roughly 10²⁰ base units keeps every digit —
+  `getDecimalTokenBalance('123456789012345678901234', 9)` returns `'123456789012345.678901234'`,
+  previously `'123456789012345.6789'`. This is an exported util behind `Cep18TokenDto.decimalBalance`
+  and every deploy DTO's `decimalAmount`, so it changes rendered amounts on the existing token list
+  and deploy history, not only the swap surface. Reachable for an 18-decimal CEP-18 token; CSPR at
+  9 decimals stays under the bound for any realistic balance.
 - `IDexConfig.getProxyWasm` is required. `dexConfig` as a whole stays optional — omit it and
   `dexContractRepository` still builds approvals — but supplying a `dexConfig` without the proxy
   WASM loader is now a compile error rather than a runtime failure at the Confirm button.
