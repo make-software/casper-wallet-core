@@ -12,6 +12,8 @@ import type { IWrapFlowDeps } from './wrapFlow';
 
 const BUILT_WRAP = { kind: 'wrap', transaction: {} } as never;
 const BUILT_UNWRAP = { kind: 'unwrap', transaction: {} } as never;
+/** The legacy-Deploy artifact: `isDeploy` is derived from the presence of this field. */
+const BUILT_WRAP_DEPLOY = { kind: 'wrap', deploy: {} } as never;
 
 const outcome = (
   hash: string,
@@ -107,11 +109,38 @@ describe('createWrapFlowRunner', () => {
       },
     });
 
-    const { types, result } = await collect(deps, { direction: 'wrap', rawAmount: '1' });
+    const { events, types, result } = await collect(deps, { direction: 'wrap', rawAmount: '1' });
+    const failed = events.find(e => e.type === 'failed') as { error: unknown };
 
     expect(types).not.toContain('wrap:confirmed');
     expect(types).toContain('failed');
     expect(result.status).toBe('failed');
+    expect((failed.error as Error).message).toContain('User error: 3');
+  });
+
+  it('tells the settlement watch which artifact was submitted', async () => {
+    const waitForTransaction = jest.fn(async ({ hash }: { hash: string }) =>
+      outcome(hash, 'success'),
+    );
+    const transactionStatusRepository = { observeTransaction: jest.fn(), waitForTransaction };
+
+    await collect(makeDeps({ transactionStatusRepository }));
+
+    expect(waitForTransaction).toHaveBeenCalledWith(expect.objectContaining({ isDeploy: false }));
+
+    waitForTransaction.mockClear();
+
+    await collect(
+      makeDeps({
+        transactionStatusRepository,
+        dexContractRepository: stubDexContractRepository({
+          buildWrapTransaction: jest.fn().mockResolvedValue(BUILT_WRAP_DEPLOY),
+          buildUnwrapTransaction: jest.fn().mockResolvedValue(BUILT_UNWRAP),
+        }),
+      }),
+    );
+
+    expect(waitForTransaction).toHaveBeenCalledWith(expect.objectContaining({ isDeploy: true }));
   });
 
   it('reports a settlement timeout as a failure, never as a confirmation', async () => {

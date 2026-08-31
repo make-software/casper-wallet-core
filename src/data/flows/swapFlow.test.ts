@@ -2,6 +2,8 @@ import { Subject, firstValueFrom, tap, toArray } from 'rxjs';
 
 import { createSwapFlowRunner } from './swapFlow';
 
+import { calculateApprovalAmount, calculateMaxAmountWithSlippage } from '../../utils/amounts';
+
 import type { ITransactionOutcome } from '../../domain/transactionStatus';
 
 import { stubDexContractRepository, TEST_PUBLIC_KEY } from '../../__test-utils__/render-hook';
@@ -27,6 +29,8 @@ const token = (id: string): IDexTokenWithAmount =>
 
 const BUILT_APPROVAL = { kind: 'approval', transaction: {} } as never;
 const BUILT_SWAP = { kind: 'swap', transaction: {} } as never;
+/** The legacy-Deploy artifact: `isDeploy` is derived from the presence of this field. */
+const BUILT_SWAP_DEPLOY = { kind: 'swap', deploy: {} } as never;
 
 const outcome = (
   hash: string,
@@ -168,8 +172,10 @@ describe('createSwapFlowRunner', () => {
 
     const { requiredAmount } = checkApprovalRequired.mock.calls[0][0];
     const { amount } = buildApprovalTransaction.mock.calls[0][0];
+    const expectedRequired = calculateMaxAmountWithSlippage('1000000000', 1);
 
-    expect(BigInt(amount) >= BigInt(requiredAmount)).toBe(true);
+    expect(requiredAmount).toBe(expectedRequired);
+    expect(amount).toBe(calculateApprovalAmount(expectedRequired));
   });
 
   it('stops before the swap when the approval submission fails', async () => {
@@ -214,6 +220,31 @@ describe('createSwapFlowRunner', () => {
     expect(failed).toMatchObject({ leg: 'approval' });
     expect(result.status).toBe('failed');
     expect(buildSwapTransaction).not.toHaveBeenCalled();
+  });
+
+  it('tells the settlement watch which artifact was submitted', async () => {
+    const waitForTransaction = jest.fn(async ({ hash }: { hash: string }) =>
+      outcome(hash, 'success'),
+    );
+    const transactionStatusRepository = { observeTransaction: jest.fn(), waitForTransaction };
+
+    await collect(makeDeps({ transactionStatusRepository }));
+
+    expect(waitForTransaction).toHaveBeenCalledWith(expect.objectContaining({ isDeploy: false }));
+
+    waitForTransaction.mockClear();
+
+    await collect(
+      makeDeps({
+        transactionStatusRepository,
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(false),
+          buildSwapTransaction: jest.fn().mockResolvedValue(BUILT_SWAP_DEPLOY),
+        }),
+      }),
+    );
+
+    expect(waitForTransaction).toHaveBeenCalledWith(expect.objectContaining({ isDeploy: true }));
   });
 
   it('reports a reverted swap as a swap-leg failure carrying the node error', async () => {
