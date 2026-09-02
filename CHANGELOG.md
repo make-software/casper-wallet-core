@@ -122,6 +122,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `createCasperRpcClient` helper as `casperTransactionsRepository` and `txSignatureRequest`, so an
   un-configured consumer picks up the `fetch` + `fetch-referrer` default. Pass `rpcOptions` to
   `DexContractRepository` (or via `setupRepositories`) to opt out.
+- **`casper-js-sdk` is pinned to exactly `5.1.1`** (was `5.1.0`). Consuming apps pin the same
+  version: a mismatch duplicates the SDK in the bundle and puts transaction bytes on two
+  different builders.
 
 ### Removed
 
