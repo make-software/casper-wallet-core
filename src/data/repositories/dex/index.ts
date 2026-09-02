@@ -44,17 +44,14 @@ import {
   createWASMContractDeploy,
 } from './transactionBuilders';
 
-/**
- * `IDexConfig` with every default already applied by the setup factory, and with the wrapped-CSPR
- * hash the whole setup shares rather than a dex-only knob.
- */
+/** `IDexConfig` with the setup factory's defaults applied and the setup-wide wrapped-CSPR hash. */
 export interface IResolvedDexConfig {
   tradeContractPackageHash: Record<CasperNetwork, string>;
   wrappedCsprContractPackageHash: Record<CasperNetwork, string>;
   gasPriceTolerance: number;
   expectedProxyWasmSha256?: string;
   // Optional here, required on `IDexConfig`: the runtime guard still has to hold for JavaScript
-  // consumers who bypass the compile-time contract.
+  // callers.
   getProxyWasm?: IDexConfig['getProxyWasm'];
 }
 
@@ -92,8 +89,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       const allowanceResult = await getDictionaryValue(client, contractHash, 'allowances', dictKey);
 
-      // '' is the genuinely-absent case: the dictionary has no entry for this spender. A failed
-      // read throws out of `getDictionaryValue` rather than arriving here as an empty allowance.
+      // `''` means the dictionary has no entry for this spender; a failed read throws instead.
       return allowanceResult?.toString() ?? '';
     } catch (e) {
       this._processError(e, 'getAllowance');
@@ -123,9 +119,7 @@ export class DexContractRepository implements IDexContractRepository {
 
       return new Decimal(allowance || '0').lt(new Decimal(requiredAmount || '0'));
     } catch (e) {
-      // Fail-safe: an unreadable allowance must read as "approval required", never as
-      // "already approved". It costs the user an approval they may not have needed, so it is
-      // logged rather than silent.
+      // Fail-safe: an unreadable allowance reads as "approval required", never "already approved".
       this._log?.reportError(e, 'DexContractRepository.checkApprovalRequired: allowance read');
 
       return true;
@@ -528,14 +522,7 @@ export class DexContractRepository implements IDexContractRepository {
     });
   }
 
-  /**
-   * The `proxy_caller.wasm` bytes, verified once per repository and reused.
-   *
-   * These execute as session code in the caller's account context, with access to their main
-   * purse, and neither the wallet UI nor the Ledger prompt shows more than "ModuleBytes" — so a
-   * substituted binary is invisible to the user. `expectedProxyWasmSha256` is the only place it
-   * can be caught; without it the bytes are used as supplied.
-   */
+  /** Loaded once, then verified against `expectedProxyWasmSha256` when one is configured. */
   private async _loadProxyWasm(): Promise<Uint8Array> {
     if (!this._dexConfig.getProxyWasm) {
       throw new Error(
@@ -565,11 +552,7 @@ export class DexContractRepository implements IDexContractRepository {
     return wasmBinary;
   }
 
-  /**
-   * The shipped defaults are `''` for devnet and integration, and a consumer supplying their own
-   * map naturally does the same for networks they do not support. An empty hash builds a
-   * zero-length byte array that is signed and submitted, then reverts on chain.
-   */
+  /** An empty hash would build a zero-length address that is signed, submitted and then reverts. */
   private _requireContractPackageHash(
     hash: string | undefined,
     kind: 'trade' | 'wrapped-CSPR',

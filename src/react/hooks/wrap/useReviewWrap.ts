@@ -34,8 +34,8 @@ export const useReviewWrap = ({
   const [handle, setHandle] = useState<IWrapFlowHandle | null>(null);
   const [state, dispatch] = useReducer(wrapFlowReducer, initialWrapFlowState);
   const succeededRef = useRef(false);
-  // Non-null exactly while a flow is live. A ref rather than state because `confirmWrap` can be
-  // invoked twice within the same tick, before the first call's `handle` update has re-rendered.
+  // Non-null while a flow is live. A ref, not state: `confirmWrap` can fire twice in one tick,
+  // before `setHandle` has re-rendered.
   const handleRef = useRef<IWrapFlowHandle | null>(null);
   // Held in a ref rather than a dependency: an inline callback would change identity every
   // render, resubscribing and restarting the fold.
@@ -63,8 +63,8 @@ export const useReviewWrap = ({
           onWrapSuccessRef.current();
         }
       },
-      // The flow itself never errors the stream; a merged `ledgerEvents$` still can, and without
-      // a handler rxjs would rethrow it out of band, leaving the modal on `confirm` with no reason.
+      // The flow never errors the stream, but a merged `ledgerEvents$` can; without a handler
+      // rxjs rethrows out of band and the surface stays on `confirm` with no reason.
       error: (error: unknown) => dispatch({ type: 'failed', error }),
     });
 
@@ -89,8 +89,8 @@ export const useReviewWrap = ({
     const newHandle = wrapFlowRunner.start(params);
     handleRef.current = newHandle;
     setHandle(newHandle);
-    // The guard tracks liveness, not identity: every terminal path resolves `done`, and only that
-    // releases it. Clearing on the subscription instead would miss a flow that ended while closed.
+    // Only `done` releases the guard; clearing it on unsubscribe would miss a flow that ended
+    // while the surface was closed.
     const release = () => releaseGuard(newHandle);
     newHandle.done.then(release, release);
   }, [activePublicKey, direction, releaseGuard, sourceToken.amountRaw, wrapFlowRunner]);

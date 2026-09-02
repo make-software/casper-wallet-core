@@ -1,7 +1,8 @@
 /**
- * Barrel over the Casper-protocol helpers. `./cep-nft-transfer`, `./dex-contract`, `./rpcClient`,
- * `./tx-builders` and `./validation` link `casper-js-sdk`; `./accountHash`, `./network` and
- * `./blockExplorer` are deliberately SDK-free and are the only modules re-exported here.
+ * Barrel over the Casper-protocol helpers. Only the SDK-free modules — `./accountHash`,
+ * `./network` and `./blockExplorer` — are re-exported here: this barrel is reached from the
+ * `utils` barrel that most of `src/data` imports, so re-exporting an SDK-linked module would make
+ * every DTO a transitive SDK importer for builds that do not tree-shake.
  *
  * `casper-js-sdk` ships a single prebuilt UMD bundle (`dist/lib.web.js` — no `module` field, no
  * `import` condition, no `sideEffects` flag), so one import of it costs the whole ~900 KB blob and
@@ -18,13 +19,8 @@
  *
  * The package declares `"sideEffects": false`, so a bundler that tree-shakes will also drop the
  * unused halves when importing through this barrel or the package root — the deep paths are the
- * guarantee for builds that do not.
- *
- * No SDK-linked module is re-exported here: this barrel is reached from the `utils` barrel, which
- * most of `src/data` imports, so re-exporting one would make every DTO a transitive SDK importer
- * for builds that do not shake. The package root exports `./cep-nft-transfer`, `./tx-builders` and
- * `./validation` instead. `./dex-contract` and `./rpcClient` are exported nowhere — they are
- * internal to `src/data/repositories`.
+ * guarantee for builds that do not. `./dex-contract` and `./rpcClient` are exported nowhere: they
+ * are internal to `src/data/repositories`.
  */
 
 export * from './accountHash';

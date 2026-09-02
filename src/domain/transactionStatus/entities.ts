@@ -28,12 +28,9 @@ export interface ITransactionFailureOutcome extends ITransactionOutcomeBase {
 }
 
 /**
- * A transaction that has executed on chain. A transaction still in flight has no outcome, and a
- * settlement that timed out has none either — "we stopped waiting" is not "the chain rejected it".
- *
- * Discriminated on `status` so a consumer cannot read `errorMessage` off a success, and an event
- * or result that means "this landed" can be typed against
- * {@link ITransactionSuccessOutcome} alone.
+ * A transaction that has executed on chain, discriminated on `status`. One still in flight has no
+ * outcome, and neither has a settlement that timed out — "we stopped waiting" is not "the chain
+ * rejected it".
  */
 export type ITransactionOutcome = ITransactionSuccessOutcome | ITransactionFailureOutcome;
 

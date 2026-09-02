@@ -34,9 +34,8 @@ export const LEDGER_CANCELLATION_STATUSES: ReadonlySet<LedgerEventStatus> = new 
 ]);
 
 /**
- * Whether an unknown error is a user's on-device rejection. This is the default
- * `isCancellationError` for the swap and wrap flows, so a declined signature is reported as a
- * cancellation rather than a failure.
+ * Whether an error is a user's on-device rejection. The default `isCancellationError` for the
+ * swap and wrap flows.
  */
 export const isLedgerSignatureCancelled = (error: unknown): boolean =>
   error instanceof LedgerError && LEDGER_CANCELLATION_STATUSES.has(error.ledgerEvent.status);

@@ -28,9 +28,8 @@ export interface ISetupSigningRepositoriesParams extends Pick<
   casperWalletApiByEnvUrl: Record<IEnv, string>;
   grpcUrl?: Record<CasperNetwork, string>;
   /**
-   * The one wrapped-CSPR contract package hash for this setup. `setupRepositories` passes the
-   * same value to `setupDataRepositories`, which `SwapRepository` keys its synthetic native-CSPR
-   * token off — the two must not be able to disagree.
+   * The one wrapped-CSPR contract package hash for this setup. `setupRepositories` passes the same
+   * value to `setupDataRepositories`; the two halves must not be able to disagree.
    */
   wrappedCsprContractPackageHash?: Record<CasperNetwork, string>;
   httpAuthorizationHeader?: string;

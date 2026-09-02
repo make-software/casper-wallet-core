@@ -360,9 +360,8 @@ export const useSwapTokens = ({
   const path = quoteData.data?.path ?? [];
 
   /**
-   * The one bundle a swap may be started from. Every field is read off the same `quoteData.data`,
-   * so an amount can never be paired with a different quote's route or output bound — the form's
-   * own `tokenAmounts` lag the quote by the input debounce and must not be used here.
+   * The one bundle a swap may be started from: every field is read off the same quote. The form's
+   * own `tokenAmounts` lag it by the input debounce and must not be used here.
    */
   const quotedTrade = useMemo<ISwapQuotedTrade | null>(() => {
     const quoteResult = quoteData.data;

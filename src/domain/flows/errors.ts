@@ -5,9 +5,8 @@ export type FlowErrorType = 'runner-account-mismatch';
 export type IFlowError = IDomainError<FlowErrorType>;
 
 /**
- * A flow could not be started. Today the only case is a runner bound to a different account than
- * the one the surface is showing: the swap would be built from, paid by, signed by and delivered
- * to the runner's key, so it must not run.
+ * A flow could not be started. `runner-account-mismatch`: the runner is bound to a different
+ * account than the active one, so the flow would run against the runner's key.
  */
 export class FlowError extends Error implements IFlowError {
   constructor(type: FlowErrorType) {

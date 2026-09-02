@@ -74,22 +74,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`useReviewSwap`/`useReviewWrap` now subscribe to `swapFlowRunner`/`wrapFlowRunner`** instead
   of owning the sign/submit/settle sequence themselves; `ISwapDependencies` carries
   `swapFlowRunner`/`wrapFlowRunner` in place of `signer`. See `docs/swap-react-integration.md`.
-- **`IDexConfig.expectedProxyWasmSha256`** (optional, strongly recommended) — the expected hex
-  sha256 of `proxy_caller.wasm`. The bytes execute as session code in the caller's account
-  context with access to their main purse, and both the wallet UI and the Ledger prompt show only
-  "ModuleBytes"; when this is set the loaded bytes are verified once and the build is refused on
-  a mismatch. Not pinned in the library: the binary is a per-deployment artifact of the DEX
-  contracts.
+- **`IDexConfig.expectedProxyWasmSha256`** (optional, strongly recommended) — hex sha256 of
+  `proxy_caller.wasm`. The bytes run as session code in the caller's account context with access
+  to their main purse, and the wallet UI and Ledger prompt show only "ModuleBytes"; set this and
+  the loaded bytes are verified once, refusing the build on a mismatch. The library pins no value:
+  the binary is a per-deployment artifact of the DEX contracts.
 - **`IDexContractRepository.buildRevokeApprovalTransaction`** — an `approve` of `0` to the trade
-  contract, for a surface that wants to clear the allowance a swap leaves standing. Nothing
-  revokes automatically; read the standing amount with `getAllowance`.
+  contract, clearing the allowance a swap leaves standing. Nothing revokes automatically; read the
+  standing amount with `getAllowance`.
 - **`ISwapFlowRunner`/`IWrapFlowRunner` expose `readonly publicKey`.** A runner is bound to one
-  account for its lifetime — the swap is built from, paid by, signed by and delivered to that key
-  — so rebuild both runners when the active account changes. The review hooks refuse to start a
-  flow whose runner disagrees with `activePublicKey`, raising the new `FlowError`.
+  account for its lifetime, so rebuild both when the active account changes. The review hooks
+  refuse to start a flow whose runner disagrees with `activePublicKey`, raising the new
+  `FlowError`.
 - **`isLedgerSignatureCancelled`** (`domain/ledger`, with `LEDGER_CANCELLATION_STATUSES`) — the
-  default `isCancellationError` for both flows, so an on-device rejection is reported as a
-  cancellation rather than a failure. `LedgerError` now carries its `ledgerEvent`.
+  default `isCancellationError` for both flows, so an on-device rejection is a cancellation rather
+  than a failure. `LedgerError` now carries its `ledgerEvent`.
 - **`useSwapTokens` returns `quotedTrade`** (`ISwapQuotedTrade | null`) — the two amounted
   tokens, the route and the quote type, all read off one quote.
 - `KeyPairMismatchError` (`domain/casperTransactions`), raised by `createPrivateKeySigner` when
@@ -99,29 +98,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - **BREAKING — `useReviewSwap` takes one `trade` bundle** instead of separate `firstToken`,
-  `secondToken`, `path` and `quoteType` params. Pass `useSwapTokens`'s `quotedTrade` straight
-  through. Nothing tied the four together before, so an input amount could be paired with a
-  previous quote's output bound — a slippage bound computed for a different trade size.
-  `confirmSwap` is a no-op while `trade` is `null`.
-- **BREAKING — `IDexConfig.wrappedCsprContractPackageHash` is removed.** `swapRepository` keys
-  its synthetic native-CSPR token off the same address, and two independently-defaulting knobs
-  meant setting one rejected every native-CSPR swap as an invalid route. It is a parameter of
-  `setupRepositories` / `setupSigningRepositories` / `setupDataRepositories` instead.
+  `secondToken`, `path` and `quoteType` params; pass `useSwapTokens`'s `quotedTrade` through.
+  Nothing tied the four together before, so an input amount could be paired with a previous
+  quote's output bound. `confirmSwap` is a no-op while `trade` is `null`.
+- **BREAKING — `IDexConfig.wrappedCsprContractPackageHash` is removed.** It is a parameter of
+  `setupRepositories` / `setupSigningRepositories` / `setupDataRepositories` instead, so it cannot
+  diverge from the address `swapRepository` keys its synthetic native-CSPR token off.
 - **`ITransactionOutcome`, `ISwapFlowResult` and `IWrapFlowResult` are discriminated unions.**
-  `swap:confirmed`/`wrap:confirmed` carry `ITransactionSuccessOutcome`, so an event meaning "this
-  landed" cannot carry a reverted outcome; a `'failed'` result must carry its `error` and a
-  `'success'` one cannot. On the success arm `outcome` is still absent when `awaitSettlement` was
-  `false` — read it, not `status`, to tell submitted from settled.
-- **`createPrivateKeySigner` verifies the key pair before signing.** The algorithm is taken from
-  the supplied `publicKeyHex`, so a mismatched pair used to sign under the wrong curve and only
-  the node rejected it, after the payment was committed.
-- `getTransactionErrorMessage` renders a `LedgerError` as its device status. Its `message` is the
-  JSON of the whole event, carrying the public key and transaction hash.
+  `swap:confirmed`/`wrap:confirmed` carry `ITransactionSuccessOutcome`; a `'failed'` result must
+  carry its `error` and a `'success'` one cannot. On the success arm `outcome` is still absent when
+  `awaitSettlement` was `false` — read it, not `status`, to tell submitted from settled.
+- **`createPrivateKeySigner` verifies the key pair before signing**, raising
+  `KeyPairMismatchError`. The curve is taken from the supplied `publicKeyHex`, so a mismatched pair
+  previously signed under the wrong curve and was rejected only by the node, after payment.
+- `getTransactionErrorMessage` renders a `LedgerError` as its device status; its `message` is the
+  JSON of the whole event, public key and transaction hash included.
 - `swapRepository` is built on its own `HttpDataProvider`, so `httpAuthorizationHeader` — an
   apisauce instance-level default — no longer reaches the trade API host.
 - `DexContractRepository` refuses to build against an empty contract package hash rather than
-  signing a call to a zero-length address. The shipped defaults are `''` for devnet and
-  integration.
+  signing a call to a zero-length address. The shipped defaults are `''` for devnet and integration.
 - **`DexContractRepository`'s node-RPC client now sets the CSPR.cloud proxy referrer by
   default.** It previously built its client with no referrer at all; it now goes through the same
   `createCasperRpcClient` helper as `casperTransactionsRepository` and `txSignatureRequest`, so an
@@ -177,14 +172,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   swap: it changes the rendered fiat string on existing deploy-history rows and CEP-18 token
   rows, through `formatFiatAmount`, `getCep18FiatAmount` and `getCsprFiatAmount`. `getFiatAmount`
   passes `decimals: 4` and is unaffected.
-- **`getDecimalTokenBalance` is now exact at any size.** It previously divided through decimal.js
-  at the default 20-significant-digit precision; it now shifts the decimal point, so a raw balance
-  above roughly 10²⁰ base units keeps every digit —
-  `getDecimalTokenBalance('123456789012345678901234', 9)` returns `'123456789012345.678901234'`,
-  previously `'123456789012345.6789'`. This is an exported util behind `Cep18TokenDto.decimalBalance`
-  and every deploy DTO's `decimalAmount`, so it changes rendered amounts on the existing token list
-  and deploy history, not only the swap surface. Reachable for an 18-decimal CEP-18 token; CSPR at
-  9 decimals stays under the bound for any realistic balance.
+- **`getDecimalTokenBalance` is now exact at any size.** It shifts the decimal point instead of
+  dividing at decimal.js's default 20-significant-digit precision, so a raw balance above roughly
+  10²⁰ base units keeps every digit: `getDecimalTokenBalance('123456789012345678901234', 9)` now
+  returns `'123456789012345.678901234'`, previously `'123456789012345.6789'`. It backs
+  `Cep18TokenDto.decimalBalance` and every deploy DTO's `decimalAmount`, so it changes rendered
+  amounts on the token list and deploy history too. Reachable for an 18-decimal CEP-18 token; CSPR
+  at 9 decimals stays under the bound.
 - `IDexConfig.getProxyWasm` is required. `dexConfig` as a whole stays optional — omit it and
   `dexContractRepository` still builds approvals — but supplying a `dexConfig` without the proxy
   WASM loader is now a compile error rather than a runtime failure at the Confirm button.

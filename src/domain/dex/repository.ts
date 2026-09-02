@@ -21,12 +21,10 @@ export interface IDexContractRepository {
   /**
    * Sets the trade contract's allowance for this token back to zero.
    *
-   * A swap approves a bounded amount derived from the trade, but the unspent remainder stays
-   * granted after the swap settles — and after one that reverted. The grant is made to a
-   * *contract package*, whose owner can upgrade the implementation behind it, so a surface that
-   * wants to leave nothing standing should offer this. Nothing revokes automatically: it is a
-   * third signature, confirmation and payment, and it undoes the saving of a still-sufficient
-   * allowance on the user's next swap. Read the standing amount with {@link getAllowance}.
+   * A swap approves a bounded amount and the unspent remainder stays granted afterwards, to a
+   * contract package whose owner can upgrade the implementation behind it. Nothing revokes
+   * automatically: this is a further signature and payment, and it forfeits the saving of a
+   * still-sufficient allowance on the next swap. Read the standing amount with {@link getAllowance}.
    */
   buildRevokeApprovalTransaction(params: IBuildRevokeApprovalParams): Promise<IBuiltDexTransaction>;
   buildSwapTransaction(params: IBuildSwapParams): Promise<IBuiltDexTransaction>;

@@ -22,11 +22,7 @@ export const createPrivateKeySigner = ({
 }: ICreatePrivateKeySignerParams): ICasperSigner => {
   let cachedPrivateKey: PrivateKey | undefined;
 
-  /**
-   * The algorithm comes from the caller's `publicKeyHex`, not from the secret material, so a
-   * mismatched pair produces a well-formed signature under the wrong curve that only the node
-   * rejects — after the payment is committed. Derived once and checked before any signing.
-   */
+  /** Derived once. Throws {@link KeyPairMismatchError} if the pair does not match. */
   const getPrivateKey = (): PrivateKey => {
     if (cachedPrivateKey) {
       return cachedPrivateKey;

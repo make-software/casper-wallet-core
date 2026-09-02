@@ -76,9 +76,8 @@ const isAbsentDictionaryError = (error: unknown): boolean => {
 /**
  * Reads a dictionary value by contract-named-key identifier.
  *
- * `null` means the entry is genuinely absent. A failed read — an unreachable node, an HTTP
- * error, a malformed response — throws, so a caller cannot mistake "we could not look" for
- * "there is nothing there".
+ * `null` means the entry is absent. A failed read — unreachable node, HTTP error, malformed
+ * response — throws rather than reading as absent.
  */
 export const getDictionaryValue = async (
   client: RpcClient,

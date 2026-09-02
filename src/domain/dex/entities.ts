@@ -22,12 +22,7 @@ export type IBuiltDexTransaction = IBuiltDexTransactionBase &
     | { readonly deploy: Deploy; readonly transaction?: never }
   );
 
-/**
- * The wrapped-CSPR hash is deliberately *not* here: `SwapRepository`'s synthetic native-CSPR
- * token keys off it too, and two independently-defaulting knobs for one address means every
- * native-CSPR swap fails route validation the moment a consumer sets only one of them. It is a
- * parameter of the setup factories instead.
- */
+/** The wrapped-CSPR hash is not here: it is a parameter of the setup factories, shared setup-wide. */
 export interface IDexConfig {
   tradeContractPackageHash?: Record<CasperNetwork, string>; // default TradeContractPackageHash
   gasPriceTolerance?: number; // default 1
@@ -38,13 +33,13 @@ export interface IDexConfig {
    */
   getProxyWasm: () => Promise<Uint8Array>;
   /**
-   * Hex sha256 of the expected `proxy_caller.wasm`, `0x`-prefixed or not. When set, the loaded
-   * bytes are verified against it once and the build is refused on a mismatch.
+   * Hex sha256 of the expected `proxy_caller.wasm`, `0x`-prefixed or not (`shasum -a 256
+   * proxy_caller.wasm`). When set, the loaded bytes are verified once and the build is refused on
+   * a mismatch.
    *
-   * Strongly recommended. The bytes execute as session code in the caller's account context with
+   * Strongly recommended: the bytes run as session code in the caller's account context with
    * access to their main purse, and both the wallet UI and the Ledger prompt show only
-   * "ModuleBytes", so this is the only place a substituted binary can be caught. Compute it with
-   * `shasum -a 256 proxy_caller.wasm`.
+   * "ModuleBytes".
    */
   expectedProxyWasmSha256?: string;
 }

@@ -124,8 +124,8 @@ export class TransactionStatusRepository implements ITransactionStatusRepository
       );
     });
 
-    // `take(1)` is what completes the merge: `abortAsError$` never completes on its own, so
-    // without it the outcome arrives and the stream hangs, and the abort listener is never removed.
+    // `abortAsError$` never completes on its own, so `take(1)` is what ends the merge and
+    // removes the abort listener.
     return signal ? merge(poll$, abortAsError$(signal, hash)).pipe(take(1)) : poll$;
   }
 

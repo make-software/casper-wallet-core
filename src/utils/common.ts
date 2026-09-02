@@ -38,8 +38,7 @@ export const formatFiatBalance = (
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
-      // `Intl.NumberFormat` throws a `RangeError` when the minimum exceeds the maximum, and this
-      // is a render-path helper.
+      // `Intl.NumberFormat` throws a `RangeError` when the minimum exceeds the maximum.
       minimumFractionDigits: Math.min(minFractionDigits, maxFractionDigits),
       maximumFractionDigits: maxFractionDigits,
     }).format(value.toNumber());

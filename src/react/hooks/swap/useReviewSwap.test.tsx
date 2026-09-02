@@ -15,11 +15,7 @@ import type { IDexTokenWithAmount } from '../../../domain/swap';
 const token = (id: string): IDexTokenWithAmount =>
   ({ id, packageHash: id, decimals: 9, amountRaw: '1000000000', amountFormatted: '1' }) as never;
 
-/**
- * A runner whose handles the test drives. `events$` is a `ReplaySubject` like the real one, so an
- * event emitted while the surface is closed is still there when it resubscribes, and `settle`
- * resolves `done` — which is what releases the hook's re-entrancy guard.
- */
+/** Test double for a flow runner; `events$` replays like the real one. */
 const makeRunner = (publicKey = TEST_PUBLIC_KEY) => {
   const cancel = jest.fn();
   const flows: Array<{

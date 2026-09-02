@@ -60,7 +60,6 @@ describe('setupRepositories', () => {
       httpAuthorizationHeader: 't',
       rpcOptions: { handlerType: 'axios', referrerMode: 'referer-header' },
     });
-    // Bracket notation is load-bearing here: dot notation hits `private` at compile time.
     // eslint-disable-next-line dot-notation
     expect(repos.casperTransactionsRepository['_grpcUrl']).toBe(grpcUrl);
     // eslint-disable-next-line dot-notation

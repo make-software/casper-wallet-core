@@ -29,8 +29,7 @@ export const setupRepositories = ({
   ...dataParams
 }: ISetupRepositoriesParams = {}) => {
   // One hash for both halves: `SwapRepository` keys its synthetic native-CSPR token off it and
-  // `DexContractRepository` validates swap routes against it, so a divergence rejects every
-  // native-CSPR swap as an invalid route.
+  // `DexContractRepository` validates routes against it. A divergence rejects every native swap.
   const wrappedCsprContractPackageHash =
     dataParams.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash;
 

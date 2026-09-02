@@ -233,8 +233,8 @@ export const calculateMaxUsableBalance = (params: {
  * `{ message }` object (processed-with-error / expired / timeout callbacks), or a bare string
  * — so the UI can show the real reason instead of a generic fallback.
  *
- * A `LedgerError` returns its device status alone. Its `message` is the JSON of the whole event,
- * which carries the public key and transaction hash and is not something to render.
+ * A `LedgerError` returns its device status alone: its `message` is the JSON of the whole event,
+ * public key and transaction hash included.
  */
 export const getTransactionErrorMessage = (
   error: unknown,

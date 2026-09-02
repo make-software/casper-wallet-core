@@ -55,11 +55,10 @@ interface ISwapFlowHashes {
 }
 
 /**
- * How a swap flow ended. Discriminated on `status`, so "failed with no error" and "success with a
- * reverted outcome" are unrepresentable.
+ * How a swap flow ended, discriminated on `status`.
  *
  * On the success arm `outcome` is absent when `awaitSettlement` was `false` — the swap was
- * submitted, not observed landing. Read it, not `status`, to tell the two apart.
+ * submitted, not observed landing. Read `outcome`, not `status`, to tell the two apart.
  */
 export type ISwapFlowResult =
   | (ISwapFlowHashes & { status: 'success'; outcome?: ITransactionSuccessOutcome; error?: never })
@@ -92,9 +91,8 @@ export interface IStartSwapFlowParams {
 }
 
 /**
- * The four fields that must all come from the same quote. `amount_out_min` is derived from
- * `secondToken.amountRaw` and is only a slippage bound on the trade `firstToken.amountRaw` and
- * `path` describe — mixing a fresh amount with a previous quote's output is an unprotected fill.
+ * The four fields that must all come from one and the same quote: `secondToken.amountRaw` becomes
+ * `amount_out_min`, a slippage bound only on the trade `firstToken.amountRaw` and `path` describe.
  */
 export type ISwapQuotedTrade = Pick<
   IStartSwapFlowParams,
@@ -109,9 +107,8 @@ export interface IStartWrapFlowParams {
 }
 
 /**
- * A runner is bound to one account for its lifetime: the swap is built from, paid by, signed by
- * and delivered to this key, whatever the surface is currently showing. Rebuild the runner when
- * the active account changes, and check this before starting a flow.
+ * A runner is bound to one account for its lifetime — the swap is built from, paid by, signed by
+ * and delivered to this key. Rebuild the runner when the active account changes.
  */
 export interface IFlowRunnerAccount {
   readonly publicKey: string;

@@ -148,23 +148,20 @@ describe('swapFlowReducer', () => {
 });
 
 /**
- * Compile-time only. `tsc` runs over the test tree in `yarn code:check`, so a `@ts-expect-error`
- * that stops erroring fails the build — which is what makes these assertions, not comments.
+ * Compile-time only: `tsc` covers the test tree, so a `@ts-expect-error` that stops erroring
+ * fails the build.
  */
 describe('flow type contracts', () => {
   it('rejects the states the unions exist to forbid', () => {
-    // A confirmed swap cannot carry a reverted outcome.
     const reverted: SwapFlowEvent = {
       type: 'swap:confirmed',
       // @ts-expect-error 'failure' is not assignable to 'success'
       outcome: { hash: '0xb', status: 'failure', blockHeight: 3, errorMessage: 'User error: 1' },
     };
 
-    // A failed flow must carry its error.
     // @ts-expect-error 'error' is required on the failed arm
     const failedWithoutError: ISwapFlowResult = { status: 'failed' };
 
-    // A successful flow cannot carry one.
     // @ts-expect-error 'error' does not exist on the success arm
     const successWithError: IWrapFlowResult = { status: 'success', error: new Error('boom') };
 

@@ -54,9 +54,9 @@ export class CasperTransactionsRepository implements ICasperTransactionsReposito
   }
 
   /**
-   * Node time, or the device clock when the node cannot be read. The fallback is deliberate —
-   * every transfer and delegation is timestamped from this — but a skewed device clock has the
-   * node reject them as future-dated or expire them early, so a failed read is logged.
+   * Node time, falling back to the device clock (logged) when the node cannot be read. Every
+   * transfer and delegation is timestamped from this, so a skewed device clock has the node
+   * reject them as future-dated or expire them early.
    */
   async getDateForTransaction(network: CasperNetwork): Promise<string> {
     const defaultDate = sub(new Date(), { seconds: 2 });

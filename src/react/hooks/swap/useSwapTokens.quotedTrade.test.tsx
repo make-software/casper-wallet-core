@@ -54,8 +54,7 @@ describe('useSwapTokens quotedTrade', () => {
     expect(result.current.quotedTrade).toBeNull();
   });
 
-  // The stubbed quote deliberately echoes an `amountInDecimal` the form never held: it is what
-  // distinguishes "read off the quote" from "read off the form's own debounced amounts".
+  // The stubbed quote echoes an `amountInDecimal` the form never held.
   it('reads both amounts and the route off the same quote, not off the form', async () => {
     const { result } = renderSwapTokens({
       path: [TOKEN_IN.packageHash, TOKEN_OUT.packageHash],

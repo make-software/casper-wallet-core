@@ -63,8 +63,8 @@ export const useReviewSwap = ({
   const [handle, setHandle] = useState<ISwapFlowHandle | null>(null);
   const [state, dispatch] = useReducer(swapViewReducer, initialSwapFlowState);
   const succeededRef = useRef(false);
-  // Non-null exactly while a flow is live. A ref rather than state because `confirmSwap` can be
-  // invoked twice within the same tick, before the first call's `handle` update has re-rendered.
+  // Non-null while a flow is live. A ref, not state: `confirmSwap` can fire twice in one tick,
+  // before `setHandle` has re-rendered.
   const handleRef = useRef<ISwapFlowHandle | null>(null);
   // Held in a ref rather than a dependency: an inline callback would change identity every
   // render, resubscribing and restarting the fold.
@@ -92,8 +92,8 @@ export const useReviewSwap = ({
           onSwapSuccessRef.current();
         }
       },
-      // The flow itself never errors the stream; a merged `ledgerEvents$` still can, and without
-      // a handler rxjs would rethrow it out of band, leaving the modal on `confirm` with no reason.
+      // The flow never errors the stream, but a merged `ledgerEvents$` can; without a handler
+      // rxjs rethrows out of band and the surface stays on `confirm` with no reason.
       error: (error: unknown) => dispatch({ type: 'failed', leg: 'swap', error }),
     });
 
@@ -119,15 +119,15 @@ export const useReviewSwap = ({
     const newHandle = swapFlowRunner.start(params);
     handleRef.current = newHandle;
     setHandle(newHandle);
-    // The guard tracks liveness, not identity: every terminal path resolves `done`, and only that
-    // releases it. Clearing on the subscription instead would miss a flow that ended while closed.
+    // Only `done` releases the guard; clearing it on unsubscribe would miss a flow that ended
+    // while the surface was closed.
     const release = () => releaseGuard(newHandle);
     newHandle.done.then(release, release);
   }, [activePublicKey, deadline, releaseGuard, slippage, swapFlowRunner, trade]);
 
   const resetForm = useCallback(() => {
-    // Refusing while a flow is live is what stops a second approval and a second swap against the
-    // same balance. Stopping a flow is `handle.cancel()`, never this.
+    // Refusing while a flow is live stops a second swap against the same balance. To stop a
+    // flow, use `handle.cancel()`.
     if (handleRef.current) return;
 
     succeededRef.current = false;

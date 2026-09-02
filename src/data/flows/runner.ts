@@ -19,10 +19,7 @@ export interface ICreateFlowHandleParams<TEvent, TResult> {
   generator: (signal: AbortSignal) => AsyncGenerator<TEvent>;
   /** Merged into the event stream; stops when the flow completes. */
   sideEvents$?: Observable<TEvent>;
-  /**
-   * Terminal event for a throw the generator did not turn into an event itself. It is what keeps
-   * `done` from rejecting no matter which generator runs here.
-   */
+  /** Terminal event for a throw the generator did not turn into an event itself. */
   toFailureEvent: (error: unknown) => TEvent;
   /** Folds the full event sequence into the flow's terminal result. */
   toResult: (events: TEvent[]) => TResult;
@@ -31,12 +28,9 @@ export interface ICreateFlowHandleParams<TEvent, TResult> {
 /**
  * Lifts a flow generator into a hot, replayed handle.
  *
- * `shareReplay({ bufferSize: Infinity, refCount: false })` is the contract: the flow starts once
- * and keeps running regardless of who is subscribed, and any later subscriber replays the whole
- * history. Unsubscribing must never cancel — only `cancel()` does.
- *
- * A throw out of the generator is converted to `toFailureEvent(error)`, so `events$` never errors
- * on the flow's own account and `done` always resolves.
+ * The flow starts once and runs regardless of who is subscribed; a later subscriber replays the
+ * whole history. Unsubscribing never cancels — only `cancel()` does. A throw out of the generator
+ * becomes `toFailureEvent(error)`, so `events$` never errors and `done` always resolves.
  */
 export const createFlowHandle = <TEvent, TResult>({
   id,
