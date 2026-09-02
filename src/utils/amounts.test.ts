@@ -69,6 +69,22 @@ describe('amounts', () => {
     it('rejects non-numeric input', () => {
       expect(isAmountInputValid('12a')).toBe(false);
     });
+
+    it('accepts a leading and a trailing dot', () => {
+      expect(isAmountInputValid('.5')).toBe(true);
+      expect(isAmountInputValid('1.')).toBe(true);
+    });
+
+    it('rejects a second dot', () => {
+      expect(isAmountInputValid('1.2.3')).toBe(false);
+    });
+
+    it('rejects a long invalid input in linear time', () => {
+      const started = Date.now();
+
+      expect(isAmountInputValid(`${'0'.repeat(50_000)}x`)).toBe(false);
+      expect(Date.now() - started).toBeLessThan(250);
+    });
   });
 
   describe('doesAmountExceedBalance', () => {

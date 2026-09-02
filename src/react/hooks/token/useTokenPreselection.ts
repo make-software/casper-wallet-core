@@ -60,7 +60,7 @@ export const useTokenPreselection = ({
       setInitialTokens({ first: tokenIn, second: tokenOut });
     } else if (!tokenOutHash) {
       setSelectedTokens({ first: tokenIn, second: null });
-    } else if (tokenOutHash && !tokenOut) {
+    } else if (!tokenOut) {
       return; // tokenOut still loading — effect re-runs when customTokenOut resolves
     }
 

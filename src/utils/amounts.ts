@@ -83,7 +83,7 @@ export const exceedsMaxDecimals = (amount: string, decimals: number): boolean =>
 export const isAmountInputValid = (amount: string, decimals?: number): boolean => {
   if (amount === '') return true;
 
-  if (!/^\d*\.?\d*$/.test(amount)) return false;
+  if (!/^\d*(\.\d*)?$/.test(amount)) return false;
 
   if (typeof decimals === 'number' && decimals >= 0) {
     return !exceedsMaxDecimals(amount, decimals);
