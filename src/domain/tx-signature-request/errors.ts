@@ -1,4 +1,4 @@
-import { IDomainError, isDomainError, isError } from '../common';
+import { DomainError, IDomainError } from '../common';
 
 export type TxSignatureRequestErrorType =
   | 'invalidSignatureRequest'
@@ -16,23 +16,13 @@ export function isTxSignatureRequestError(
   );
 }
 
-export class TxSignatureRequestError extends Error implements ITxSignatureRequestError {
+export class TxSignatureRequestError
+  extends DomainError<TxSignatureRequestErrorType>
+  implements ITxSignatureRequestError
+{
   constructor(error: Error | unknown, type: TxSignatureRequestErrorType) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'TxSignatureRequestRepositoryError';
-    this.type = type;
+    super(error, type, 'TxSignatureRequestRepositoryError');
   }
-
-  type: TxSignatureRequestErrorType;
-  traceable: boolean;
 }
 
 export class InvalidSignatureRequestError extends TxSignatureRequestError {

@@ -1,5 +1,5 @@
 import { IContractPackageRepository } from './repository';
-import { isDomainError, isError } from '../common';
+import { DomainError } from '../common';
 import { IDomainError } from '../common';
 
 export type ContractPackageErrorType = keyof IContractPackageRepository;
@@ -14,21 +14,11 @@ export function isContractPackageError(
   );
 }
 
-export class ContractPackageError extends Error implements IContractPackageError {
+export class ContractPackageError
+  extends DomainError<ContractPackageErrorType>
+  implements IContractPackageError
+{
   constructor(error: Error | unknown, type: keyof IContractPackageRepository) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'ContractPackageRepositoryError';
-    this.type = type;
+    super(error, type, 'ContractPackageRepositoryError');
   }
-
-  type: ContractPackageErrorType;
-  traceable: boolean;
 }

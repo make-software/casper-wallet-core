@@ -1,4 +1,4 @@
-import { IDomainError, isDomainError, isError } from '../common';
+import { DomainError, IDomainError } from '../common';
 
 export const SignTypedDataErrorCodes = {
   INVALID_PARAMS: 'INVALID_PARAMS',
@@ -24,23 +24,12 @@ export function isEIP712Error(error: unknown | IEIP712Error): error is IEIP712Er
   return error instanceof EIP712Error && (<EIP712Error>error).name === 'EIP712Error';
 }
 
-export class EIP712Error extends Error implements IEIP712Error {
+export class EIP712Error extends DomainError<EIP712ErrorType> implements IEIP712Error {
   constructor(error: Error | unknown, type: EIP712ErrorType, errorCode?: SignTypedDataErrorCode) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
+    super(error, type, 'EIP712Error');
 
-    this.name = 'EIP712Error';
-    this.type = type;
     this.errorCode = errorCode;
   }
 
-  type: EIP712ErrorType;
-  traceable: boolean;
   errorCode?: SignTypedDataErrorCode;
 }
