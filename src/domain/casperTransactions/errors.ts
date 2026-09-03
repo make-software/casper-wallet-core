@@ -1,27 +1,17 @@
-import { isDomainError, isError, IDomainError } from '../common';
+import { DomainError, IDomainError } from '../common';
 import type { ICasperTransactionsRepository } from './repository';
 
 export type CasperTransactionsErrorType = keyof ICasperTransactionsRepository | 'signature';
 
 export type ICasperTransactionsError = IDomainError<CasperTransactionsErrorType>;
 
-export class CasperTransactionsError extends Error implements ICasperTransactionsError {
+export class CasperTransactionsError
+  extends DomainError<CasperTransactionsErrorType>
+  implements ICasperTransactionsError
+{
   constructor(error: Error | unknown, type: CasperTransactionsErrorType) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'CasperTransactionsError';
-    this.type = type;
+    super(error, type, 'CasperTransactionsError');
   }
-
-  type: CasperTransactionsErrorType;
-  traceable: boolean;
 }
 
 export function isCasperTransactionsError(

@@ -1,26 +1,16 @@
-import { isDomainError, isError, IDomainError } from '../common';
+import { DomainError, IDomainError } from '../common';
 
 export type TransactionStatusErrorType = 'timeout' | 'lookup' | 'cancelled';
 
 export type ITransactionStatusError = IDomainError<TransactionStatusErrorType>;
 
-export class TransactionStatusError extends Error implements ITransactionStatusError {
+export class TransactionStatusError
+  extends DomainError<TransactionStatusErrorType>
+  implements ITransactionStatusError
+{
   constructor(error: Error | unknown, type: TransactionStatusErrorType) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'TransactionStatusError';
-    this.type = type;
+    super(error, type, 'TransactionStatusError');
   }
-
-  type: TransactionStatusErrorType;
-  traceable: boolean;
 }
 
 export function isTransactionStatusError(

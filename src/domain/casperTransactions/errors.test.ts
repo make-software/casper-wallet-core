@@ -3,6 +3,7 @@ import {
   CasperTransactionsError,
   EmptySignatureError,
   isCasperTransactionsError,
+  KeyPairMismatchError,
 } from './errors';
 
 describe('CasperTransactionsError', () => {
@@ -40,5 +41,26 @@ describe('CasperTransactionsError', () => {
     expect(new AlreadySignedError().message).toBe('errors:already-signed');
     expect(new EmptySignatureError().message).toBe('errors:empty-signature');
     expect(new AlreadySignedError().type).toBe('signature');
+  });
+
+  it('keeps the source error by reference', () => {
+    const inner = new Error('boom');
+
+    expect(new CasperTransactionsError(inner, 'sendSignedTransaction').sourceError).toBe(inner);
+  });
+
+  it('keeps type and traceable defined on every subclass', () => {
+    for (const err of [
+      new AlreadySignedError(),
+      new EmptySignatureError(),
+      new KeyPairMismatchError(),
+    ]) {
+      expect(err.type).toBe('signature');
+      expect(err.traceable).toBeDefined();
+    }
+  });
+
+  it('subclasses keep their exact message keys', () => {
+    expect(new KeyPairMismatchError().message).toBe('errors:key-pair-mismatch');
   });
 });

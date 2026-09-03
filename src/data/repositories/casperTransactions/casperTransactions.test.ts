@@ -269,6 +269,26 @@ describe('sendSignedTransaction', () => {
     ).rejects.toThrow('errors:deploy-rpc-error');
     expect(mockPutDeploy).not.toHaveBeenCalled();
   });
+
+  it('carries the node error through sendSignedTransaction', async () => {
+    const nodeError = Object.assign(new Error('Code: 500, err: deploy error'), {
+      statusCode: 500,
+      sourceErr: Object.assign(new Error('invalid deploy'), { code: -32008, data: 'bad hash' }),
+    });
+    mockPutTransaction.mockRejectedValue(nodeError);
+    const repo = new CasperTransactionsRepository(GrpcUrl);
+
+    await expect(
+      repo.sendSignedTransaction({
+        transaction: txFixture(),
+        network: 'mainnet',
+        casperNetworkApiVersion: '2.0.0',
+      }),
+    ).rejects.toMatchObject({
+      name: 'CasperTransactionsError',
+      sourceError: nodeError,
+    });
+  });
 });
 
 describe('signTransaction / signMessage', () => {
