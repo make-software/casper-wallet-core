@@ -72,6 +72,13 @@ const config = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov', 'html'],
 
+  // Each worker builds its own ts-jest TypeScript program, so the default
+  // (cores - 1) makes two concurrent runs oversubscribe the machine into swap.
+  maxWorkers: '50%',
+  // 15s, not jest's 5s: under a loaded machine the slower suites exceed 5s and
+  // report as failures, which is indistinguishable from a real regression.
+  testTimeout: 15000,
+
   clearMocks: true,
   restoreMocks: true,
 };
