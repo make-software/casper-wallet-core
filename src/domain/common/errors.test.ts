@@ -1,4 +1,4 @@
-import { DomainError, isDomainError } from './errors';
+import { DomainError, getNodeErrorDetails, isDomainError } from './errors';
 
 class TestError extends DomainError<'test'> {
   constructor(error: unknown) {
@@ -66,5 +66,78 @@ describe('DomainError', () => {
 
     expect(outer.sourceError).toBe(inner);
     expect((outer.sourceError as TestError).sourceError).toBe(root);
+  });
+});
+
+const rpcError = (over: Partial<{ code: number; message: string; data: unknown }> = {}) =>
+  Object.assign(new Error(over.message ?? 'invalid deploy'), {
+    code: over.code ?? -32008,
+    data: 'data' in over ? over.data : 'bad hash',
+  });
+
+const transportError = (sourceErr: Error, statusCode = 500) =>
+  Object.assign(new Error(`Code: ${statusCode}, err: ${sourceErr.message}`), {
+    statusCode,
+    sourceErr,
+  });
+
+describe('getNodeErrorDetails', () => {
+  it('reads a wrapped transport + JSON-RPC failure', () => {
+    const inner = transportError(rpcError());
+
+    expect(getNodeErrorDetails(new TestError(inner))).toEqual({
+      message: 'invalid deploy',
+      code: -32008,
+      statusCode: 500,
+      data: 'bad hash',
+    });
+  });
+
+  it('reads a bare transport error', () => {
+    expect(getNodeErrorDetails(transportError(new Error('gateway'), 502))).toEqual({
+      message: 'gateway',
+      statusCode: 502,
+    });
+  });
+
+  it('reads a bare JSON-RPC error', () => {
+    expect(getNodeErrorDetails(rpcError())).toEqual({
+      message: 'invalid deploy',
+      code: -32008,
+      data: 'bad hash',
+    });
+  });
+
+  it('finds detail through nested domain errors', () => {
+    const inner = transportError(rpcError({ message: 'deep' }));
+
+    expect(getNodeErrorDetails(new TestError(new TestError(inner)))?.message).toBe('deep');
+  });
+
+  it('returns null when there is no node detail', () => {
+    expect(getNodeErrorDetails(new Error('boom'))).toBeNull();
+    expect(getNodeErrorDetails(new TestError(new Error('boom')))).toBeNull();
+    expect(getNodeErrorDetails(null)).toBeNull();
+    expect(getNodeErrorDetails(undefined)).toBeNull();
+    expect(getNodeErrorDetails('string')).toBeNull();
+    expect(getNodeErrorDetails({})).toBeNull();
+  });
+
+  it('returns null for a fixed-message domain error', () => {
+    expect(getNodeErrorDetails(new TestError(new Error('errors:key-pair-mismatch')))).toBeNull();
+  });
+
+  it('passes structured data through untouched', () => {
+    const data = { reason: 'bad hash' };
+
+    expect(getNodeErrorDetails(rpcError({ data }))?.data).toBe(data);
+  });
+
+  it('terminates on a cyclic chain', () => {
+    const err = new Error('loop') as Error & { sourceErr?: unknown; statusCode?: number };
+    err.sourceErr = err;
+    err.statusCode = 500;
+
+    expect(() => getNodeErrorDetails(err)).not.toThrow();
   });
 });
