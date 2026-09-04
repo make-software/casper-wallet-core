@@ -75,7 +75,6 @@ describe('CORE_ERROR_MESSAGE_KEYS', () => {
   });
 
   it('covers every FlowErrorType expansion', () => {
-    // FlowError builds `errors:flow-${type}`; one catalogue entry must exist per member.
     const flowTypes = ['runner-account-mismatch'];
 
     for (const type of flowTypes) {

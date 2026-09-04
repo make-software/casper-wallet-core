@@ -13,12 +13,9 @@ export function isDomainError(err: unknown | IDomainError): err is IDomainError 
 
 export abstract class DomainError<T = string> extends Error implements IDomainError<T> {
   /**
-   * The error this one was built from, verbatim — an `Error`, a rejected non-`Error` value,
-   * whatever was thrown. Read it to reach transport or node detail the wrapper's `message`
-   * cannot carry; {@link getNodeErrorDetails} does exactly that.
-   *
-   * `declare` and not a field initializer: `useDefineForClassFields` is on, so a declared field
-   * would be re-defined as `undefined` after `super()` and clobber the descriptor set below.
+   * The error this one was built from, verbatim — whatever was thrown. Read it to reach the
+   * transport or node detail the wrapper's `message` cannot carry; {@link getNodeErrorDetails}
+   * does exactly that.
    */
   declare readonly sourceError: unknown;
 
@@ -38,9 +35,8 @@ export abstract class DomainError<T = string> extends Error implements IDomainEr
     this.name = name;
     this.type = type;
 
-    // Non-enumerable, and deliberately not `cause`: mobile's Sentry chains `cause` into the
-    // event and serializes enumerable own properties, which would carry a nested RPC payload
-    // — account hashes, full deploy JSON — past that app's scrubbing depth cap.
+    // Non-enumerable and deliberately not `cause`: both are what keep Sentry from chaining the
+    // RPC payload — account hashes, full deploy JSON — into events.
     Object.defineProperty(this, 'sourceError', {
       value: error,
       enumerable: false,
@@ -65,11 +61,9 @@ const MAX_CHAIN_DEPTH = 16;
 
 /**
  * Pulls node-provided detail out of an error thrown by the transaction layer, walking the
- * `sourceError` chain a {@link DomainError} preserves and matching casper-js-sdk's transport
- * (`statusCode` + `sourceErr`) and JSON-RPC (`code` + `data`) error shapes structurally.
- *
- * Returns `null` when the failure carries no node detail — a validation error raised before the
- * request, or a plain `Error`. Callers render their own copy in that case.
+ * `sourceError` chain and matching casper-js-sdk's transport (`statusCode` + `sourceErr`) and
+ * JSON-RPC (`code` + `data`) shapes structurally. Returns `null` when the failure carries no
+ * node detail; callers render their own copy in that case.
  */
 export const getNodeErrorDetails = (error: unknown): INodeErrorDetails | null => {
   const seen = new Set<unknown>();

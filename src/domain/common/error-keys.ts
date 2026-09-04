@@ -1,8 +1,7 @@
 /**
  * Every i18n key core can put in an error's `message`. Core ships no copy: a consumer maps these
  * to its own strings, and {@link CoreErrorMessageKey} makes an incomplete map a type error.
- *
- * Kept exhaustive by `error-keys.test.ts`, which scans `src/` for `errors:*` literals.
+ * `error-keys.test.ts` scans `src/` to keep the list exhaustive.
  */
 export const CORE_ERROR_MESSAGE_KEYS = [
   'errors:already-signed',
