@@ -3,6 +3,8 @@ import {
   CasperNetworkName,
   Deploy,
   KeyAlgorithm,
+  makeAuctionManagerDeploy,
+  makeCep18TransferDeploy,
   makeCsprTransferDeploy,
   PrivateKey,
 } from 'casper-js-sdk';
@@ -16,7 +18,11 @@ import {
   buildCsprTransferTransactions,
   buildNftTransferTransactions,
 } from './tx-builders';
-import { makeNftTransferTransaction, NFTTokenStandard } from './cep-nft-transfer';
+import {
+  makeNftTransferDeploy,
+  makeNftTransferTransaction,
+  NFTTokenStandard,
+} from './cep-nft-transfer';
 
 const TS = '2026-01-01T00:00:00.000Z';
 const sender = PrivateKey.generate(KeyAlgorithm.SECP256K1).publicKey.toHex();
@@ -120,6 +126,36 @@ describe('buildCep18TransferTransactions', () => {
     expect(fallbackJson.session.StoredVersionedContractByHash.entry_point).toBe('transfer');
   });
 
+  it('1.x: deploy-wrapped transaction, byte-equal to a direct SDK deploy build', () => {
+    const { transaction, fallbackDeploy } = buildCep18TransferTransactions(params, '1.5.8');
+    const deploy = transaction.getDeploy();
+    expect(deploy).toBeTruthy();
+    expect(fallbackDeploy).toBeInstanceOf(Deploy);
+
+    const direct = makeCep18TransferDeploy({
+      chainName: 'casper',
+      contractPackageHash: PKG,
+      paymentAmount: '3000000000',
+      recipientPublicKeyHex: recipient,
+      senderPublicKeyHex: sender,
+      transferAmount: '25000000000',
+      timestamp: TS,
+    });
+    expect(JSON.stringify(Deploy.toJSON(deploy as Deploy))).toBe(
+      JSON.stringify(Deploy.toJSON(direct)),
+    );
+  });
+
+  it('paymentAmountMotes lands in payment on both the 2.x tx and the fallback deploy', () => {
+    const { transaction, fallbackDeploy } = buildCep18TransferTransactions(params, '2.0.0');
+    const txJson = transaction.toJSON() as unknown as Record<string, any>;
+    expect(txJson.payload.pricing_mode.PaymentLimited.payment_amount).toBe(3000000000);
+
+    const paymentArgs = (Deploy.toJSON(fallbackDeploy) as any).payment.ModuleBytes.args;
+    // U512 CLValue: `04` length prefix + little-endian 0xb2d05e00 = 3000000000
+    expect(Object.fromEntries(paymentArgs).amount.bytes).toBe('04005ed0b2');
+  });
+
   it('maps network to chain name via CasperSdkNetworkName', () => {
     const { transaction } = buildCep18TransferTransactions(
       { ...params, network: 'testnet' },
@@ -180,6 +216,29 @@ describe('buildAuctionManagerTransactions', () => {
     expect(fallbackArgNames).toContain('new_validator');
   });
 
+  it('1.x: deploy-wrapped transaction, byte-equal to a direct SDK deploy build', () => {
+    const { transaction, fallbackDeploy } = buildAuctionManagerTransactions(
+      { ...params, entryPoint: 'DELEGATE' },
+      '1.5.8',
+    );
+    const deploy = transaction.getDeploy();
+    expect(deploy).toBeTruthy();
+    expect(fallbackDeploy).toBeInstanceOf(Deploy);
+
+    const direct = makeAuctionManagerDeploy({
+      amount: '500000000000',
+      paymentAmount: '2500000000',
+      chainName: CasperNetworkName.Testnet,
+      contractEntryPoint: AuctionManagerEntryPoint.delegate,
+      delegatorPublicKeyHex: sender,
+      validatorPublicKeyHex: recipient,
+      timestamp: TS,
+    });
+    expect(JSON.stringify(Deploy.toJSON(deploy as Deploy))).toBe(
+      JSON.stringify(Deploy.toJSON(direct)),
+    );
+  });
+
   it('gasPrice defaults to 1 when omitted', () => {
     const { transaction, fallbackDeploy } = buildAuctionManagerTransactions(
       { ...params, entryPoint: 'DELEGATE' },
@@ -219,6 +278,28 @@ describe('buildNftTransferTransactions', () => {
     }).getDeploy();
     expect(JSON.stringify(Deploy.toJSON(fallbackDeploy))).toBe(
       JSON.stringify(Deploy.toJSON(legacy as Deploy)),
+    );
+  });
+
+  it('1.x: deploy-wrapped transaction, byte-equal to a direct SDK deploy build', () => {
+    const { transaction, fallbackDeploy } = buildNftTransferTransactions(params, '1.5.8');
+    const deploy = transaction.getDeploy();
+    expect(deploy).toBeTruthy();
+    expect(fallbackDeploy).toBeInstanceOf(Deploy);
+
+    const direct = makeNftTransferDeploy({
+      chainName: 'casper',
+      contractPackageHash: PKG,
+      nftStandard: NFTTokenStandard.CEP78,
+      paymentAmount: '15000000000',
+      recipientPublicKeyHex: recipient,
+      senderPublicKeyHex: sender,
+      tokenId: '1',
+      timestamp: TS,
+      gasPrice: 1,
+    });
+    expect(JSON.stringify(Deploy.toJSON(deploy as Deploy))).toBe(
+      JSON.stringify(Deploy.toJSON(direct)),
     );
   });
 

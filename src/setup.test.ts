@@ -1,5 +1,25 @@
+import { createPrivateKeySigner } from '../index';
 import { setupRepositories } from './setup';
 import { CasperTransactionsRepository, TransactionStatusRepository } from './data/repositories';
+
+const mockSetReferrer = jest.fn();
+const mockSetCustomHeaders = jest.fn();
+const mockHttpHandlerCtor = jest.fn();
+const mockGetStatus = jest.fn();
+
+jest.mock('casper-js-sdk', () => ({
+  ...jest.requireActual('casper-js-sdk'),
+  HttpHandler: class {
+    constructor(...args: unknown[]) {
+      mockHttpHandlerCtor(...args);
+    }
+    setReferrer = mockSetReferrer;
+    setCustomHeaders = mockSetCustomHeaders;
+  },
+  RpcClient: class {
+    getStatus = mockGetStatus;
+  },
+}));
 
 describe('setupRepositories', () => {
   it('returns a casperTransactionsRepository', () => {
@@ -73,5 +93,23 @@ describe('setupRepositories', () => {
       handlerType: 'axios',
       referrerMode: 'referer-header',
     });
+  });
+
+  it('zero-config stays browser-safe: the RPC client it builds uses fetch + setReferrer', async () => {
+    jest.clearAllMocks();
+    mockGetStatus.mockResolvedValue({ apiVersion: '2.0.0' });
+
+    const repos = setupRepositories();
+    await repos.casperTransactionsRepository.getNetworkApiVersion('mainnet');
+
+    expect(mockHttpHandlerCtor).toHaveBeenCalledWith(expect.any(String), 'fetch');
+    expect(mockSetReferrer).toHaveBeenCalledWith('https://casperwallet.io');
+    expect(mockSetCustomHeaders).not.toHaveBeenCalled();
+  });
+});
+
+describe('package root exports', () => {
+  it('resolves the signer factory through the root barrel', () => {
+    expect(typeof createPrivateKeySigner).toBe('function');
   });
 });

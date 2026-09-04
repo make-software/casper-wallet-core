@@ -194,6 +194,15 @@ describe('CasperTransactionsRepository rpc plumbing', () => {
     });
     expect(mockSetReferrer).not.toHaveBeenCalled();
   });
+
+  it('default referrer mode still merges an Authorization header, without a Referer one', async () => {
+    mockGetStatus.mockResolvedValue(nodeStatus('2026-01-01T00:00:00.000Z'));
+    const repo = new CasperTransactionsRepository(GrpcUrl, { authorizationHeader: 'token' });
+    await repo.getNetworkApiVersion('mainnet');
+    expect(mockHttpHandlerCtor).toHaveBeenCalledWith(GrpcUrl.mainnet, 'fetch');
+    expect(mockSetReferrer).toHaveBeenCalledWith('https://casperwallet.io');
+    expect(mockSetCustomHeaders).toHaveBeenCalledWith({ Authorization: 'token' });
+  });
 });
 
 describe('sendSignedTransaction', () => {
@@ -556,6 +565,60 @@ describe('composed sends', () => {
           signer,
         }),
       ).rejects.toBe(ledgerError);
+    });
+
+    it.each([
+      [
+        'sendNftTransfer',
+        (repo: CasperTransactionsRepository, signer: ICasperSigner) =>
+          repo.sendNftTransfer({
+            nft: nftFixture('uint'),
+            network: 'testnet',
+            casperNetworkApiVersion: '2.0.0',
+            toPublicKeyHex: recipient,
+            paymentAmount: '15',
+            signer,
+          }),
+      ],
+      [
+        'sendDelegation',
+        (repo: CasperTransactionsRepository, signer: ICasperSigner) =>
+          repo.sendDelegation({
+            network: 'testnet',
+            casperNetworkApiVersion: '2.0.0',
+            entryPoint: 'DELEGATE' as AuctionManagerEntryPointType,
+            stake: '500',
+            paymentAmount: '2.5',
+            validatorPublicKeyHex: recipient,
+            newValidatorPublicKeyHex: newValidator,
+            signer,
+          }),
+      ],
+      [
+        'signTransaction',
+        (repo: CasperTransactionsRepository, signer: ICasperSigner) =>
+          repo.signTransaction({ transaction: txFixture(), signer }),
+      ],
+      [
+        'signMessage',
+        (repo: CasperTransactionsRepository, signer: ICasperSigner) =>
+          repo.signMessage({ message: 'hello', signer }),
+      ],
+    ])('tags a plain error thrown inside %s with that method name', async (type, invoke) => {
+      mockGetStatus.mockResolvedValue(nodeStatus('2026-01-01T00:00:00.000Z'));
+      const { signer } = makeFakeSigner(sender);
+      const boom = new Error('signer offline');
+      (signer.getSignedTransaction as jest.Mock).mockRejectedValue(boom);
+      (signer.signTransaction as jest.Mock).mockRejectedValue(boom);
+      (signer.signMessage as jest.Mock).mockRejectedValue(boom);
+
+      await expect(invoke(new CasperTransactionsRepository(GrpcUrl), signer)).rejects.toMatchObject(
+        {
+          name: 'CasperTransactionsError',
+          type,
+          message: 'signer offline',
+        },
+      );
     });
   });
 });
