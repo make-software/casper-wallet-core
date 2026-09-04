@@ -22,14 +22,19 @@ export abstract class DomainError<T = string> extends Error implements IDomainEr
   type: T;
   traceable: boolean;
 
-  protected constructor(error: Error | unknown, type: T, name: string) {
+  /**
+   * `traceable` says whether a consumer should report this to its crash reporter. It is only a
+   * default: wrapping a domain error always keeps that error's flag, so a subclass cannot make an
+   * already-silenced failure noisy again.
+   */
+  protected constructor(error: Error | unknown, type: T, name: string, traceable = true) {
     if (isError(error)) {
       super(error.message);
       this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
+      this.traceable = isDomainError(error) ? Boolean(error.traceable) : traceable;
     } else {
       super(JSON.stringify(error));
-      this.traceable = true;
+      this.traceable = traceable;
     }
 
     this.name = name;

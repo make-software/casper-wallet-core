@@ -6,6 +6,12 @@ class TestError extends DomainError<'test'> {
   }
 }
 
+class QuietError extends DomainError<'test'> {
+  constructor(error: unknown, traceable = false) {
+    super(error, 'test', 'QuietError', traceable);
+  }
+}
+
 describe('DomainError', () => {
   it('wraps an Error preserving message, stack and traceable', () => {
     const inner = new Error('boom');
@@ -66,6 +72,21 @@ describe('DomainError', () => {
 
     expect(outer.sourceError).toBe(inner);
     expect((outer.sourceError as TestError).sourceError).toBe(root);
+  });
+
+  it('applies the traceable argument on both wrapping branches', () => {
+    expect(new QuietError(new Error('boom')).traceable).toBe(false);
+    expect(new QuietError({ a: 1 }).traceable).toBe(false);
+    expect(new QuietError('plain failure').traceable).toBe(false);
+    expect(new QuietError(new Error('boom'), true).traceable).toBe(true);
+  });
+
+  it('lets a wrapped domain error outrank the traceable argument', () => {
+    const silenced = new QuietError(new Error('boom'));
+    const noisy = new TestError(new Error('boom'));
+
+    expect(new QuietError(silenced, true).traceable).toBe(false);
+    expect(new QuietError(noisy).traceable).toBe(true);
   });
 });
 
