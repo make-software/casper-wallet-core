@@ -70,6 +70,7 @@ export class DeploysRepository implements IDeploysRepository {
       await this._accountInfoRepository.getAccountsInfo({
         network,
         accountHashes,
+        withProxyHeader,
       });
 
       return {
@@ -122,6 +123,7 @@ export class DeploysRepository implements IDeploysRepository {
       await this._accountInfoRepository.getAccountsInfo({
         network,
         accountHashes,
+        withProxyHeader,
       });
 
       return {
@@ -166,6 +168,7 @@ export class DeploysRepository implements IDeploysRepository {
       await this._accountInfoRepository.getAccountsInfo({
         network,
         accountHashes: [...deployHashes, ...resultsHashes],
+        withProxyHeader,
       });
 
       if (resp?.data) {
@@ -225,6 +228,7 @@ export class DeploysRepository implements IDeploysRepository {
       await this._accountInfoRepository.getAccountsInfo({
         network,
         accountHashes,
+        withProxyHeader,
       });
 
       return {
@@ -280,6 +284,7 @@ export class DeploysRepository implements IDeploysRepository {
       await this._accountInfoRepository.getAccountsInfo({
         network,
         accountHashes,
+        withProxyHeader,
       });
 
       await this._accountInfoRepository.getAccountInfoFromTransactionsFeed(feedItems, network);
