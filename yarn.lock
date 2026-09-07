@@ -1449,7 +1449,7 @@ __metadata:
     "@types/jest": "npm:^29.5.14"
     "@types/node": "npm:^22.20.1"
     apisauce: "npm:^3.2.2"
-    casper-js-sdk: "npm:5.1.0"
+    casper-js-sdk: "npm:5.1.1"
     date-fns: "npm:^4.4.0"
     decimal.js: "npm:^10.6.0"
     deepmerge: "npm:^4.3.1"
@@ -1954,9 +1954,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"casper-js-sdk@npm:5.1.0":
-  version: 5.1.0
-  resolution: "casper-js-sdk@npm:5.1.0"
+"casper-js-sdk@npm:5.1.1":
+  version: 5.1.1
+  resolution: "casper-js-sdk@npm:5.1.1"
   dependencies:
     "@ethersproject/bignumber": "npm:^5.8.0"
     "@ethersproject/bytes": "npm:^5.8.0"
@@ -1972,7 +1972,7 @@ __metadata:
     humanize-duration: "npm:^3.34.0"
     ts-results: "npm:@casperlabs/ts-results@^3.3.5"
     typedjson: "npm:^1.8.0"
-  checksum: 10c0/5cc43571a2781fce82641f1362982a173a7cfb7950b456f08fb0ed27d3931657216e0f516e9046f0005330ca21d0b0d47b6cc6591027e3ca5ffe8a0fba0dbc61
+  checksum: 10c0/3108d432a7259675cf22d6a3ad4277a3535e2cccf54b02f34438e494e3c8c9bc34b43e9ef62fa16713586b440f112a687b43376f786ef70f2085a3dd1c5745f3
   languageName: node
   linkType: hard
 
