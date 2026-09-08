@@ -1,0 +1,462 @@
+import { DexContractRepository } from './index';
+import {
+  DexError,
+  TradeContractPackageHash,
+  WrappedCsprContractPackageHash,
+} from '../../../domain';
+
+const mockSetReferrer = jest.fn();
+const mockSetCustomHeaders = jest.fn();
+const mockHttpHandlerCtor = jest.fn();
+
+jest.mock('casper-js-sdk', () => ({
+  ...jest.requireActual('casper-js-sdk'),
+  HttpHandler: class {
+    constructor(...args: unknown[]) {
+      mockHttpHandlerCtor(...args);
+    }
+    setReferrer = mockSetReferrer;
+    setCustomHeaders = mockSetCustomHeaders;
+  },
+}));
+
+const PUBLIC_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
+/** blake2b-256(accountKey.bytes() ++ tradeContractKey.bytes()) for PUBLIC_KEY on mainnet. */
+const ALLOWANCES_DICT_KEY = 'd3cf5c22d374ac6ec3e20c825ad6f38b47f15ba4db675ab3ab598d0fa6c03782';
+
+const GRPC_URL = {
+  mainnet: 'https://rpc.mainnet.example.com',
+  testnet: 'https://rpc.testnet.example.com',
+  devnet: '',
+  integration: '',
+};
+
+const DEX_CONFIG = {
+  tradeContractPackageHash: TradeContractPackageHash,
+  wrappedCsprContractPackageHash: WrappedCsprContractPackageHash,
+  gasPriceTolerance: 1,
+};
+
+/** The shape the sdk throws for an RPC error: the code rides on the wrapped `sourceErr`. */
+const rpcError = (code: number) =>
+  Object.assign(new Error(`rpc ${code}`), { statusCode: code, sourceErr: { code } });
+
+/** Fake RpcClient — only the methods a given test exercises need to be present. */
+const makeClient = (overrides: Record<string, jest.Mock> = {}) => overrides;
+
+/** Stubs the private `_getClient` factory so tests can inject a fake RpcClient. */
+const stubClient = (repo: DexContractRepository, client: Record<string, jest.Mock>) =>
+  jest.spyOn(repo as any, '_getClient').mockReturnValue(client);
+
+const makeVersion = (contractVersion: number, contractHashHex: string) => ({
+  contractVersion,
+  contractHash: { hash: { toHex: () => `contract-${contractHashHex}` } },
+});
+
+const makeQueryLatestGlobalState = (...versions: ReturnType<typeof makeVersion>[] | [string]) =>
+  jest.fn().mockResolvedValue({
+    storedValue: {
+      contractPackage: {
+        versions:
+          typeof versions[0] === 'string'
+            ? [makeVersion(1, versions[0])]
+            : (versions as ReturnType<typeof makeVersion>[]),
+      },
+    },
+  });
+
+describe('DexContractRepository', () => {
+  describe('getAllowance', () => {
+    it('reads the allowances dictionary with a key derived from both keys (keysToHex)', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const getDictionaryItemByIdentifier = jest
+        .fn()
+        .mockResolvedValue({ storedValue: { clValue: { toString: () => '999' } } });
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier,
+        }),
+      );
+
+      const result = await repo.getAllowance({
+        network: 'mainnet',
+        contractPackageHash: 'cph',
+        publicKey: PUBLIC_KEY,
+      });
+
+      expect(result).toBe('999');
+      const identifier = getDictionaryItemByIdentifier.mock.calls[0][1];
+      expect(identifier.contractNamedKey.dictionaryName).toBe('allowances');
+
+      // Fixed vector rather than a re-run of `keysToHex`; the derivation itself is pinned in
+      // src/utils/casperSdk/dex-contract.test.ts.
+      expect(identifier.contractNamedKey.dictionaryItemKey).toBe(ALLOWANCES_DICT_KEY);
+    });
+
+    it('rejects a DexError typed "getAllowance" on RPC failure', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({ queryLatestGlobalState: jest.fn().mockRejectedValue(new Error('rpc down')) }),
+      );
+
+      await expect(
+        repo.getAllowance({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+        }),
+      ).rejects.toMatchObject({ name: 'DexRepositoryError', type: 'getAllowance' });
+    });
+
+    it('resolves "" when the allowances dictionary has no entry for the spender', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          // ErrorCode.QueryFailed — the node answered and the item is not in state.
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(rpcError(-32003)),
+        }),
+      );
+
+      await expect(
+        repo.getAllowance({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+        }),
+      ).resolves.toBe('');
+    });
+
+    it('rejects rather than reading "" when the dictionary lookup itself fails', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('socket hang up')),
+        }),
+      );
+
+      await expect(
+        repo.getAllowance({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+        }),
+      ).rejects.toMatchObject({ name: 'DexRepositoryError', type: 'getAllowance' });
+    });
+
+    it('reads a transient allowance failure as "approval required", and logs it', async () => {
+      const log = {
+        reportError: jest.fn(),
+        log: jest.fn(),
+        logGroup: jest.fn(),
+        logGroupEnd: jest.fn(),
+      };
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG, undefined, {}, log);
+      stubClient(
+        repo,
+        makeClient({
+          queryLatestGlobalState: makeQueryLatestGlobalState('def456'),
+          getDictionaryItemByIdentifier: jest.fn().mockRejectedValue(new Error('socket hang up')),
+        }),
+      );
+
+      await expect(
+        repo.checkApprovalRequired({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+          requiredAmount: '1',
+        }),
+      ).resolves.toBe(true);
+      expect(log.reportError).toHaveBeenCalled();
+    });
+  });
+
+  describe('proxy WASM integrity', () => {
+    const WASM = new Uint8Array([0x00, 0x61, 0x73, 0x6d]);
+    // sha256 of those four bytes.
+    const WASM_SHA256 = 'cd5d4935a48c0672cb06407bb443bc0087aff947c6b864bac886982c73b3027f';
+
+    const configWith = (expectedProxyWasmSha256?: string) => ({
+      ...DEX_CONFIG,
+      expectedProxyWasmSha256,
+      getProxyWasm: jest.fn(async () => WASM),
+    });
+
+    it('refuses to build when the loaded bytes do not match the expected hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, configWith('00'.repeat(32)));
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('does not match the expected sha256'),
+      });
+    });
+
+    it('verifies once and reuses the bytes across builds', async () => {
+      const dexConfig = configWith(WASM_SHA256);
+      const repo = new DexContractRepository(GRPC_URL, dexConfig);
+      const build = () =>
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: false,
+        });
+
+      await expect(build()).resolves.toMatchObject({ kind: 'wrap' });
+      await expect(build()).resolves.toMatchObject({ kind: 'wrap' });
+      expect(dexConfig.getProxyWasm).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the bytes as supplied when no expected hash is configured', async () => {
+      const repo = new DexContractRepository(GRPC_URL, configWith());
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'mainnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: false,
+        }),
+      ).resolves.toMatchObject({ kind: 'wrap' });
+    });
+  });
+
+  describe('revoking an approval', () => {
+    it('builds an approve of 0 to the trade contract', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const spy = jest.spyOn(repo, 'buildApprovalTransaction');
+
+      await repo.buildRevokeApprovalTransaction({
+        network: 'mainnet',
+        publicKey: PUBLIC_KEY,
+        contractPackageHash: 'ab'.repeat(32),
+        useTransactionV1: true,
+      });
+
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ amount: '0' }));
+    });
+  });
+
+  describe('unconfigured networks', () => {
+    const UNCONFIGURED = {
+      tradeContractPackageHash: { ...TradeContractPackageHash, devnet: '' },
+      wrappedCsprContractPackageHash: { ...WrappedCsprContractPackageHash, devnet: '' },
+      gasPriceTolerance: 1,
+      getProxyWasm: async () => new Uint8Array([1]),
+    };
+
+    it('refuses to build an approval against an empty trade contract package hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, UNCONFIGURED);
+
+      await expect(
+        repo.buildApprovalTransaction({
+          network: 'devnet',
+          publicKey: PUBLIC_KEY,
+          contractPackageHash: 'cph',
+          amount: '1',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('No trade contract package hash configured'),
+      });
+    });
+
+    it('refuses to build a wrap against an empty wrapped-CSPR contract package hash', async () => {
+      const repo = new DexContractRepository(GRPC_URL, UNCONFIGURED);
+
+      await expect(
+        repo.buildWrapTransaction({
+          network: 'devnet',
+          publicKey: PUBLIC_KEY,
+          motesAmount: '1000000000',
+          useTransactionV1: true,
+        }),
+      ).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        message: expect.stringContaining('No wrapped-CSPR contract package hash configured'),
+      });
+    });
+  });
+
+  describe('contract version selection', () => {
+    /** Reads back the contract hash the dictionary lookup was pointed at. */
+    const dictionaryTargetOf = async (
+      queryLatestGlobalState: jest.Mock,
+    ): Promise<string | undefined> => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const getDictionaryItemByIdentifier = jest
+        .fn()
+        .mockResolvedValue({ storedValue: { clValue: { toString: () => '1' } } });
+      stubClient(repo, makeClient({ queryLatestGlobalState, getDictionaryItemByIdentifier }));
+
+      await repo.getAllowance({
+        network: 'mainnet',
+        contractPackageHash: 'cph',
+        publicKey: PUBLIC_KEY,
+      });
+
+      return getDictionaryItemByIdentifier.mock.calls[0][1].contractNamedKey.key as string;
+    };
+
+    // A stale version's `allowances` dictionary reports an allowance the user never granted, or
+    // misses one they did — either way they pay for an approval on every swap.
+    it('reads the allowance from the highest contract version', async () => {
+      await expect(
+        dictionaryTargetOf(
+          makeQueryLatestGlobalState(
+            makeVersion(1, 'old'),
+            makeVersion(3, 'newest'),
+            makeVersion(2, 'mid'),
+          ),
+        ),
+      ).resolves.toContain('newest');
+    });
+
+    it('does not depend on the versions arriving in order', async () => {
+      await expect(
+        dictionaryTargetOf(
+          makeQueryLatestGlobalState(makeVersion(3, 'newest'), makeVersion(1, 'old')),
+        ),
+      ).resolves.toContain('newest');
+    });
+  });
+
+  describe('checkApprovalRequired', () => {
+    it('resolves false for WCSPR without any RPC call', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const getClientSpy = jest.spyOn(repo as any, '_getClient');
+
+      const result = await repo.checkApprovalRequired({
+        network: 'mainnet',
+        contractPackageHash: WrappedCsprContractPackageHash.mainnet,
+        publicKey: PUBLIC_KEY,
+        requiredAmount: '100',
+      });
+
+      expect(result).toBe(false);
+      expect(getClientSpy).not.toHaveBeenCalled();
+    });
+
+    it('resolves true when the allowance is less than the required amount', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      jest.spyOn(repo, 'getAllowance').mockResolvedValue('100');
+
+      await expect(
+        repo.checkApprovalRequired({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+          requiredAmount: '200',
+        }),
+      ).resolves.toBe(true);
+    });
+
+    it('resolves false when the allowance equals the required amount', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      jest.spyOn(repo, 'getAllowance').mockResolvedValue('200');
+
+      await expect(
+        repo.checkApprovalRequired({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+          requiredAmount: '200',
+        }),
+      ).resolves.toBe(false);
+    });
+
+    it('resolves true (assumes approval required) when the allowance read rejects', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      jest.spyOn(repo, 'getAllowance').mockRejectedValue(new Error('rpc down'));
+
+      await expect(
+        repo.checkApprovalRequired({
+          network: 'mainnet',
+          contractPackageHash: 'cph',
+          publicKey: PUBLIC_KEY,
+          requiredAmount: '200',
+        }),
+      ).resolves.toBe(true);
+    });
+  });
+
+  describe('getLatestBlockTime', () => {
+    it('resolves the latest block timestamp in ms', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({
+          getLatestBlock: jest
+            .fn()
+            .mockResolvedValue({ block: { timestamp: { toMilliseconds: () => 1700000000000 } } }),
+        }),
+      );
+
+      await expect(repo.getLatestBlockTime({ network: 'mainnet' })).resolves.toBe(1700000000000);
+    });
+
+    it('rejects a DexError typed "getLatestBlockTime" on RPC failure', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      stubClient(
+        repo,
+        makeClient({ getLatestBlock: jest.fn().mockRejectedValue(new Error('rpc down')) }),
+      );
+
+      await expect(repo.getLatestBlockTime({ network: 'mainnet' })).rejects.toMatchObject({
+        name: 'DexRepositoryError',
+        type: 'getLatestBlockTime',
+      });
+    });
+  });
+
+  describe('error wrapping', () => {
+    it('rethrows an inner DexError as-is, without re-wrapping its type', async () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      const inner = new DexError(new Error('inner failure'), 'getAllowance');
+      stubClient(repo, makeClient({ getLatestBlock: jest.fn().mockRejectedValue(inner) }));
+
+      await expect(repo.getLatestBlockTime({ network: 'mainnet' })).rejects.toBe(inner);
+    });
+  });
+
+  describe('_getClient', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it("default rpc options: 'fetch' handler + setReferrer, no Referer header", () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG);
+      (repo as any)._getClient('mainnet');
+      expect(mockHttpHandlerCtor).toHaveBeenCalledWith(GRPC_URL.mainnet, 'fetch');
+      expect(mockSetReferrer).toHaveBeenCalledWith('https://casperwallet.io');
+      expect(mockSetCustomHeaders).not.toHaveBeenCalled();
+    });
+
+    it("mobile rpc options: 'axios' handler + literal Referer header (+auth)", () => {
+      const repo = new DexContractRepository(GRPC_URL, DEX_CONFIG, 'token', {
+        handlerType: 'axios',
+        referrerMode: 'referer-header',
+      });
+      (repo as any)._getClient('mainnet');
+      expect(mockHttpHandlerCtor).toHaveBeenCalledWith(GRPC_URL.mainnet, 'axios');
+      expect(mockSetCustomHeaders).toHaveBeenCalledWith({
+        Referer: 'https://casperwallet.io',
+        Authorization: 'token',
+      });
+      expect(mockSetReferrer).not.toHaveBeenCalled();
+    });
+  });
+});

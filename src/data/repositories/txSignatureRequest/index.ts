@@ -129,6 +129,7 @@ export class TxSignatureRequestRepository implements ITxSignatureRequestReposito
         await this._accountInfoRepository.getAccountsInfo({
           network,
           accountHashes,
+          withProxyHeader,
         });
       } catch {}
 

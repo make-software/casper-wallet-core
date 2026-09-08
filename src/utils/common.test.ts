@@ -40,8 +40,14 @@ describe('common utils', () => {
       expect(formatFiatBalance(undefined)).toBe('$0.00');
     });
 
-    it('returns "<$0.01" for zero (because zero is < 0.01)', () => {
-      expect(formatFiatBalance('0')).toBe('<$0.01');
+    it('returns zero for a zero balance, not the sub-cent bound', () => {
+      expect(formatFiatBalance('0')).toBe('$0.00');
+      expect(formatFiatBalance('0.00')).toBe('$0.00');
+      expect(formatFiatBalance('0', undefined, 4)).toBe('$0.00');
+    });
+
+    it('renders a zero balance in the requested currency', () => {
+      expect(formatFiatBalance('0', undefined, 2, { currencyCode: 'EUR' })).toBe('€0.00');
     });
 
     it('returns <$0.01 for tiny amounts', () => {
@@ -50,6 +56,43 @@ describe('common utils', () => {
 
     it('formats normal amounts with US grouping', () => {
       expect(formatFiatBalance('1234.5')).toBe('$1,234.5');
+    });
+
+    it('keeps the one-cent bound whatever decimals is set to', () => {
+      expect(formatFiatBalance('0.005', undefined, 4)).toBe('<$0.01');
+      expect(formatFiatBalance('0.011', undefined, 4)).toBe('$0.011');
+    });
+
+    it('bounds on the actual amount, not on the amount rounded to decimals', () => {
+      expect(formatFiatBalance('0.005')).toBe('<$0.01');
+      expect(formatFiatBalance('0.0099')).toBe('<$0.01');
+      expect(formatFiatBalance('0.01')).toBe('$0.01');
+    });
+
+    it('shows the bound in the requested currency', () => {
+      expect(formatFiatBalance('0.005', undefined, 2, { currencyCode: 'EUR' })).toBe('<€0.01');
+    });
+
+    it('keeps the one-cent bound legible at whole-currency decimals', () => {
+      expect(formatFiatBalance('0.005', undefined, 0)).toBe('<$0.01');
+      expect(formatFiatBalance('0.005', undefined, 1)).toBe('<$0.01');
+    });
+
+    it('does not throw when minFractionDigits exceeds decimals', () => {
+      expect(formatFiatBalance('5', null, 0, { minFractionDigits: 2 })).toBe('$5');
+      expect(formatFiatBalance('5', null, 2, { minFractionDigits: 2 })).toBe('$5.00');
+    });
+
+    it('formats in the requested currency, padding to minFractionDigits', () => {
+      expect(formatFiatBalance('5', null, 2, { currencyCode: 'EUR', minFractionDigits: 2 })).toBe(
+        '€5.00',
+      );
+    });
+
+    it('renders an absent balance in the requested currency when the default is null', () => {
+      expect(formatFiatBalance('', null, 2, { currencyCode: 'EUR', minFractionDigits: 2 })).toBe(
+        '€0.00',
+      );
     });
   });
 
@@ -61,6 +104,17 @@ describe('common utils', () => {
 
     it('handles 0', () => {
       expect(getDecimalTokenBalance('0', 9)).toBe('0');
+    });
+
+    it('keeps digits past the default Decimal precision', () => {
+      expect(getDecimalTokenBalance('123456789012345678901234', 9)).toBe(
+        '123456789012345.678901234',
+      );
+    });
+
+    it('returns the fallback instead of throwing when one is given', () => {
+      expect(() => getDecimalTokenBalance('not-a-number', 9)).toThrow();
+      expect(getDecimalTokenBalance('not-a-number', 9, '0')).toBe('0');
     });
   });
 
@@ -134,8 +188,20 @@ describe('common utils', () => {
       expect(getBlockchainAmount('2.5', 9)).toBe('2500000000');
     });
 
+    it('truncates rather than rounding up', () => {
+      expect(getBlockchainAmount('1.9999999999', 9)).toBe('1999999999');
+    });
+
+    it('keeps digits past the default Decimal precision', () => {
+      expect(getBlockchainAmount('123456789012345.678901234', 9)).toBe('123456789012345678901234');
+    });
+
     it('throws on invalid amount', () => {
       expect(() => getBlockchainAmount('not-a-number', 9)).toThrow();
+    });
+
+    it('returns the fallback instead of throwing when one is given', () => {
+      expect(getBlockchainAmount('not-a-number', 9, '0')).toBe('0');
     });
   });
 
@@ -165,8 +231,8 @@ describe('common utils', () => {
       expect(getFiatAmount(2, 0.5)).toBe('$1');
     });
 
-    it('defaults rate to 0 (returns <$0.01 since 10 × 0 = 0)', () => {
-      expect(getFiatAmount(10)).toBe('<$0.01');
+    it('defaults rate to 0, so the amount is zero', () => {
+      expect(getFiatAmount(10)).toBe('$0.00');
     });
   });
 

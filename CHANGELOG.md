@@ -6,6 +6,202 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Shared Casper transaction, signing and submission layer (Phase 1).** New
+  `domain/casperTransactions` (`ICasperSigner`, `ICasperTransactionsRepository`,
+  `CasperTransactionsError`), a `CasperTransactionsRepository` that owns node-RPC client
+  construction, node-time drift correction and API-version detection, and submits either a
+  `putTransaction` (node 2.x) or the legacy `putDeploy` (node 1.x) — mirroring mobile/extension
+  byte-for-byte. It exposes both a composed path (`sendTokenTransfer`, `sendNftTransfer`,
+  `sendDelegation` — build, sign, submit in one call, mobile parity) and a granular one
+  (`signTransaction` / `sendSignedTransaction`, for the extension's multi-window sign-then-submit
+  UX), plus `sendDexTransaction` for the swap flow's built artifact.
+- **Shared Ledger layer (Phase 2).** New `domain/ledger` (`LedgerEventStatus` — the union of
+  both apps' event sets, `ILedgerEvent`, `LedgerAccount`, `SignResult`, transport types,
+  `LedgerError`, `LEDGER_ERROR_STATUSES`, `isLedgerErrorEvent`) and `CasperLedgerService`
+  (`src/data/ledger`, root-exported), one device class replacing the near-identical
+  implementations in both apps. Transport creation, availability checks, pairing-invalidation
+  classification and session restore are injected, so the same service drives Web HID/USB and
+  React Native BLE. The on-device identity pre-flight the extension had now applies to both.
+  The Casper app object is injected too (`createLedgerApp`), so `@zondax/ledger-casper` and
+  `@ledgerhq/hw-transport` stay out of the import graph: both are **optional peer dependencies**,
+  installed only by clients that use Ledger, and `domain/ledger` declares the transport and app
+  shapes it needs (`ILedgerTransport`, `ILedgerCasperApp`) instead of importing them. Adds `rxjs`
+  as a dependency.
+- **`createLedgerSigner`** — presents an `ICasperLedgerService` as an `ICasperSigner`, so hardware
+  and software keys drive the same send paths. `supportsTransactionV1Cb` and the session-restore
+  callback are bound at signer construction rather than passed per transfer, and a `LedgerError`
+  raised inside a repository method reaches the caller unwrapped.
+- **`createPrivateKeySigner`** (`src/data/signers`) — an `ICasperSigner` over the
+  `{publicKeyHex, secretKeyBase64}` pair both apps already store; the software-key counterpart to
+  the Phase-2 Ledger signer.
+- **Pure transaction builders** (`src/utils/casperSdk/tx-builders.ts`, root-exported):
+  `buildCsprTransferTransactions`, `buildCep18TransferTransactions`,
+  `buildNftTransferTransactions`, `buildAuctionManagerTransactions` and
+  `AuctionManagerEntryPointMap` — each returns the `{transaction, fallbackDeploy}` pair mobile and
+  the extension hand-roll today. The NFT fallback deploy is now built directly via
+  `makeNftTransferDeploy` instead of the `casperNetworkApiVersion: '1.5.8'` round-trip hack (the
+  two are provably byte-identical).
+- `isValidCasperPublicKey` (`src/utils/casperSdk/validation.ts`, root-exported) and shared
+  message/key helpers in `src/utils/transactions.ts`: `createCasperMessageBytes`,
+  `isTransactionSignedBy`, `getPrivateKeyHexFromSecretKey`.
+- `setupRepositories` / `setupSigningRepositories` return a `casperTransactionsRepository` and
+  accept an optional `rpcOptions` (`ICasperRpcOptions`: `handlerType`, `referrerMode`,
+  `authorizationHeader`), threaded into both `casperTransactionsRepository` and
+  `dexContractRepository`. Defaults stay browser-safe (`fetch` + `fetch-referrer`); mobile passes
+  `{ handlerType: 'axios', referrerMode: 'referer-header' }`.
+- Package root additionally exports `./src/data/signers`, `./src/utils/casperSdk/tx-builders` and
+  `./src/utils/casperSdk/validation`.
+- **Framework-neutral swap/wrap flow layer.** New `domain/flows` (`IFlowHandle`,
+  `ISwapFlowRunner`/`IWrapFlowRunner`, `SwapFlowEvent`/`WrapFlowEvent`, `ISwapFlowResult`/
+  `IWrapFlowResult`, the pure `swapFlowReducer`/`wrapFlowReducer`) and `src/data/flows`
+  (root-exported): `createSwapFlowRunner`/`createWrapFlowRunner` build the approve → settle →
+  swap → settle sequence as an `async function*`, lifted to a hot, replayed `Observable`
+  (`events$`) via `shareReplay({ bufferSize: Infinity, refCount: false })`. Unsubscribing from
+  `events$` never cancels a running flow — only the explicit `handle.cancel()` does — so a closed
+  UI surface never abandons or duplicates a submitted transaction; `runner.getActive(id)` lets a
+  remounted surface reattach to a flow that is still running.
+- **`ITransactionStatusRepository`** (`domain/transactionStatus`), implemented by
+  `TransactionStatusRepository` and returned as `transactionStatusRepository` from
+  `setupRepositories()`. Polls node RPC (`observeTransaction`/`waitForTransaction`) until a
+  submitted transaction executes, distinguishing a `TransactionTimeoutError` ("we stopped
+  waiting") from an executed `ITransactionOutcome` with `status: 'failure'` ("the chain rejected
+  it") — settlement is now core-owned instead of each app polling for itself.
+- **`ICasperLedgerService.ledgerEvents$`** — an `Observable<ILedgerEvent>` alongside the existing
+  callback-based `subscribeToLedgerEventStatus`, so a flow runner can merge device-prompt events
+  into its own `events$` via the `ledgerEvents$` dependency.
+- **`useReviewSwap`/`useReviewWrap` now subscribe to `swapFlowRunner`/`wrapFlowRunner`** instead
+  of owning the sign/submit/settle sequence themselves; `ISwapDependencies` carries
+  `swapFlowRunner`/`wrapFlowRunner` in place of `signer`. See `docs/swap-react-integration.md`.
+- **`IDexConfig.expectedProxyWasmSha256`** (optional, strongly recommended) — hex sha256 of
+  `proxy_caller.wasm`. The bytes run as session code in the caller's account context with access
+  to their main purse, and the wallet UI and Ledger prompt show only "ModuleBytes"; set this and
+  the loaded bytes are verified once, refusing the build on a mismatch. The library pins no value:
+  the binary is a per-deployment artifact of the DEX contracts.
+- **`IDexContractRepository.buildRevokeApprovalTransaction`** — an `approve` of `0` to the trade
+  contract, clearing the allowance a swap leaves standing. Nothing revokes automatically; read the
+  standing amount with `getAllowance`.
+- **`ISwapFlowRunner`/`IWrapFlowRunner` expose `readonly publicKey`.** A runner is bound to one
+  account for its lifetime, so rebuild both when the active account changes. The review hooks
+  refuse to start a flow whose runner disagrees with `activePublicKey`, raising the new
+  `FlowError`.
+- **`isLedgerSignatureCancelled`** (`domain/ledger`, with `LEDGER_CANCELLATION_STATUSES`) — the
+  default `isCancellationError` for both flows, so an on-device rejection is a cancellation rather
+  than a failure. `LedgerError` now carries its `ledgerEvent`.
+- **`useSwapTokens` returns `quotedTrade`** (`ISwapQuotedTrade | null`) — the two amounted
+  tokens, the route and the quote type, all read off one quote.
+- `KeyPairMismatchError` (`domain/casperTransactions`), raised by `createPrivateKeySigner` when
+  the supplied `publicKeyHex` does not belong to the supplied secret key.
+- `useReviewWrap` returns `ledgerEvent`, matching `useReviewSwap`.
+
+### Changed
+
+- **BREAKING — `useReviewSwap` takes one `trade` bundle** instead of separate `firstToken`,
+  `secondToken`, `path` and `quoteType` params; pass `useSwapTokens`'s `quotedTrade` through.
+  Nothing tied the four together before, so an input amount could be paired with a previous
+  quote's output bound. `confirmSwap` is a no-op while `trade` is `null`.
+- **BREAKING — `IDexConfig.wrappedCsprContractPackageHash` is removed.** It is a parameter of
+  `setupRepositories` / `setupSigningRepositories` / `setupDataRepositories` instead, so it cannot
+  diverge from the address `swapRepository` keys its synthetic native-CSPR token off.
+- **`ITransactionOutcome`, `ISwapFlowResult` and `IWrapFlowResult` are discriminated unions.**
+  `swap:confirmed`/`wrap:confirmed` carry `ITransactionSuccessOutcome`; a `'failed'` result must
+  carry its `error` and a `'success'` one cannot. On the success arm `outcome` is still absent when
+  `awaitSettlement` was `false` — read it, not `status`, to tell submitted from settled.
+- **`createPrivateKeySigner` verifies the key pair before signing**, raising
+  `KeyPairMismatchError`. The curve is taken from the supplied `publicKeyHex`, so a mismatched pair
+  previously signed under the wrong curve and was rejected only by the node, after payment.
+- `getTransactionErrorMessage` renders a `LedgerError` as its device status; its `message` is the
+  JSON of the whole event, public key and transaction hash included.
+- `swapRepository` is built on its own `HttpDataProvider`, so `httpAuthorizationHeader` — an
+  apisauce instance-level default — no longer reaches the trade API host.
+- `DexContractRepository` refuses to build against an empty contract package hash rather than
+  signing a call to a zero-length address. The shipped defaults are `''` for devnet and integration.
+- **`DexContractRepository`'s node-RPC client now sets the CSPR.cloud proxy referrer by
+  default.** It previously built its client with no referrer at all; it now goes through the same
+  `createCasperRpcClient` helper as `casperTransactionsRepository` and `txSignatureRequest`, so an
+  un-configured consumer picks up the `fetch` + `fetch-referrer` default. Pass `rpcOptions` to
+  `DexContractRepository` (or via `setupRepositories`) to opt out.
+- **`casper-js-sdk` is pinned to exactly `5.1.1`** (was `5.1.0`). Consuming apps pin the same
+  version: a mismatch duplicates the SDK in the bundle and puts transaction bytes on two
+  different builders.
+
+### Removed
+
+- **`createDexTransactionSender`, `IDexTransactionSender`, `ITransactionCallbacks`**
+  (`domain/dex`) — superseded by `createSwapFlowRunner`/`createWrapFlowRunner`, which consume an
+  `ICasperSigner` directly instead of wrapping it in a sender. Settlement is now core-owned via
+  `transactionStatusRepository`, so consumers no longer inject a `waitForTransaction` callback.
+- **`ApprovalState`** and the React hooks that used to orchestrate the sign/submit/settle
+  pipeline: `useSwapStates`, `useTransactionStatuses`, `useTokenApprovalFlow`,
+  `useSwapTransaction`, `useWrapTransaction`. That orchestration now lives in the flow layer
+  (`src/data/flows`) and the two review hooks that subscribe to it.
+  `dexContractRepository.checkApprovalRequired` is unaffected and stays public.
+
+## [2.0.0] - 2026-08-30 — Swap / DEX
+
+### Added
+
+- **Swap / DEX domain and data layer.** New `domain/swap` and `domain/dex` (entities, repository
+  interfaces, `SwapError` / `DexError`), `repositories/swap` (trade API: token list, quotes) and
+  `repositories/dex` (`DexContractRepository` — allowance reads and the approval, swap, wrap and
+  unwrap transaction builders), plus `dto/swap` mappers. Wired into `setupRepositories()` as
+  `swapRepository` and `dexContractRepository`.
+- **`src/react/` — a React hook layer** for the trade form, the review modal and the wrap/unwrap
+  flow. Deep-importable as `casper-wallet-core/src/react` and free of `casper-js-sdk`. `react`
+  and `@tanstack/react-query` are optional peer dependencies; a consumer that does not import
+  this path needs neither. See `docs/swap-react-integration.md`.
+- `setupRepositories` / `setupSigningRepositories` accept `dexConfig`; `setupDataRepositories`
+  accepts `tradeApiByNetworkUrl` and `wrappedCsprContractPackageHash`.
+- Swap helpers in the `utils` barrel: `amounts`, `swap`, `decimal`.
+
+### Changed
+
+- **BREAKING — three published domain interface fields renamed to camelCase.** Consuming code
+  reading the old names will not compile:
+  - `INft.owner_reverse_lookup_mode` → `INft.ownerReverseLookupMode`
+  - `IAppMarketingEvent.image_url` → `IAppMarketingEvent.imageUrl`
+  - `IOnRampCurrencyItem.type_id` → `IOnRampCurrencyItem.typeId`
+- **`getBlockchainAmount` now truncates instead of rounding half-up.** It previously used
+  decimal.js's default `ROUND_HALF_UP`; it now uses `ROUND_DOWN`, so it can never hand back more
+  base units than the caller typed. An amount whose fraction extends past `decimals` now
+  converts one base unit lower — `getBlockchainAmount('1.9999999995', 9)` returns
+  `'1999999999'`, previously `'2000000000'`; `getBlockchainAmount('0.0000000005', 9)` returns
+  `'0'`, previously `'1'`. This is an exported util: it affects transfer and payment amounts in
+  consuming apps, not only the swap flow.
+- **`formatFiatBalance` now tests the one-cent floor against the actual amount, not the rounded
+  one.** With the default `decimals = 2`, a balance in `[0.005, 0.01)` renders `<$0.01` where it
+  previously rounded up to `$0.01`. This is deliberate and applies wallet-wide, not only to
+  swap: it changes the rendered fiat string on existing deploy-history rows and CEP-18 token
+  rows, through `formatFiatAmount`, `getCep18FiatAmount` and `getCsprFiatAmount`. `getFiatAmount`
+  passes `decimals: 4` and is unaffected.
+- **`getDecimalTokenBalance` is now exact at any size.** It shifts the decimal point instead of
+  dividing at decimal.js's default 20-significant-digit precision, so a raw balance above roughly
+  10²⁰ base units keeps every digit: `getDecimalTokenBalance('123456789012345678901234', 9)` now
+  returns `'123456789012345.678901234'`, previously `'123456789012345.6789'`. It backs
+  `Cep18TokenDto.decimalBalance` and every deploy DTO's `decimalAmount`, so it changes rendered
+  amounts on the token list and deploy history too. Reachable for an 18-decimal CEP-18 token; CSPR
+  at 9 decimals stays under the bound.
+- `IDexConfig.getProxyWasm` is required. `dexConfig` as a whole stays optional — omit it and
+  `dexContractRepository` still builds approvals — but supplying a `dexConfig` without the proxy
+  WASM loader is now a compile error rather than a runtime failure at the Confirm button.
+- `DexContractRepository.getAllowance` rejects with a `DexError` on an RPC failure instead of
+  resolving `''`. `''` now means only "no allowance entry for this spender".
+- `buildSwapTransaction` validates its inputs before encoding: the quoted route must start at the
+  input token and end at the output token, `slippage` must be within `[0, MAX_SLIPPAGE]` and
+  `deadline` within `[MIN_DEADLINE, MAX_DEADLINE]`. The on-chain deadline is derived from chain
+  time (`getLatestBlockTime`) rather than the device clock.
+- `calculateMinAmountWithSlippage` and `calculateMaxAmountWithSlippage` throw on a slippage
+  outside their valid range instead of returning an inverted or unprotected bound.
+- `IBuiltDexTransaction` is a discriminated union: exactly one of `transaction` / `deploy` is
+  present, so a signer adapter narrows with `'transaction' in built` instead of asserting
+  `deploy ?? transaction!`.
+- `useCsprFeeValidation`'s parameters are a union of its two modes. Supplying neither — which
+  silently validated against an amount of `'0'`, i.e. gas only — no longer compiles.
+- Swap failures reach the consumer as the real message rather than a single `'Transaction
+failed'` string, scoped to the leg that produced them, and the review flow returns to its
+  confirm step so it stays retryable. `ApprovalState.transactionHash` is now populated.
+
 ## [1.4.0] - 2026-06-30 — EIP-712 typed-data signing
 
 ### Added

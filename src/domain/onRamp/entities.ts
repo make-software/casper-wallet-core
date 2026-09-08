@@ -7,8 +7,9 @@ import type {
 import { Maybe } from '../../typings';
 
 // TODO fix it
-export interface IOnRampOptions extends Omit<IGetOnRampResponse, 'countries'> {
+export interface IOnRampOptions extends Omit<IGetOnRampResponse, 'countries' | 'currencies'> {
   countries: IOnRampCountry[];
+  currencies: IOnRampCurrencyItem[];
 }
 
 export interface IOnRampCountry extends IResponseCountry {
@@ -18,7 +19,7 @@ export interface IOnRampCountry extends IResponseCountry {
 export interface IOnRampCurrencyItem {
   id: number;
   code: string;
-  type_id: string;
+  typeId: string;
   rate: number;
 }
 

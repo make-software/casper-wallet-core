@@ -87,6 +87,28 @@ npm install github:make-software/casper-wallet-core
 
 > Requires **Node 20** or **Node ≥ 22**, Yarn 4 (Berry).
 
+### Optional peer dependencies
+
+Ledger support needs two packages this library never imports itself. They are declared as optional
+peers, and the Casper app object is injected through `ICasperLedgerServiceOptions.createLedgerApp`:
+
+```bash
+yarn add @zondax/ledger-casper @ledgerhq/hw-transport
+```
+
+```ts
+import CasperApp from '@zondax/ledger-casper';
+import { createCasperLedgerService } from 'CasperWalletCore';
+
+const ledger = createCasperLedgerService({
+  createLedgerApp: transport => new CasperApp(transport),
+});
+```
+
+A client without Ledger installs neither: nothing reachable from the package root imports them, and
+`src/sdk-free-modules.test.ts` fails the suite if that changes. `react` and `@tanstack/react-query`
+are optional peers on the same footing, needed only for `casper-wallet-core/src/react`.
+
 ## Quick Start
 
 ```ts
@@ -142,10 +164,26 @@ interface ISetupRepositoriesParams {
 
   /** Optional Authorization header forwarded with every HTTP call. */
   httpAuthorizationHeader?: string;
+
+  /** Override trade (DEX) API URLs per network. */
+  tradeApiByNetworkUrl?: Record<CasperNetwork, string>;
+
+  /** Override the WCSPR contract-package hash per network. */
+  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>;
+
+  /**
+   * DEX contract-package hashes, gas price and the proxy WASM loader. Optional as a whole,
+   * but `getProxyWasm` is required inside it — without it no swap, wrap or unwrap
+   * transaction can be built.
+   */
+  dexConfig?: IDexConfig;
 }
 ```
 
-All fields are optional — defaults point at the production Casper Wallet API.
+All fields are optional — defaults point at the production Casper Wallet API and the
+production DEX contracts. See
+[docs/swap-react-integration.md](docs/swap-react-integration.md) for `dexConfig` and the
+React layer.
 
 ### Custom logger
 
@@ -167,18 +205,20 @@ setupRepositories({ debug: true, logger });
 
 Each domain module exposes a repository interface (in `src/domain/<module>/repository.ts`) backed by an implementation in `src/data/repositories/<module>/`.
 
-| Domain                        | Repository                     | Responsibility                                        |
-| ----------------------------- | ------------------------------ | ----------------------------------------------------- |
-| `domain/accountInfo`          | `accountInfoRepository`        | Resolve account names, avatars, and verified info     |
-| `domain/tokens`               | `tokensRepository`             | Fungible token balances, metadata, price data         |
-| `domain/nfts`                 | `nftsRepository`               | NFT ownership, metadata, collections                  |
-| `domain/deploys`              | `deploysRepository`            | Deploy history, parsing, transfer details             |
-| `domain/validator`            | `validatorsRepository`         | Validator listings, delegation info, auction state    |
-| `domain/onRamp`               | `onRampRepository`             | Fiat on-ramp providers and quote handling             |
-| `domain/appEvents`            | `appEventsRepository`          | Wallet-wide announcements / app events                |
-| `domain/tx-signature-request` | `txSignatureRequestRepository` | Decoding & describing transactions awaiting signature |
-| `domain/contractPackage`      | `contractPackageRepository`    | Contract package metadata lookups                     |
-| `domain/eip712`               | `eip712Repository`             | EIP-712 typed-data parsing, display, signing          |
+| Domain                        | Repository                     | Responsibility                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain/accountInfo`          | `accountInfoRepository`        | Resolve account names, avatars, and verified info                                                                                                                                                                                |
+| `domain/tokens`               | `tokensRepository`             | Fungible token balances, metadata, price data                                                                                                                                                                                    |
+| `domain/nfts`                 | `nftsRepository`               | NFT ownership, metadata, collections                                                                                                                                                                                             |
+| `domain/deploys`              | `deploysRepository`            | Deploy history, parsing, transfer details                                                                                                                                                                                        |
+| `domain/validator`            | `validatorsRepository`         | Validator listings, delegation info, auction state                                                                                                                                                                               |
+| `domain/onRamp`               | `onRampRepository`             | Fiat on-ramp providers and quote handling                                                                                                                                                                                        |
+| `domain/appEvents`            | `appEventsRepository`          | Wallet-wide announcements / app events                                                                                                                                                                                           |
+| `domain/tx-signature-request` | `txSignatureRequestRepository` | Decoding & describing transactions awaiting signature                                                                                                                                                                            |
+| `domain/contractPackage`      | `contractPackageRepository`    | Contract package metadata lookups                                                                                                                                                                                                |
+| `domain/eip712`               | `eip712Repository`             | EIP-712 typed-data parsing, display, signing                                                                                                                                                                                     |
+| `domain/swap`                 | `swapRepository`               | DEX quotes and token listings from the trade API — `getQuote`, `getDexTokens`, `getDexToken`                                                                                                                                     |
+| `domain/dex`                  | `dexContractRepository`        | On-chain allowance reads and unsigned transaction builders — `getAllowance`, `checkApprovalRequired`, `getLatestBlockTime`, `buildSwapTransaction`, `buildApprovalTransaction`, `buildWrapTransaction`, `buildUnwrapTransaction` |
 
 > ⚠️ Note the naming asymmetry between `domain/` and `data/repositories/` (e.g. `domain/validator` ↔ `repositories/validators`, `domain/tx-signature-request` ↔ `repositories/txSignatureRequest`). Always import from the package root to avoid drift.
 
@@ -194,20 +234,21 @@ Each domain module exposes a repository interface (in `src/domain/<module>/repos
 
 This package declares `"sideEffects": false`, so a bundler with tree shaking enabled drops the unused half even when you import from the package root. For builds where that cannot be relied on, the SDK-free helpers also have stable deep-import paths:
 
-| Import path                                               | Exports                                                  | Links the SDK |
-| --------------------------------------------------------- | -------------------------------------------------------- | ------------- |
-| `casper-wallet-core/src/utils/casperSdk/accountHash`      | `getAccountHashFromPublicKey`                            | no            |
-| `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                            | no            |
-| `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`              | no            |
-| `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants        | no            |
-| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the eight read repositories    | no            |
-| `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, … | **yes**       |
-| `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                          | **yes**       |
-| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712 | **yes**       |
+| Import path                                               | Exports                                                                                                      | Links the SDK |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+| `casper-wallet-core/src/utils/casperSdk/accountHash`      | `getAccountHashFromPublicKey`                                                                                | no            |
+| `casper-wallet-core/src/utils/casperSdk/network`          | `getCasperNetworkByChainName`                                                                                | no            |
+| `casper-wallet-core/src/utils/casperSdk/blockExplorer`    | `getBlockExplorer*Url`, `getContractNftUrl`                                                                  | no            |
+| `casper-wallet-core/src/domain`                           | entities, repository contracts, errors, constants                                                            | no            |
+| `casper-wallet-core/src/setupData`                        | `setupDataRepositories` — the nine read repositories                                                         | no            |
+| `casper-wallet-core/src/react`                            | React hooks for the swap / wrap flow                                                                         | no            |
+| `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` | `makeNftTransferDeploy`, `makeNftTransferTransaction`, …                                                     | **yes**       |
+| `casper-wallet-core/src/utils/eip712/sign`                | EIP-712 signing                                                                                              | **yes**       |
+| `casper-wallet-core/src/setupSigning`                     | `setupSigningRepositories` — txSignatureRequest, EIP-712, dexContract, casperTransactions, transactionStatus | **yes**       |
 
 ### Repositories
 
-`setupRepositories()` still constructs all ten repositories and its return shape is unchanged, but it links the SDK, because two of them do. A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing pair separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three repositories it depends on, so both halves still talk through one provider:
+`setupRepositories()` still constructs all fourteen repositories and its return shape is unchanged, but it links the SDK, because the five signing ones do (`txSignatureRequest`, `eip712`, `dexContract`, `casperTransactions` and `transactionStatus`). A surface that only renders balances, accounts, tokens, NFTs, validators or deploys should build its repositories with `setupDataRepositories()` from `src/setupData` instead, and construct the signing half separately — `setupSigningRepositories()` takes the shared `httpDataProvider`, logger and the three data repositories it depends on, so both halves still talk through one provider:
 
 ```typescript
 import { setupDataRepositories } from 'casper-wallet-core/src/setupData';
@@ -222,7 +263,7 @@ Note that the SDK-linked modules are re-exported from the package root but **not
 Two guards keep this from regressing, both in `yarn test`:
 
 - `src/utils/casperSdk/accountHash.test.ts` — property-based parity against `casper-js-sdk` for both key algorithms.
-- `src/sdk-free-modules.test.ts` — walks the static import graph of each SDK-free entry point and fails if any runtime import reaches `casper-js-sdk`. `import type` is ignored, since it is erased at compile time.
+- `src/sdk-free-modules.test.ts` — walks the static import graph of each SDK-free entry point and fails if any runtime import reaches `casper-js-sdk`. `import type` is ignored, since it is erased at compile time. The same file walks the package root for the optional Ledger packages, and there counts type-only imports too: this package ships raw TypeScript, so a consumer that skipped them compiles our sources without them.
 
 When adding code to the `domain` layer or to the SDK-free `utils` modules, prefer `import type` for anything used only in type position, and import from the specific module rather than a barrel.
 
@@ -290,7 +331,9 @@ Tests live next to the code they cover (e.g. `src/utils/common.test.ts`, `src/da
 │   │   ├── eip712/
 │   │   ├── env/
 │   │   ├── nfts/
+│   │   ├── dex/
 │   │   ├── onRamp/
+│   │   ├── swap/
 │   │   ├── tokens/
 │   │   ├── tx-signature-request/
 │   │   └── validator/
@@ -298,6 +341,7 @@ Tests live next to the code they cover (e.g. `src/utils/common.test.ts`, `src/da
 │   │   ├── data-providers/http/   # apisauce/axios wrapper (IHttpDataProvider)
 │   │   ├── dto/                   # API → domain entity mappers
 │   │   └── repositories/          # Concrete repository implementations
+│   ├── react/                  # React hooks for the swap / wrap flow (SDK-free)
 │   ├── utils/                  # Shared helpers (crypto, date, address, deploy, casperSdk, logger, …)
 │   └── typings/                # Ambient type declarations
 ├── scripts/                    # Tooling (e.g. fixture generation)

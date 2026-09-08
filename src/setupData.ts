@@ -5,6 +5,7 @@ import { ContractPackageRepository } from './data/repositories/contractPackage';
 import { DeploysRepository } from './data/repositories/deploys';
 import { NftsRepository } from './data/repositories/nfts';
 import { OnRampRepository } from './data/repositories/onRamp';
+import { SwapRepository } from './data/repositories/swap';
 import { TokensRepository } from './data/repositories/tokens';
 import { ValidatorsRepository } from './data/repositories/validators';
 import { Logger } from './utils/logger';
@@ -12,6 +13,7 @@ import {
   CasperWalletApiByNetworkUrl,
   CasperWalletApiByEnvUrl,
 } from './domain/constants/casperNetwork';
+import { TradeApiUrl, WrappedCsprContractPackageHash } from './domain/constants';
 import type { CasperNetwork } from './domain/common/common';
 import type { ILogger } from './domain/common/logger';
 import type { IEnv } from './domain/env';
@@ -20,11 +22,10 @@ import type { IEnv } from './domain/env';
  * The repositories a wallet client needs to render its home screen — every one of them
  * SDK-free.
  *
- * Split out of {@link setupRepositories} because that factory constructs the signing
- * repositories too, and those link `casper-js-sdk`: a single prebuilt UMD bundle with no ESM
- * build and no `sideEffects` flag, so one value import costs ~900 KB that no bundler can shake
- * back out. Since the factory constructs everything in one call, no amount of tree shaking on
- * the client side could separate them — the split has to happen here (WALLET-1421).
+ * Kept apart from {@link setupRepositories}, which also constructs the signing repositories:
+ * those link `casper-js-sdk`, a prebuilt UMD bundle with no ESM build and no `sideEffects` flag,
+ * so one value import costs ~900 KB no bundler can shake back out. A factory that built both
+ * halves in one call would give a client no way to take only this one.
  *
  * Import this module by path (`casper-wallet-core/src/setupData`), not through the package
  * root: the root barrel re-exports `./src/setup`, which links the SDK.
@@ -39,6 +40,8 @@ export interface ISetupDataRepositoriesParams {
   /** Environment-based url for Casper Wallet Api. Some API network agnostic and do not belong to any {@link CasperWalletApiByNetworkUrl}. Default env is PRODUCTION (in all places where it is used) */
   casperWalletApiByEnvUrl?: Record<IEnv, string>;
   httpAuthorizationHeader?: string;
+  tradeApiByNetworkUrl?: Record<CasperNetwork, string>;
+  wrappedCsprContractPackageHash?: Record<CasperNetwork, string>;
 }
 
 export const setupDataRepositories = ({
@@ -47,6 +50,8 @@ export const setupDataRepositories = ({
   casperWalletApiByNetworkUrl = CasperWalletApiByNetworkUrl,
   casperWalletApiByEnvUrl = CasperWalletApiByEnvUrl,
   httpAuthorizationHeader,
+  tradeApiByNetworkUrl = TradeApiUrl,
+  wrappedCsprContractPackageHash = WrappedCsprContractPackageHash,
 }: ISetupDataRepositoriesParams = {}) => {
   const log = logger ?? new Logger();
   const httpDataProvider = new HttpDataProvider(debug ? log : null);
@@ -76,6 +81,13 @@ export const setupDataRepositories = ({
     httpDataProvider,
     casperWalletApiByNetworkUrl,
   );
+  // Its own provider, without the wallet-API credential: the trade API is a different host, and
+  // `setAuthHeader` writes `Authorization` on the whole apisauce instance rather than per request.
+  const swapRepository = new SwapRepository(
+    new HttpDataProvider(debug ? log : null),
+    tradeApiByNetworkUrl,
+    wrappedCsprContractPackageHash,
+  );
 
   return {
     accountInfoRepository,
@@ -86,6 +98,7 @@ export const setupDataRepositories = ({
     deploysRepository,
     appEventsRepository,
     contractPackageRepository,
+    swapRepository,
     /** Shared with {@link setupSigningRepositories} so both halves talk through one provider. */
     httpDataProvider,
     /** Shared with {@link setupSigningRepositories}; the resolved logger, never `undefined`. */

@@ -31,6 +31,13 @@ export const CasperWalletApiByEnvUrl: Record<IEnv, string> = {
 
 export const OnRampApiUrl = 'https://onramp-api.cspr.click/api';
 
+export const TradeApiUrl: Record<CasperNetwork, string> = {
+  mainnet: 'https://api.cspr.trade',
+  testnet: 'https://api.testnet.cspr.trade',
+  devnet: '',
+  integration: '',
+};
+
 export const GrpcUrl: Record<CasperNetwork, string> = {
   mainnet: 'https://node.cspr.cloud/rpc',
   testnet: 'https://node.testnet.cspr.cloud/rpc',
@@ -76,6 +83,21 @@ export const CSPRStudioCep47ContractHash: Record<Network, string> = {
 export const AssociatedKeysContractHash: Record<Network, string> = {
   mainnet: 'b2ec4f982efa8643c979cb3ab42ad1a18851c2e6f91804cd3e65c079679bdc59',
   testnet: '676794cbbb35ff5642d0ae9c35302e244a7236a614d7e9ef58d0fb2cba6be3ed',
+  devnet: '',
+  integration: '',
+};
+
+// Package hashes without the `hash-` prefix.
+export const TradeContractPackageHash: Record<Network, string> = {
+  mainnet: '1dbac65585475fec53e5b1f9110923c8d232921702097e83105b36751d682186',
+  testnet: '04a11a367e708c52557930c4e9c1301f4465100d1b1b6d0a62b48d3e32402867',
+  devnet: '',
+  integration: '',
+};
+
+export const WrappedCsprContractPackageHash: Record<Network, string> = {
+  mainnet: '8df5d26790e18cf0404502c62ce5dc9025800ad6975c97466e20506c39c505b6',
+  testnet: '3d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e',
   devnet: '',
   integration: '',
 };
@@ -278,3 +300,11 @@ export const NFT_ACTION_ENTRY_POINTS = [
   'update_token_meta',
   'set_approval_for_all',
 ];
+
+export const CASPER_MESSAGE_HEADER = 'Casper Message:\n';
+
+/** Registered coin type for BIP-0044. https://github.com/satoshilabs/slips/blob/master/slip-0044.md */
+export const CSPR_COIN_INDEX = 506;
+
+/** Keys of the auction-manager entry-point map (the SDK-enum map itself lives in `src/utils/casperSdk/tx-builders.ts`). */
+export type AuctionManagerEntryPointType = 'DELEGATE' | 'UNDELEGATE' | 'REDELEGATE';

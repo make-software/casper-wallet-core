@@ -1,5 +1,5 @@
 import { IAppEventsRepository } from './repository';
-import { isDomainError, isError } from '../common';
+import { DomainError } from '../common';
 import { IDomainError } from '../common';
 
 export type AppEventsErrorType = keyof IAppEventsRepository;
@@ -11,21 +11,8 @@ export function isAppEventsError(error: unknown | AppEventsError): error is IApp
   );
 }
 
-export class AppEventsError extends Error implements IAppEventsError {
+export class AppEventsError extends DomainError<AppEventsErrorType> implements IAppEventsError {
   constructor(error: Error | unknown, type: keyof IAppEventsRepository) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'AppEventsRepositoryError';
-    this.type = type;
+    super(error, type, 'AppEventsRepositoryError');
   }
-
-  type: AppEventsErrorType;
-  traceable: boolean;
 }

@@ -1,16 +1,39 @@
+import Big from 'big.js';
 import fc from 'fast-check';
 import Decimal from 'decimal.js';
 
-import { formatFiatAmountToTokenAmount, formatFiatBalance, getDecimalTokenBalance } from './common';
+import {
+  formatFiatAmountToTokenAmount,
+  formatFiatBalance,
+  getBlockchainAmount,
+  getDecimalTokenBalance,
+} from './common';
 
 const bigIntString = (min: bigint, max: bigint) => fc.bigInt({ min, max }).map(String);
 
-// decimal.js defaults to 20 significant digits of precision. Bounding integer
-// balances to 10^18 keeps every value well inside that limit so round-trip
-// equality holds without precision loss.
-const MAX_INTEGER_BALANCE = 10n ** 18n;
+const MAX_INTEGER_BALANCE = 10n ** 30n;
+
+const referenceToDecimal = (balance: string, decimals: number) =>
+  new Big(balance).div(new Big(10).pow(decimals)).toFixed();
+
+const referenceToRaw = (decimalAmount: string, decimals: number) =>
+  new Big(decimalAmount).times(new Big(10).pow(decimals)).round(0, Big.roundDown).toFixed(0);
 
 describe('getDecimalTokenBalance (property)', () => {
+  it('matches the big.js reference', () => {
+    fc.assert(
+      fc.property(
+        bigIntString(-MAX_INTEGER_BALANCE, MAX_INTEGER_BALANCE),
+        fc.integer({ min: 0, max: 18 }),
+        (balance, decimals) => {
+          expect(getDecimalTokenBalance(balance, decimals)).toBe(
+            referenceToDecimal(balance, decimals),
+          );
+        },
+      ),
+    );
+  });
+
   it('round-trip: result * 10^decimals === balance', () => {
     fc.assert(
       fc.property(
@@ -18,8 +41,8 @@ describe('getDecimalTokenBalance (property)', () => {
         fc.integer({ min: 0, max: 18 }),
         (balance, decimals) => {
           const result = getDecimalTokenBalance(balance, decimals);
-          const restored = new Decimal(result).mul(new Decimal(10).pow(decimals));
-          expect(restored.eq(new Decimal(balance))).toBe(true);
+          const restored = new Big(result).times(new Big(10).pow(decimals));
+          expect(restored.toFixed()).toBe(new Big(balance).toFixed());
         },
       ),
     );
@@ -41,9 +64,9 @@ describe('getDecimalTokenBalance (property)', () => {
         (positiveBalance, decimals) => {
           const positive = getDecimalTokenBalance(positiveBalance, decimals);
           const negative = getDecimalTokenBalance('-' + positiveBalance, decimals);
-          expect(new Decimal(positive).isPositive()).toBe(true);
+          expect(new Big(positive).gt(0)).toBe(true);
           expect(negative.startsWith('-')).toBe(true);
-          expect(new Decimal(negative).neg().eq(new Decimal(positive))).toBe(true);
+          expect(new Big(negative).neg().toFixed()).toBe(new Big(positive).toFixed());
         },
       ),
     );
@@ -55,9 +78,44 @@ describe('getDecimalTokenBalance (property)', () => {
         bigIntString(-MAX_INTEGER_BALANCE, MAX_INTEGER_BALANCE),
         fc.integer({ min: 1, max: 18 }),
         (balance, decimals) => {
-          const shifted = new Decimal(getDecimalTokenBalance(balance, decimals)).mul(10);
-          const lowerDecimals = new Decimal(getDecimalTokenBalance(balance, decimals - 1));
-          expect(shifted.eq(lowerDecimals)).toBe(true);
+          const shifted = new Big(getDecimalTokenBalance(balance, decimals)).times(10);
+          const lowerDecimals = new Big(getDecimalTokenBalance(balance, decimals - 1));
+          expect(shifted.toFixed()).toBe(lowerDecimals.toFixed());
+        },
+      ),
+    );
+  });
+});
+
+describe('getBlockchainAmount (property)', () => {
+  it('matches the big.js reference', () => {
+    fc.assert(
+      fc.property(
+        bigIntString(-MAX_INTEGER_BALANCE, MAX_INTEGER_BALANCE),
+        fc.integer({ min: 0, max: 18 }),
+        (balance, decimals) => {
+          const decimalAmount = referenceToDecimal(balance, decimals);
+
+          expect(getBlockchainAmount(decimalAmount, decimals)).toBe(
+            referenceToRaw(decimalAmount, decimals),
+          );
+        },
+      ),
+    );
+  });
+
+  it('truncates a fraction longer than decimals instead of rounding up', () => {
+    fc.assert(
+      fc.property(
+        bigIntString(1n, MAX_INTEGER_BALANCE),
+        fc.integer({ min: 1, max: 18 }),
+        fc.integer({ min: 1, max: 6 }),
+        (integerPart, decimals, extraDigits) => {
+          const decimalAmount = `${integerPart}.${'9'.repeat(decimals + extraDigits)}`;
+
+          expect(getBlockchainAmount(decimalAmount, decimals)).toBe(
+            `${integerPart}${'9'.repeat(decimals)}`,
+          );
         },
       ),
     );
@@ -79,11 +137,10 @@ describe('formatFiatBalance (property)', () => {
     );
   });
 
-  it('truthy balance rounding below 0.01 returns "<$0.01"', () => {
+  it('any truthy balance under a cent returns "<$0.01"', () => {
     fc.assert(
       fc.property(
-        // (0, 0.005) — Decimal.js HALF_UP at 2 places rounds these to 0.00, so amount < 0.01.
-        fc.double({ min: 1e-9, max: 0.00499, noNaN: true, noDefaultInfinity: true }),
+        fc.double({ min: 1e-9, max: 0.00999, noNaN: true, noDefaultInfinity: true }),
         balance => {
           expect(formatFiatBalance(balance)).toBe('<$0.01');
         },

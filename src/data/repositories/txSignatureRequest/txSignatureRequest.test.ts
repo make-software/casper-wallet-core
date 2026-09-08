@@ -3,6 +3,8 @@ import { AccountInfoRepository } from '../accountInfo';
 import { TokensRepository } from '../tokens';
 import { ContractPackageRepository } from '../contractPackage';
 import { createMockHttpProvider } from '../../../__test-utils__';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   CasperWalletApiByEnvUrl,
   CasperWalletApiByNetworkUrl,
@@ -12,6 +14,13 @@ import {
 } from '../../../domain';
 
 const SIGNING_KEY = '0106956df3aba7115e28271d053205ec7f33cab259f8e2da2f38150f0ece65a2a8';
+
+const NATIVE_TRANSFER_TX = JSON.parse(
+  fs.readFileSync(
+    path.resolve(__dirname, '../../../__fixtures__/transactions/cspr-native-transfer.json'),
+    'utf8',
+  ),
+);
 
 describe('TxSignatureRequestRepository', () => {
   const buildRepo = () => {
@@ -30,7 +39,7 @@ describe('TxSignatureRequestRepository', () => {
       CasperWalletApiByEnvUrl,
       GrpcUrl,
     );
-    return { repo, http };
+    return { repo, http, accountInfoRepository };
   };
 
   it('throws TxSignatureRequestError for invalid transaction JSON', async () => {
@@ -53,6 +62,21 @@ describe('TxSignatureRequestRepository', () => {
         signingPublicKeyHex: SIGNING_KEY,
       }),
     ).rejects.toBeDefined();
+  });
+
+  it('keeps the proxy header off the nested accounts lookup', async () => {
+    const { repo, accountInfoRepository } = buildRepo();
+    const accountsSpy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    // The sender lookup that follows talks to a node over RPC; keep the test off the network.
+    jest.spyOn(global, 'fetch').mockRejectedValue(new Error('offline'));
+
+    await repo.prepareSignatureRequest({
+      transactionJson: NATIVE_TRANSFER_TX,
+      signingPublicKeyHex: SIGNING_KEY,
+      withProxyHeader: false,
+    });
+
+    expect(accountsSpy).toHaveBeenCalledWith(expect.objectContaining({ withProxyHeader: false }));
   });
 
   it('returns a known error type', () => {

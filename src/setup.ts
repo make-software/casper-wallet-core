@@ -1,11 +1,17 @@
-import { CasperWalletApiByEnvUrl, GrpcUrl } from './domain';
+import { CasperWalletApiByEnvUrl, GrpcUrl, WrappedCsprContractPackageHash } from './domain';
 import { setupDataRepositories } from './setupData';
 import { setupSigningRepositories } from './setupSigning';
 import type { ISetupDataRepositoriesParams } from './setupData';
-import type { CasperNetwork } from './domain';
+import type { CasperNetwork, ICasperRpcOptions, IDexConfig } from './domain';
 
 export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
   grpcUrl?: Record<CasperNetwork, string>;
+  dexConfig?: IDexConfig;
+  /**
+   * Node-RPC client behavior for casperTransactionsRepository and dexContractRepository.
+   * Browser-safe defaults; mobile passes axios + referer-header.
+   */
+  rpcOptions?: Omit<ICasperRpcOptions, 'authorizationHeader'>;
 }
 
 /**
@@ -14,13 +20,23 @@ export interface ISetupRepositoriesParams extends ISetupDataRepositoriesParams {
  * Importing this module links `casper-js-sdk` (~900 KB, one prebuilt UMD bundle that cannot be
  * tree-shaken), because the signing repositories do. A client that only renders balances and
  * account lists should call {@link setupDataRepositories} from `src/setupData` instead and pay
- * nothing for the SDK — see WALLET-1421.
+ * nothing for the SDK.
  */
 export const setupRepositories = ({
   grpcUrl = GrpcUrl,
+  dexConfig,
+  rpcOptions,
   ...dataParams
 }: ISetupRepositoriesParams = {}) => {
-  const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories(dataParams);
+  // One hash for both halves: `SwapRepository` keys its synthetic native-CSPR token off it and
+  // `DexContractRepository` validates routes against it. A divergence rejects every native swap.
+  const wrappedCsprContractPackageHash =
+    dataParams.wrappedCsprContractPackageHash ?? WrappedCsprContractPackageHash;
+
+  const { httpDataProvider, log, ...dataRepositories } = setupDataRepositories({
+    ...dataParams,
+    wrappedCsprContractPackageHash,
+  });
 
   const signingRepositories = setupSigningRepositories({
     httpDataProvider,
@@ -29,7 +45,10 @@ export const setupRepositories = ({
     contractPackageRepository: dataRepositories.contractPackageRepository,
     casperWalletApiByEnvUrl: dataParams.casperWalletApiByEnvUrl ?? CasperWalletApiByEnvUrl,
     grpcUrl,
+    wrappedCsprContractPackageHash,
     httpAuthorizationHeader: dataParams.httpAuthorizationHeader,
+    dexConfig,
+    rpcOptions,
     log,
   });
 

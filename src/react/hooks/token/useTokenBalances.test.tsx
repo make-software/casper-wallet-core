@@ -1,0 +1,193 @@
+/**
+ * @jest-environment jsdom
+ */
+import { act, waitFor } from '@testing-library/react';
+
+import { useTokenBalances } from './useTokenBalances';
+
+import {
+  renderHookWithQueryClient,
+  stubSwapRepository,
+  stubTokensRepository,
+  TEST_PUBLIC_KEY,
+} from '../../../__test-utils__/render-hook';
+import type { IDexToken } from '../../../domain/swap';
+import type { ICsprBalance, ITokenWithFiatBalance } from '../../../domain/tokens';
+
+const makeDexToken = (packageHash: string): IDexToken =>
+  ({ id: packageHash, packageHash, decimals: 9 }) as IDexToken;
+
+const makeHeldToken = (
+  contractPackageHash: string,
+  balance: string,
+  decimals = 9,
+): ITokenWithFiatBalance => ({ contractPackageHash, balance, decimals }) as ITokenWithFiatBalance;
+
+const makeCsprBalance = (over: Partial<ICsprBalance> = {}): ICsprBalance =>
+  ({
+    totalBalance: '900000000000',
+    liquidBalance: '1000000000',
+    delegatedBalance: '899000000000',
+    ...over,
+  }) as ICsprBalance;
+
+// Built once per test and reused across re-renders: `refetchCsprBalance`'s identity depends on
+// `tokensRepository`, so a fresh object on every render would re-trigger the reset effect forever.
+const csprOnlyDeps = (
+  getCsprBalance: jest.Mock,
+  activePublicKey: string | null = TEST_PUBLIC_KEY,
+) => ({
+  network: 'mainnet' as const,
+  activePublicKey,
+  tokensRepository: stubTokensRepository({
+    getCsprBalance,
+    getTokens: jest.fn().mockResolvedValue([]),
+  }),
+  swapRepository: stubSwapRepository({ getDexTokens: jest.fn().mockResolvedValue([]) }),
+});
+
+describe('useTokenBalances', () => {
+  it('reports the spendable CSPR balance, not the total that includes stake', async () => {
+    const getCsprBalance = jest.fn().mockResolvedValue(makeCsprBalance());
+    const deps = csprOnlyDeps(getCsprBalance);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cspr')).toBe('1000000000'));
+    expect(getCsprBalance).toHaveBeenCalledWith({
+      network: 'mainnet',
+      publicKey: TEST_PUBLIC_KEY,
+    });
+  });
+
+  it('formats the CSPR balance against CSPR decimals', async () => {
+    const getCsprBalance = jest
+      .fn()
+      .mockResolvedValue(makeCsprBalance({ liquidBalance: '2500000000' }));
+    const deps = csprOnlyDeps(getCsprBalance);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getFormattedBalance('cspr')).toBe('2.5'));
+  });
+
+  it('keys CEP-18 balances by contract package hash and formats them by token decimals', async () => {
+    const getTokens = jest
+      .fn()
+      .mockResolvedValue([makeHeldToken('cph-1', '1500000', 6), makeHeldToken('cph-2', '0')]);
+    const deps = {
+      network: 'mainnet' as const,
+      activePublicKey: TEST_PUBLIC_KEY,
+      tokensRepository: stubTokensRepository({
+        getCsprBalance: jest.fn().mockResolvedValue(makeCsprBalance()),
+        getTokens,
+      }),
+      swapRepository: stubSwapRepository({
+        getDexTokens: jest.fn().mockResolvedValue([makeDexToken('cph-1'), makeDexToken('cph-2')]),
+      }),
+    };
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cph-1')).toBe('1500000'));
+    expect(result.current.getFormattedBalance('cph-1')).toBe('1.5');
+    expect(result.current.getRawBalance('cph-2')).toBe('0');
+  });
+
+  // The parameter exists for deep links to tokens the trade API does not list; without it the
+  // balance reads '0', isAmountExceedsBalance is true for any amount, and the swap never enables.
+  it('resolves the balance of a hash supplied only through additionalContractPackageHashes', async () => {
+    const getTokens = jest.fn().mockResolvedValue([makeHeldToken('cph-unlisted', '4200000', 6)]);
+    const deps = {
+      network: 'mainnet' as const,
+      activePublicKey: TEST_PUBLIC_KEY,
+      tokensRepository: stubTokensRepository({
+        getCsprBalance: jest.fn().mockResolvedValue(makeCsprBalance()),
+        getTokens,
+      }),
+      swapRepository: stubSwapRepository({
+        getDexTokens: jest.fn().mockResolvedValue([makeDexToken('cph-listed')]),
+      }),
+      additionalContractPackageHashes: ['cph-unlisted'],
+    };
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cph-unlisted')).toBe('4200000'));
+    expect(getTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractPackageHashes: expect.arrayContaining(['cph-listed', 'cph-unlisted']),
+      }),
+    );
+  });
+
+  it('does not duplicate a hash that is both listed and supplied additionally', async () => {
+    const getTokens = jest.fn().mockResolvedValue([makeHeldToken('cph-1', '1', 6)]);
+    const deps = {
+      network: 'mainnet' as const,
+      activePublicKey: TEST_PUBLIC_KEY,
+      tokensRepository: stubTokensRepository({
+        getCsprBalance: jest.fn().mockResolvedValue(makeCsprBalance()),
+        getTokens,
+      }),
+      swapRepository: stubSwapRepository({
+        getDexTokens: jest.fn().mockResolvedValue([makeDexToken('cph-1')]),
+      }),
+      additionalContractPackageHashes: ['cph-1'],
+    };
+
+    renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(getTokens).toHaveBeenCalled());
+    expect(getTokens.mock.calls[0][0].contractPackageHashes).toEqual(['cph-1']);
+  });
+
+  it('reports "0" for a token that was never fetched', async () => {
+    const getCsprBalance = jest.fn().mockResolvedValue(makeCsprBalance());
+    const deps = csprOnlyDeps(getCsprBalance);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cspr')).toBe('1000000000'));
+    expect(result.current.getRawBalance('never-fetched')).toBe('0');
+    expect(result.current.getFormattedBalance('never-fetched')).toBe('0');
+  });
+
+  it('leaves balances empty and skips the request when no account is connected', async () => {
+    const getCsprBalance = jest.fn();
+    const deps = csprOnlyDeps(getCsprBalance, null);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.tokenBalances.raw).toEqual({}));
+    expect(getCsprBalance).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the CSPR balance when asked to refetch', async () => {
+    const getCsprBalance = jest
+      .fn()
+      .mockResolvedValueOnce(makeCsprBalance({ liquidBalance: '1000000000' }))
+      .mockResolvedValueOnce(makeCsprBalance({ liquidBalance: '7000000000' }));
+    const deps = csprOnlyDeps(getCsprBalance);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(result.current.getRawBalance('cspr')).toBe('1000000000'));
+
+    await act(async () => {
+      await result.current.refetchCsprBalance();
+    });
+
+    expect(result.current.getRawBalance('cspr')).toBe('7000000000');
+  });
+
+  it('survives a failing CSPR read without rejecting into the caller', async () => {
+    const getCsprBalance = jest.fn().mockRejectedValue(new Error('api down'));
+    const deps = csprOnlyDeps(getCsprBalance);
+
+    const { result } = renderHookWithQueryClient(() => useTokenBalances(deps));
+
+    await waitFor(() => expect(getCsprBalance).toHaveBeenCalled());
+    expect(result.current.getRawBalance('cspr')).toBe('0');
+  });
+});

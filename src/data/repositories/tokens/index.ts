@@ -4,6 +4,7 @@ import {
   TokensError,
   HttpClientNotFoundError,
   CSPR_API_PROXY_HEADERS,
+  USD_CURRENCY_ID,
   ITokensRepository,
   DataResponse,
   IGetTokensParams,
@@ -30,16 +31,23 @@ export class TokensRepository implements ITokensRepository {
     network,
     publicKey,
     withProxyHeader = true,
+    contractPackageHashes,
   }: IGetTokensParams): Promise<ITokenWithFiatBalance[]> {
     try {
       const accountHash = getAccountHashFromPublicKey(publicKey);
 
+      const params: Record<string, number | string> = {
+        page_size: 100, // TODO pagination?
+        includes: `contract_package,token_market_data(${USD_CURRENCY_ID})`,
+      };
+
+      if (contractPackageHashes?.length) {
+        params.contract_package_hash = contractPackageHashes.join(',');
+      }
+
       const tokensList = await this._httpProvider.get<DataResponse<Erc20Token[]>>({
         url: `${this._casperWalletApiUrl[network]}/accounts/${accountHash}/ft-token-ownership`,
-        params: {
-          page_size: 100, // TODO pagination?
-          includes: 'contract_package,token_market_data(1)',
-        },
+        params,
         ...(withProxyHeader ? { headers: CSPR_API_PROXY_HEADERS } : {}),
         errorType: 'getTokens',
       });

@@ -1,4 +1,4 @@
-import { IDomainError, isDomainError, isError } from '../common';
+import { DomainError, IDomainError } from '../common';
 import { IDeploysRepository } from './repository';
 
 export type DeploysErrorType = keyof IDeploysRepository | 'deployRpcError' | 'invalidDeploy';
@@ -8,23 +8,10 @@ export function isDeploysError(error: unknown | IDeployError): error is IDeployE
   return error instanceof DeploysError && (<DeploysError>error).name === 'DeploysRepositoryError';
 }
 
-export class DeploysError extends Error implements IDeployError {
+export class DeploysError extends DomainError<DeploysErrorType> implements IDeployError {
   constructor(error: Error | unknown, type: DeploysErrorType) {
-    if (isError(error)) {
-      super(error.message);
-      this.stack = error.stack;
-      this.traceable = isDomainError(error) ? Boolean(error.traceable) : true;
-    } else {
-      super(JSON.stringify(error));
-      this.traceable = true;
-    }
-
-    this.name = 'DeploysRepositoryError';
-    this.type = type;
+    super(error, type, 'DeploysRepositoryError');
   }
-
-  type: DeploysErrorType;
-  traceable: boolean;
 }
 
 export class InvalidDeployError extends DeploysError {

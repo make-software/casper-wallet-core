@@ -144,4 +144,40 @@ describe('DeploysRepository', () => {
       ).toEqual(EMPTY_PAGINATED_RESPONSE);
     });
   });
+
+  describe('withProxyHeader', () => {
+    const params = {
+      network: 'mainnet',
+      activePublicKey: PUBLIC_KEY,
+      page: 1,
+      withProxyHeader: false,
+    } as const;
+    const emptyPage = { item_count: 0, page_count: 0, pages: [], data: [] };
+
+    const cases: [string, unknown, (repo: DeploysRepository) => Promise<unknown>][] = [
+      ['getDeploys', emptyPage, repo => repo.getDeploys(params)],
+      ['getCsprTransferDeploys', emptyPage, repo => repo.getCsprTransferDeploys(params)],
+      ['getCep18TransferDeploys', emptyPage, repo => repo.getCep18TransferDeploys(params)],
+      ['getTransactionsFeed', emptyPage, repo => repo.getTransactionsFeed(params)],
+      [
+        'getSingleDeploy',
+        { data: makeCloudDeploy() },
+        repo => repo.getSingleDeploy({ ...params, deployHash: 'd'.repeat(64) }),
+      ],
+    ];
+
+    it.each(cases)('%s keeps the header off the nested accounts lookup', async (_, resp, call) => {
+      const { http, repo, accountInfoRepository } = buildRepo();
+      http.get.mockResolvedValue(resp);
+
+      await call(repo);
+
+      expect(http.get).toHaveBeenCalledWith(
+        expect.not.objectContaining({ headers: expect.anything() }),
+      );
+      expect(accountInfoRepository.getAccountsInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ withProxyHeader: false }),
+      );
+    });
+  });
 });

@@ -1,0 +1,78 @@
+import type { IDexToken, ISwapQuote, SwapQuoteType } from '../../../domain';
+import { CSPR_COIN, CSPR_NATIVE_TOKEN_ID } from '../../../domain';
+import type { Maybe } from '../../../typings';
+import { calculateSwapRate, getDecimalTokenBalance } from '../../../utils';
+import type { DexTokenApiResponse, RawSwapQuote } from '../../repositories/swap/types';
+import { getPreferredTokenMarketData } from '../common';
+
+/**
+ * Maps the WCSPR API record to a synthetic native token while keeping the real on-chain
+ * `packageHash` — this is what makes `token.id === CSPR_NATIVE_TOKEN_ID` the native-token check
+ * everywhere else in the swap domain.
+ */
+export class DexTokenDto implements IDexToken {
+  constructor(resp: DexTokenApiResponse, wrappedCsprPackageHash: string) {
+    const { contract_package: contractPackage, contract_package_hash: contractPackageHash } = resp;
+    const isWrappedCspr = contractPackageHash === wrappedCsprPackageHash;
+    const tokenMarketData = getPreferredTokenMarketData(contractPackage.token_market_data);
+
+    this.id = isWrappedCspr ? CSPR_NATIVE_TOKEN_ID : contractPackageHash;
+    this.name = isWrappedCspr ? CSPR_COIN.name : contractPackage.metadata.name;
+    this.symbol = isWrappedCspr ? CSPR_COIN.symbol : contractPackage.metadata.symbol;
+    this.icon = contractPackage.icon_url;
+    this.decimals = contractPackage.metadata.decimals;
+    this.packageHash = contractPackageHash;
+    this.isWhitelisted = resp.is_whitelisted;
+    this.isBlacklisted = resp.is_blacklisted;
+    this.fiatRates = tokenMarketData?.latest_rate ?? null;
+    this.totalValueLocked = resp.total_value_locked ?? null;
+    this.volume24h = tokenMarketData?.volume_24h ?? null;
+  }
+
+  readonly id: string;
+  readonly name: string;
+  readonly symbol: string;
+  readonly icon: Maybe<string>;
+  readonly decimals: number;
+  readonly packageHash: string;
+  readonly isWhitelisted: boolean;
+  readonly isBlacklisted: boolean;
+  readonly fiatRates: Maybe<number>;
+  readonly totalValueLocked: Maybe<string>;
+  readonly volume24h: Maybe<string>;
+}
+
+export class SwapQuoteDto implements ISwapQuote {
+  constructor(resp: RawSwapQuote, tokenIn: IDexToken, tokenOut: IDexToken, typeId: SwapQuoteType) {
+    this.amountIn = resp.amount_in;
+    this.amountOut = resp.amount_out;
+    this.executionPrice = resp.execution_price;
+    this.midPrice = resp.mid_price;
+    this.path = resp.path;
+    this.priceImpact = resp.price_impact;
+    this.recommendedSlippageBps = resp.recommended_slippage_bps;
+    this.typeId = typeId;
+
+    this.amountInDecimal = getDecimalTokenBalance(resp.amount_in, tokenIn.decimals, '0');
+    this.amountOutDecimal = getDecimalTokenBalance(resp.amount_out, tokenOut.decimals, '0');
+    this.rate = calculateSwapRate(
+      resp.amount_in,
+      tokenIn.decimals,
+      resp.amount_out,
+      tokenOut.decimals,
+      typeId,
+    );
+  }
+
+  readonly amountIn: string;
+  readonly amountOut: string;
+  readonly executionPrice: string;
+  readonly midPrice: string;
+  readonly path: string[];
+  readonly priceImpact: string;
+  readonly recommendedSlippageBps: string;
+  readonly typeId: SwapQuoteType;
+  readonly amountInDecimal: string;
+  readonly amountOutDecimal: string;
+  readonly rate: string;
+}

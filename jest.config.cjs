@@ -49,9 +49,14 @@ const config = {
   moduleFileExtensions: ['ts', 'tsx', 'mjs', 'js', 'jsx', 'json'],
 
   // Whitelist ESM-only transitive deps that need transforming.
-  transformIgnorePatterns: ['node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild)/)'],
+  // `dom-accessibility-api` (via @testing-library/dom) ships its TypeScript sources, and
+  // `moduleFileExtensions` resolves `.ts` first — so Jest reaches the sources, not the build,
+  // and they have to be transformed like our own code.
+  transformIgnorePatterns: [
+    'node_modules/(?!(@noble|@scure|nanoid|jose|ws|@bufbuild|dom-accessibility-api)/)',
+  ],
 
-  testMatch: ['<rootDir>/src/**/*.test.ts'],
+  testMatch: ['<rootDir>/src/**/*.test.ts?(x)'],
 
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -66,6 +71,13 @@ const config = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov', 'html'],
+
+  // Each worker builds its own ts-jest TypeScript program, so the default
+  // (cores - 1) makes two concurrent runs oversubscribe the machine into swap.
+  maxWorkers: '50%',
+  // 15s, not jest's 5s: under a loaded machine the slower suites exceed 5s and
+  // report as failures, which is indistinguishable from a real regression.
+  testTimeout: 15000,
 
   clearMocks: true,
   restoreMocks: true,

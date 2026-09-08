@@ -12,6 +12,8 @@ import type {
   AppEventsErrorType,
   TxSignatureRequestErrorType,
   ContractPackageErrorType,
+  SwapErrorType,
+  DexErrorType,
 } from '../../../domain';
 
 export interface IHttpDataProvider {
@@ -38,7 +40,9 @@ export type IHttpErrorType =
   | AccountInfoErrorType
   | AppEventsErrorType
   | TxSignatureRequestErrorType
-  | ContractPackageErrorType;
+  | ContractPackageErrorType
+  | SwapErrorType
+  | DexErrorType;
 
 export interface IHttpMethodBaseParams {
   url: string;

@@ -18,12 +18,19 @@ import {
   Transaction,
   CLTypeUInt8,
 } from 'casper-js-sdk';
+import { NftStandard } from '../../domain/nfts';
 
 export enum NFTTokenStandard {
   CEP47 = 'CEP47',
   CEP78 = 'CEP78',
   CEP95 = 'CEP95',
 }
+
+export const NftStandardToSdkStandardMap: Record<NftStandard, NFTTokenStandard> = {
+  CEP47: NFTTokenStandard.CEP47,
+  CEP78: NFTTokenStandard.CEP78,
+  CEP95: NFTTokenStandard.CEP95,
+};
 
 export interface IMakeNftTransferDeployParams {
   nftStandard: NFTTokenStandard;

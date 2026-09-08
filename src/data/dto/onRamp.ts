@@ -7,6 +7,7 @@ import {
 } from '../../domain';
 import type {
   IGetOnRampResponse,
+  IOnRampCurrencyItemResponse,
   IOnRampProvidersResponse,
   IResponseCountry,
 } from '../repositories';
@@ -17,7 +18,7 @@ export class OnRampDto implements IOnRampOptions {
     this.countries = mapCountriesWithFlags(response?.countries);
     this.defaultAmount = response?.defaultAmount ?? '';
     this.defaultCountry = response?.defaultCountry ?? '';
-    this.currencies = response?.currencies ?? [];
+    this.currencies = mapCurrencies(response?.currencies);
     this.defaultCurrency = response?.defaultCurrency ?? '';
   }
 
@@ -32,7 +33,7 @@ export class OnRampProvidersDto implements IOnRampProvidersOptions {
   constructor(response?: IOnRampProvidersResponse) {
     this.fiatAmount = response?.fiatAmount ?? 0;
     this.cryptoAmount = response?.cryptoAmount ?? 0;
-    this.currency = response?.currencies?.[0] ?? null;
+    this.currency = mapCurrencies(response?.currencies)[0] ?? null;
     this.availableProviders = response?.availableProviders ?? [];
     this.isCryptoChanged = response?.isCryptoChanged ?? false;
     this.cryptoCurrency = response?.cryptoCurrency ?? '';
@@ -45,6 +46,9 @@ export class OnRampProvidersDto implements IOnRampProvidersOptions {
   readonly isCryptoChanged: boolean;
   readonly cryptoCurrency: string;
 }
+
+const mapCurrencies = (currencies?: IOnRampCurrencyItemResponse[]): IOnRampCurrencyItem[] =>
+  (currencies ?? []).map(({ id, code, type_id, rate }) => ({ id, code, typeId: type_id, rate }));
 
 // TODO fix it
 export const mapCountriesWithFlags = (countries?: IResponseCountry[]): IOnRampCountry[] => {

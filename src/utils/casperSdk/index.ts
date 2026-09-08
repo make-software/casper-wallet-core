@@ -1,6 +1,8 @@
 /**
- * Barrel over the Casper-protocol helpers. Only `./cep-nft-transfer` links `casper-js-sdk`; the
- * other three modules are deliberately SDK-free.
+ * Barrel over the Casper-protocol helpers. Only the SDK-free modules — `./accountHash`,
+ * `./network` and `./blockExplorer` — are re-exported here: this barrel is reached from the
+ * `utils` barrel that most of `src/data` imports, so re-exporting an SDK-linked module would make
+ * every DTO a transitive SDK importer for builds that do not tree-shake.
  *
  * `casper-js-sdk` ships a single prebuilt UMD bundle (`dist/lib.web.js` — no `module` field, no
  * `import` condition, no `sideEffects` flag), so one import of it costs the whole ~900 KB blob and
@@ -11,15 +13,14 @@
  * - `casper-wallet-core/src/utils/casperSdk/network` — `getCasperNetworkByChainName`
  * - `casper-wallet-core/src/utils/casperSdk/blockExplorer` — `getBlockExplorer*Url`, `getContractNftUrl`
  * - `casper-wallet-core/src/utils/casperSdk/cep-nft-transfer` — the SDK-backed deploy builders
+ * - `casper-wallet-core/src/utils/casperSdk/tx-builders` — `build*Transactions` for transfers,
+ *   CEP-18 and the auction manager
+ * - `casper-wallet-core/src/utils/casperSdk/validation` — `isValidCasperPublicKey`
  *
  * The package declares `"sideEffects": false`, so a bundler that tree-shakes will also drop the
  * unused halves when importing through this barrel or the package root — the deep paths are the
- * guarantee for builds that do not.
- *
- * `./cep-nft-transfer` is deliberately NOT re-exported here: this barrel is reached from the
- * `utils` barrel, which most of `src/data` imports, so re-exporting it made every DTO a
- * transitive SDK importer for builds that do not shake. It is re-exported from the package root
- * instead, so the public API is unchanged (WALLET-1421).
+ * guarantee for builds that do not. `./dex-contract` and `./rpcClient` are exported nowhere: they
+ * are internal to `src/data/repositories`.
  */
 
 export * from './accountHash';

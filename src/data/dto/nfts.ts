@@ -24,7 +24,7 @@ export class NftDto implements INft {
     this.contractPackageHash = apiNft?.contract_package_hash ?? '';
     this.contractPackageIcon = apiNft?.contract_package?.icon_url ?? null;
     this.contactName = apiNft?.contract_package?.name ?? '';
-    this.owner_reverse_lookup_mode = Boolean(
+    this.ownerReverseLookupMode = Boolean(
       apiNft?.contract_package?.metadata?.owner_reverse_lookup_mode ?? false,
     );
     this.timestamp = apiNft?.timestamp ?? '';
@@ -42,7 +42,7 @@ export class NftDto implements INft {
   contractPackageHash: string;
   contractPackageIcon: Maybe<string>;
   contactName: string;
-  owner_reverse_lookup_mode: boolean;
+  ownerReverseLookupMode: boolean;
   timestamp: string;
   metadata: INftMetadata;
   previewUrl: Maybe<string>;
