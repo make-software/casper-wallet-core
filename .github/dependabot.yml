@@ -14,6 +14,16 @@ updates:
     commit-message:
       prefix: chore(deps)
       prefix-development: chore(deps-dev)
+    ignore:
+      # jest 30 is a hand-driven upgrade: jest-environment-jsdom and ts-jest
+      # have to move in the same commit as the core.
+      - dependency-name: 'jest'
+        update-types:
+          - 'version-update:semver-major'
+      - dependency-name: '@types/jest'
+        update-types:
+          - 'version-update:semver-major'
+
     groups:
       minor-and-patch:
         applies-to: version-updates
