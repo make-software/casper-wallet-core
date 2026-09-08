@@ -144,7 +144,14 @@ describe('swap', () => {
     it('shows the bound in the requested currency', () => {
       const token = buildToken();
 
-      expect(calculateTokenFiatAmount(token, '', 'EUR', 1)).toBe('<€0.01');
+      expect(calculateTokenFiatAmount(token, '0.005', 'EUR', 1)).toBe('<€0.01');
+    });
+
+    it('shows zero for an empty or zero amount', () => {
+      const token = buildToken();
+
+      expect(calculateTokenFiatAmount(token, '', 'USD', 1)).toBe('$0.00');
+      expect(calculateTokenFiatAmount(token, '0', 'EUR', 1)).toBe('€0.00');
     });
 
     it('returns "N/A" when there is no fiat rate', () => {

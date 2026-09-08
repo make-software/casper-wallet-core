@@ -40,8 +40,14 @@ describe('common utils', () => {
       expect(formatFiatBalance(undefined)).toBe('$0.00');
     });
 
-    it('returns "<$0.01" for zero (because zero is < 0.01)', () => {
-      expect(formatFiatBalance('0')).toBe('<$0.01');
+    it('returns zero for a zero balance, not the sub-cent bound', () => {
+      expect(formatFiatBalance('0')).toBe('$0.00');
+      expect(formatFiatBalance('0.00')).toBe('$0.00');
+      expect(formatFiatBalance('0', undefined, 4)).toBe('$0.00');
+    });
+
+    it('renders a zero balance in the requested currency', () => {
+      expect(formatFiatBalance('0', undefined, 2, { currencyCode: 'EUR' })).toBe('€0.00');
     });
 
     it('returns <$0.01 for tiny amounts', () => {
@@ -225,8 +231,8 @@ describe('common utils', () => {
       expect(getFiatAmount(2, 0.5)).toBe('$1');
     });
 
-    it('defaults rate to 0 (returns <$0.01 since 10 × 0 = 0)', () => {
-      expect(getFiatAmount(10)).toBe('<$0.01');
+    it('defaults rate to 0, so the amount is zero', () => {
+      expect(getFiatAmount(10)).toBe('$0.00');
     });
   });
 

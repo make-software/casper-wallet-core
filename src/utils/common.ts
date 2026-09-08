@@ -19,11 +19,12 @@ export interface IFormatFiatBalanceOptions {
 
 const MIN_DISPLAYED_FIAT_AMOUNT = new Decimal('0.01');
 
-/** The sub-cent label needs two places to say "one cent" at all, whatever `decimals` is. */
+/** Cents need two places, both to say "one cent" at all and to render zero, whatever `decimals` is. */
 const MIN_DISPLAYED_FIAT_DECIMALS = 2;
 
 /**
- * Format a fiat amount. Anything under one cent renders as `<$0.01`, whatever `decimals` is.
+ * Format a fiat amount. Anything above zero but under one cent renders as `<$0.01`, whatever
+ * `decimals` is; an exactly zero amount renders as `$0.00`.
  *
  * `defaultBalance` covers an absent balance; pass `null` to render zero in `currencyCode`
  * instead of a fixed label.
@@ -34,20 +35,31 @@ export const formatFiatBalance = (
   decimals = FIAT_DECIMALS,
   { currencyCode = 'USD', minFractionDigits = 0 }: IFormatFiatBalanceOptions = {},
 ): string => {
-  const format = (value: Decimal, maxFractionDigits = decimals): string =>
+  const format = (
+    value: Decimal,
+    maxFractionDigits = decimals,
+    minimumFractionDigits = minFractionDigits,
+  ): string =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
       // `Intl.NumberFormat` throws a `RangeError` when the minimum exceeds the maximum.
-      minimumFractionDigits: Math.min(minFractionDigits, maxFractionDigits),
+      minimumFractionDigits: Math.min(minimumFractionDigits, maxFractionDigits),
       maximumFractionDigits: maxFractionDigits,
     }).format(value.toNumber());
 
+  const formatZero = (): string =>
+    format(new Decimal(0), MIN_DISPLAYED_FIAT_DECIMALS, MIN_DISPLAYED_FIAT_DECIMALS);
+
   if (!balance) {
-    return defaultBalance ?? format(new Decimal(0));
+    return defaultBalance ?? formatZero();
   }
 
   const amount = new Decimal(balance);
+
+  if (amount.isZero()) {
+    return formatZero();
+  }
 
   if (amount.lt(MIN_DISPLAYED_FIAT_AMOUNT)) {
     return `<${format(MIN_DISPLAYED_FIAT_AMOUNT, Math.max(decimals, MIN_DISPLAYED_FIAT_DECIMALS))}`;
