@@ -1302,10 +1302,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/big.js@npm:^6.2.2":
-  version: 6.2.2
-  resolution: "@types/big.js@npm:6.2.2"
-  checksum: 10c0/8f8472dfc1ef61c492e6841e86f8b9b97e5b024136bf7964e582a6a80ba73d4dbfd6cc23ed3b9d8fea69c7f30834fffd1c88e7fb981811f5c6ca608380b5ad67
+"@types/big.js@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "@types/big.js@npm:7.0.0"
+  checksum: 10c0/d6cc629c7eefe86e2dcc8beb2c8ee41deaaab3bd761e5d2401b51a23f171caa36753e56002e1e5d9d7e671a922f303dcb52907725e15499faac7f7b533e556f2
   languageName: node
   linkType: hard
 
@@ -1702,7 +1702,7 @@ __metadata:
     "@tanstack/react-query": "npm:5.102.8"
     "@testing-library/dom": "npm:10.4.1"
     "@testing-library/react": "npm:16.3.3"
-    "@types/big.js": "npm:^6.2.2"
+    "@types/big.js": "npm:^7.0.0"
     "@types/jest": "npm:^29.5.14"
     "@types/node": "npm:^22.20.1"
     "@types/react": "npm:^18.3.0"
