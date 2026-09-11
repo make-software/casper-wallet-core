@@ -64,9 +64,10 @@ export type LedgerTransport = 'USB' | 'Bluetooth';
 export type SelectedTransport = LedgerTransport | undefined;
 
 /**
- * The transport surface the Ledger service drives. Structurally satisfied by
- * `@ledgerhq/hw-transport`'s `Transport`, which the apps create and own — declaring it here keeps
- * that package out of this library's dependency graph.
+ * The transport surface the Ledger service drives — satisfied equally by
+ * `@ledgerhq/hw-transport`'s `Transport` and by an app's own DMK-session adapter. `'disconnect'` is
+ * the only event ever subscribed, and it fires at most once per session; `setExchangeTimeout`
+ * latches a value for subsequent exchanges rather than applying to one already in flight.
  */
 export interface ILedgerTransport {
   close(): Promise<void>;
@@ -75,6 +76,7 @@ export interface ILedgerTransport {
   setExchangeTimeout(exchangeTimeout: number): void;
 }
 
+/** The returned object must also satisfy whatever the app's `createLedgerApp` consumes. */
 export type TransportCreator = () => Promise<ILedgerTransport>;
 export type TransportAvailabilityCheck = () => Promise<boolean>;
 

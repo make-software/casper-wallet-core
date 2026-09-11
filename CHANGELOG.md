@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Documented the `ILedgerTransport` contract: it is transport-agnostic, satisfied equally by
+  `@ledgerhq/hw-transport`'s `Transport` and by an app's own DMK-session adapter. An adapter author
+  must subscribe only `'disconnect'`, fire it at most once per session, and latch
+  `setExchangeTimeout` for subsequent exchanges rather than applying it to one in flight;
+  `createLedgerApp`'s app object, not the transport, produces the `returnCode` values core
+  classifies. No behaviour change.
+
 ### Added
 
 - **Shared Casper transaction, signing and submission layer (Phase 1).** New

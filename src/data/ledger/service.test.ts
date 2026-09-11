@@ -177,13 +177,14 @@ describe('CasperLedgerService', () => {
   describe('getSignedTransaction', () => {
     it('attaches the signature to the original tx on a new app and resolves it', async () => {
       const app = makeFakeApp();
-      const { service } = await connectService(app);
+      const { service, transport } = await connectService(app);
       const tx = makeTx();
 
       const signed = await service.getSignedTransaction(tx, ACCOUNT);
 
       expect(signed).toBe(tx);
       expect(tx.setSignature).toHaveBeenCalledWith(expect.any(Uint8Array), expect.anything());
+      expect(transport.setExchangeTimeout).not.toHaveBeenCalled();
     });
 
     it('signs and returns the fallback deploy tx on an old app', async () => {
@@ -310,6 +311,10 @@ describe('CasperLedgerService', () => {
 
       expect(app.signMessage).toHaveBeenCalledWith(expect.any(String), expectedPrefixed);
       expect(transport.setExchangeTimeout).toHaveBeenCalledWith(10000);
+      expect(transport.setExchangeTimeout).toHaveBeenCalledTimes(1);
+      expect(transport.setExchangeTimeout.mock.invocationCallOrder[0]).toBeLessThan(
+        app.signMessage.mock.invocationCallOrder[0],
+      );
 
       const requested = events.find(
         e => e.status === LedgerEventStatus.MsgSignatureRequestedToUser,
@@ -658,7 +663,7 @@ describe('CasperLedgerService', () => {
           .mockResolvedValueOnce({ returnCode: 0x9000, publicKey: Buffer.from([0xaa]) })
           .mockResolvedValueOnce({ returnCode: 0x9000, publicKey: Buffer.from([0xbb]) }),
       });
-      const { service } = await connectService(app);
+      const { service, transport } = await connectService(app);
       const { events, restore } = spyOnEvents();
 
       await service.getAccountList({ size: 2, offset: 0 });
@@ -666,6 +671,7 @@ describe('CasperLedgerService', () => {
 
       expect(app.getAddressAndPubKey).toHaveBeenNthCalledWith(1, "m/44'/506'/0'/0/0");
       expect(app.getAddressAndPubKey).toHaveBeenNthCalledWith(2, "m/44'/506'/0'/0/1");
+      expect(transport.setExchangeTimeout).not.toHaveBeenCalled();
 
       const updated = events.find(e => e.status === LedgerEventStatus.AccountListUpdated);
       expect(updated?.accounts).toEqual([
@@ -691,6 +697,186 @@ describe('CasperLedgerService', () => {
       await expect(service.getAccountList({ size: 1, offset: 0 })).rejects.toBeInstanceOf(
         LedgerError,
       );
+    });
+  });
+
+  describe('disconnect', () => {
+    it('closes the transport once when connected', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+
+      await service.disconnect();
+
+      expect(transport.close).toHaveBeenCalledTimes(1);
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('does not close anything when never connected', async () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const transport = makeTransport();
+
+      await expect(service.disconnect()).resolves.toBe(true);
+      expect(transport.close).not.toHaveBeenCalled();
+    });
+
+    it('swallows a rejecting close()', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+      transport.close.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(service.disconnect()).resolves.toBe(true);
+      expect(transport.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('is a no-op the second time it is called', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+
+      await service.disconnect();
+      await service.disconnect();
+
+      expect(transport.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears cachedAccounts', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 0x9000,
+          publicKey: Buffer.from([0xaa]),
+        })),
+      });
+      const { service } = await connectService(app);
+      await service.getAccountList({ size: 1, offset: 0 });
+      expect(service.cachedAccounts).not.toEqual([]);
+
+      await service.disconnect();
+
+      expect(service.cachedAccounts).toEqual([]);
+    });
+  });
+
+  const captureDisconnectHandler = (transport: ReturnType<typeof makeTransport>) => {
+    const call = transport.on.mock.calls.find(([event]) => event === 'disconnect');
+    if (!call) throw new Error('no disconnect listener was registered');
+    return call[1] as () => void;
+  };
+
+  describe('disconnect listener', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('registers exactly one disconnect listener on connect', async () => {
+      const { transport } = await connectService(makeFakeApp());
+
+      expect(transport.on).toHaveBeenCalledTimes(1);
+      expect(transport.on).toHaveBeenCalledWith('disconnect', expect.any(Function));
+    });
+
+    it('never registers a listener for any event other than disconnect', async () => {
+      const { transport } = await connectService(makeFakeApp());
+
+      expect(transport.on.mock.calls.every(([event]) => event === 'disconnect')).toBe(true);
+    });
+
+    it('unregisters itself with the exact handler reference it registered', async () => {
+      const { transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(transport.off).toHaveBeenCalledWith('disconnect', handler);
+    });
+
+    it('clears isConnected when the handler fires', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('emits a Disconnected event when the handler fires', async () => {
+      const { transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+      const { events, restore } = spyOnEvents();
+
+      handler();
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.Disconnected)).toBe(true);
+    });
+
+    it('clears cachedAccounts when the handler fires', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 0x9000,
+          publicKey: Buffer.from([0xaa]),
+        })),
+      });
+      const { service, transport } = await connectService(app);
+      await service.getAccountList({ size: 1, offset: 0 });
+      expect(service.cachedAccounts).not.toEqual([]);
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(service.cachedAccounts).toEqual([]);
+    });
+
+    describe('reconnect suppression window', () => {
+      it('suppresses a reconnect attempt inside the 3600ms window', async () => {
+        const app = makeFakeApp({
+          getAppInfo: jest.fn(async () => ({
+            returnCode: 0x9000,
+            appName: 'Ethereum',
+            appVersion: '1.0.0',
+          })),
+        });
+        const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+        const transports: Array<ReturnType<typeof makeTransport>> = [];
+        const transportCreator = jest.fn(async () => {
+          const transport = makeTransport();
+          transports.push(transport);
+          return transport;
+        });
+
+        service.connect(transportCreator, async () => true).catch(() => undefined);
+        await flushMicrotasks();
+        captureDisconnectHandler(transports[0])();
+
+        await jest.advanceTimersByTimeAsync(CONNECTION_POLL_INTERVAL);
+
+        expect(transportCreator).toHaveBeenCalledTimes(1);
+      });
+
+      it('allows a reconnect attempt once the 3600ms window has elapsed', async () => {
+        const app = makeFakeApp({
+          getAppInfo: jest.fn(async () => ({
+            returnCode: 0x9000,
+            appName: 'Ethereum',
+            appVersion: '1.0.0',
+          })),
+        });
+        const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+        const transports: Array<ReturnType<typeof makeTransport>> = [];
+        const transportCreator = jest.fn(async () => {
+          const transport = makeTransport();
+          transports.push(transport);
+          return transport;
+        });
+
+        service.connect(transportCreator, async () => true).catch(() => undefined);
+        await flushMicrotasks();
+        captureDisconnectHandler(transports[0])();
+
+        await jest.advanceTimersByTimeAsync(CONNECTION_POLL_INTERVAL * 2);
+
+        expect(transportCreator).toHaveBeenCalledTimes(2);
+      });
     });
   });
 });
