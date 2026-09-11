@@ -177,13 +177,14 @@ describe('CasperLedgerService', () => {
   describe('getSignedTransaction', () => {
     it('attaches the signature to the original tx on a new app and resolves it', async () => {
       const app = makeFakeApp();
-      const { service } = await connectService(app);
+      const { service, transport } = await connectService(app);
       const tx = makeTx();
 
       const signed = await service.getSignedTransaction(tx, ACCOUNT);
 
       expect(signed).toBe(tx);
       expect(tx.setSignature).toHaveBeenCalledWith(expect.any(Uint8Array), expect.anything());
+      expect(transport.setExchangeTimeout).not.toHaveBeenCalled();
     });
 
     it('signs and returns the fallback deploy tx on an old app', async () => {
@@ -310,6 +311,10 @@ describe('CasperLedgerService', () => {
 
       expect(app.signMessage).toHaveBeenCalledWith(expect.any(String), expectedPrefixed);
       expect(transport.setExchangeTimeout).toHaveBeenCalledWith(10000);
+      expect(transport.setExchangeTimeout).toHaveBeenCalledTimes(1);
+      expect(transport.setExchangeTimeout.mock.invocationCallOrder[0]).toBeLessThan(
+        app.signMessage.mock.invocationCallOrder[0],
+      );
 
       const requested = events.find(
         e => e.status === LedgerEventStatus.MsgSignatureRequestedToUser,
@@ -658,7 +663,7 @@ describe('CasperLedgerService', () => {
           .mockResolvedValueOnce({ returnCode: 0x9000, publicKey: Buffer.from([0xaa]) })
           .mockResolvedValueOnce({ returnCode: 0x9000, publicKey: Buffer.from([0xbb]) }),
       });
-      const { service } = await connectService(app);
+      const { service, transport } = await connectService(app);
       const { events, restore } = spyOnEvents();
 
       await service.getAccountList({ size: 2, offset: 0 });
@@ -666,6 +671,7 @@ describe('CasperLedgerService', () => {
 
       expect(app.getAddressAndPubKey).toHaveBeenNthCalledWith(1, "m/44'/506'/0'/0/0");
       expect(app.getAddressAndPubKey).toHaveBeenNthCalledWith(2, "m/44'/506'/0'/0/1");
+      expect(transport.setExchangeTimeout).not.toHaveBeenCalled();
 
       const updated = events.find(e => e.status === LedgerEventStatus.AccountListUpdated);
       expect(updated?.accounts).toEqual([
