@@ -16,7 +16,9 @@ import type {
 export interface ICasperLedgerServiceOptions {
   /**
    * Builds the Casper app for a freshly opened transport, e.g. `t => new CasperApp(t)`. A method,
-   * not a property, so a factory typed against the app's own transport class is accepted.
+   * not a property, so a factory typed against the app's own transport class is accepted. The app
+   * object, not the transport, produces the `returnCode` values core classifies — swapping the
+   * transport leaves error classification untouched, but swapping the app object does not.
    */
   createLedgerApp(transport: ILedgerTransport): ILedgerCasperApp;
   /** Platform hook: detect transport-level "pairing invalidated" errors (RN BLE shapes). Default: () => false. */
