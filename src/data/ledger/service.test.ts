@@ -693,4 +693,56 @@ describe('CasperLedgerService', () => {
       );
     });
   });
+
+  describe('disconnect', () => {
+    it('closes the transport once when connected', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+
+      await service.disconnect();
+
+      expect(transport.close).toHaveBeenCalledTimes(1);
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('does not close anything when never connected', async () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const transport = makeTransport();
+
+      await expect(service.disconnect()).resolves.toBe(true);
+      expect(transport.close).not.toHaveBeenCalled();
+    });
+
+    it('swallows a rejecting close()', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+      transport.close.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(service.disconnect()).resolves.toBe(true);
+      expect(transport.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('is a no-op the second time it is called', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+
+      await service.disconnect();
+      await service.disconnect();
+
+      expect(transport.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears cachedAccounts', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 0x9000,
+          publicKey: Buffer.from([0xaa]),
+        })),
+      });
+      const { service } = await connectService(app);
+      await service.getAccountList({ size: 1, offset: 0 });
+      expect(service.cachedAccounts).not.toEqual([]);
+
+      await service.disconnect();
+
+      expect(service.cachedAccounts).toEqual([]);
+    });
+  });
 });
