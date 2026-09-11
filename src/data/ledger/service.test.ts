@@ -745,4 +745,132 @@ describe('CasperLedgerService', () => {
       expect(service.cachedAccounts).toEqual([]);
     });
   });
+
+  const captureDisconnectHandler = (transport: ReturnType<typeof makeTransport>) => {
+    const call = transport.on.mock.calls.find(([event]) => event === 'disconnect');
+    if (!call) throw new Error('no disconnect listener was registered');
+    return call[1] as () => void;
+  };
+
+  describe('disconnect listener', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('registers exactly one disconnect listener on connect', async () => {
+      const { transport } = await connectService(makeFakeApp());
+
+      expect(transport.on).toHaveBeenCalledTimes(1);
+      expect(transport.on).toHaveBeenCalledWith('disconnect', expect.any(Function));
+    });
+
+    it('never registers a listener for any event other than disconnect', async () => {
+      const { transport } = await connectService(makeFakeApp());
+
+      expect(transport.on.mock.calls.every(([event]) => event === 'disconnect')).toBe(true);
+    });
+
+    it('unregisters itself with the exact handler reference it registered', async () => {
+      const { transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(transport.off).toHaveBeenCalledWith('disconnect', handler);
+    });
+
+    it('clears isConnected when the handler fires', async () => {
+      const { service, transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('emits a Disconnected event when the handler fires', async () => {
+      const { transport } = await connectService(makeFakeApp());
+      const handler = captureDisconnectHandler(transport);
+      const { events, restore } = spyOnEvents();
+
+      handler();
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.Disconnected)).toBe(true);
+    });
+
+    it('clears cachedAccounts when the handler fires', async () => {
+      const app = makeFakeApp({
+        getAddressAndPubKey: jest.fn(async () => ({
+          returnCode: 0x9000,
+          publicKey: Buffer.from([0xaa]),
+        })),
+      });
+      const { service, transport } = await connectService(app);
+      await service.getAccountList({ size: 1, offset: 0 });
+      expect(service.cachedAccounts).not.toEqual([]);
+      const handler = captureDisconnectHandler(transport);
+
+      handler();
+
+      expect(service.cachedAccounts).toEqual([]);
+    });
+
+    describe('reconnect suppression window', () => {
+      it('suppresses a reconnect attempt inside the 3600ms window', async () => {
+        const app = makeFakeApp({
+          getAppInfo: jest.fn(async () => ({
+            returnCode: 0x9000,
+            appName: 'Ethereum',
+            appVersion: '1.0.0',
+          })),
+        });
+        const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+        const transports: Array<ReturnType<typeof makeTransport>> = [];
+        const transportCreator = jest.fn(async () => {
+          const transport = makeTransport();
+          transports.push(transport);
+          return transport;
+        });
+
+        service.connect(transportCreator, async () => true).catch(() => undefined);
+        await flushMicrotasks();
+        captureDisconnectHandler(transports[0])();
+
+        await jest.advanceTimersByTimeAsync(CONNECTION_POLL_INTERVAL);
+
+        expect(transportCreator).toHaveBeenCalledTimes(1);
+      });
+
+      it('allows a reconnect attempt once the 3600ms window has elapsed', async () => {
+        const app = makeFakeApp({
+          getAppInfo: jest.fn(async () => ({
+            returnCode: 0x9000,
+            appName: 'Ethereum',
+            appVersion: '1.0.0',
+          })),
+        });
+        const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+        const transports: Array<ReturnType<typeof makeTransport>> = [];
+        const transportCreator = jest.fn(async () => {
+          const transport = makeTransport();
+          transports.push(transport);
+          return transport;
+        });
+
+        service.connect(transportCreator, async () => true).catch(() => undefined);
+        await flushMicrotasks();
+        captureDisconnectHandler(transports[0])();
+
+        await jest.advanceTimersByTimeAsync(CONNECTION_POLL_INTERVAL * 2);
+
+        expect(transportCreator).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
 });
