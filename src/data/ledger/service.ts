@@ -1,6 +1,15 @@
 import { blake2b } from '@noble/hashes/blake2';
 import { HexBytes, PublicKey, Transaction } from 'casper-js-sdk';
-import { BehaviorSubject, debounceTime, distinct, Observable, Observer, Subscription } from 'rxjs';
+import {
+  BehaviorSubject,
+  debounceTime,
+  distinct,
+  distinctUntilChanged,
+  filter,
+  Observable,
+  Observer,
+  Subscription,
+} from 'rxjs';
 
 import {
   ICasperLedgerService,
@@ -11,6 +20,7 @@ import {
   ILedgerTransport,
   LedgerAccount,
   LedgerAccountsOptions,
+  LedgerDeviceState,
   LedgerError,
   LedgerEventStatus,
   SignResult,
@@ -36,10 +46,15 @@ function getBip44Path(index: number): string {
   ].join('/');
 }
 
+function isSameDeviceState(a: LedgerDeviceState, b: LedgerDeviceState): boolean {
+  return a.status === b.status && a.app?.name === b.app?.name && a.app?.version === b.app?.version;
+}
+
 export class CasperLedgerService implements ICasperLedgerService {
   cachedAccounts: LedgerAccount[] = [];
 
   #transport: ILedgerTransport | null = null;
+  #stateSubscription: Subscription | null = null;
   #isBluetoothTransport: boolean = false;
   #ledgerApp: ILedgerCasperApp | null = null;
   #ledgerConnected = false;
@@ -129,6 +144,7 @@ export class CasperLedgerService implements ICasperLedgerService {
           this.#transport = await transportCreator();
           this.#transport?.on('disconnect', this.#onDisconnect);
           this.#ledgerApp = this.#createLedgerApp(this.#transport);
+          this.#observeTransportState(this.#transport);
         } catch (e) {
           if (withRetry) {
             await delay(500);
@@ -172,6 +188,8 @@ export class CasperLedgerService implements ICasperLedgerService {
       this.#ledgerConnected = false;
     }
 
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
     this.cachedAccounts = [];
 
     return true;
@@ -606,6 +624,8 @@ export class CasperLedgerService implements ICasperLedgerService {
 
     this.#transport = null;
     this.#ledgerApp = null;
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
 
     try {
       transport.off('disconnect', this.#onDisconnect);
@@ -619,6 +639,8 @@ export class CasperLedgerService implements ICasperLedgerService {
     this.#ledgerConnected = false;
     this.#allowReconnect = false;
     this.cachedAccounts = [];
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
     this.#ledgerEventStatusSubject.next({
       status: LedgerEventStatus.Disconnected,
     });
@@ -629,6 +651,52 @@ export class CasperLedgerService implements ICasperLedgerService {
       this.#allowReconnect = true;
     }, CONNECTION_POLL_INTERVAL * 1.2);
   };
+
+  /**
+   * Subscribes to the transport's state channel when it has one. Idempotent per transport, and
+   * released by `#releaseTransport`, `#onDisconnect` and `disconnect()`.
+   */
+  #observeTransportState(transport: ILedgerTransport): void {
+    if (!transport.observeState) return;
+
+    this.#stateSubscription = transport
+      .observeState()
+      .pipe(
+        filter(state => state.status !== 'busy' && state.status !== 'unknown'),
+        distinctUntilChanged(isSameDeviceState),
+      )
+      .subscribe({
+        next: state => this.#applyDeviceState(state),
+        error: () => {
+          this.#stateSubscription = null;
+        },
+      });
+  }
+
+  /** Maps a pushed device state to the same events the status-word path would raise. */
+  #applyDeviceState(state: LedgerDeviceState): void {
+    switch (state.status) {
+      case 'locked':
+        this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.DeviceLocked });
+        return;
+      case 'connected':
+        if (!state.app) return;
+
+        if (state.app.name !== 'Casper') {
+          this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.CasperAppNotLoaded });
+          return;
+        }
+
+        this.#ledgerConnected = true;
+        this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.Connected });
+        return;
+      case 'disconnected':
+        this.#onDisconnect();
+        return;
+      default:
+        return;
+    }
+  }
 
   #getAccountPath = (acctIdx: number): string => getBip44Path(acctIdx);
 
