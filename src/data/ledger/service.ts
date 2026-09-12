@@ -55,6 +55,12 @@ export class CasperLedgerService implements ICasperLedgerService {
 
   #transport: ILedgerTransport | null = null;
   #stateSubscription: Subscription | null = null;
+  /** The in-flight `#connectToLedger` wait's hooks into device-state transitions, when it has one. */
+  #connectionWaitHandlers: {
+    onConnected: () => void;
+    onChannelError: () => void;
+    cancel: () => void;
+  } | null = null;
   #isBluetoothTransport: boolean = false;
   #ledgerApp: ILedgerCasperApp | null = null;
   #ledgerConnected = false;
@@ -188,6 +194,8 @@ export class CasperLedgerService implements ICasperLedgerService {
       this.#ledgerConnected = false;
     }
 
+    this.#connectionWaitHandlers?.cancel();
+    this.#connectionWaitHandlers = null;
     this.#stateSubscription?.unsubscribe();
     this.#stateSubscription = null;
     this.cachedAccounts = [];
@@ -669,6 +677,7 @@ export class CasperLedgerService implements ICasperLedgerService {
         next: state => this.#applyDeviceState(state),
         error: () => {
           this.#stateSubscription = null;
+          this.#connectionWaitHandlers?.onChannelError();
         },
       });
   }
@@ -689,6 +698,7 @@ export class CasperLedgerService implements ICasperLedgerService {
 
         this.#ledgerConnected = true;
         this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.Connected });
+        this.#connectionWaitHandlers?.onConnected();
         return;
       case 'disconnected':
         this.#onDisconnect();
@@ -711,6 +721,7 @@ export class CasperLedgerService implements ICasperLedgerService {
             this.#transport = await transportCreator();
             this.#transport.on('disconnect', this.#onDisconnect);
             this.#ledgerApp = this.#createLedgerApp(this.#transport);
+            this.#observeTransportState(this.#transport);
           } catch (e) {
             subscriber.next({
               status: this.#options.isPairingInvalidatedError?.(e)
@@ -761,25 +772,73 @@ export class CasperLedgerService implements ICasperLedgerService {
         return false;
       };
 
-      retryConnection().then(async shouldStopRetries => {
-        if (shouldStopRetries) {
+      const runPollLoop = (loopBudget: number): void => {
+        let timeoutLoops = loopBudget;
+
+        const timer = setInterval(async () => {
+          if (--timeoutLoops <= 0) {
+            clearInterval(timer);
+            subscriber.next({ status: LedgerEventStatus.Timeout });
+          } else if (!this.#allowReconnect) {
+            return;
+          } else if (await retryConnection()) {
+            clearInterval(timer);
+            subscriber.complete();
+          }
+        }, CONNECTION_POLL_INTERVAL);
+      };
+
+      const fullLoopBudget = CONNECTION_TIMEOUT_MS / CONNECTION_POLL_INTERVAL;
+
+      // Resolves from device-state transitions instead of polling getAppInfo(); falls back to
+      // runPollLoop for the remaining budget if the channel errors.
+      const waitOnStateChannel = (): void => {
+        const startedAt = Date.now();
+        let timeoutHandle: ReturnType<typeof setTimeout>;
+
+        const stopWaiting = (after: () => void): void => {
+          this.#connectionWaitHandlers = null;
+          clearTimeout(timeoutHandle);
+          after();
+        };
+
+        this.#connectionWaitHandlers = {
+          onConnected: () => {
+            // #onDisconnect tears down #stateSubscription in the same call that closes this
+            // gate, so no state reaches here while it's shut; the check stands for if that ever changes.
+            if (!this.#allowReconnect) return;
+
+            stopWaiting(() => subscriber.complete());
+          },
+          onChannelError: () => {
+            const remainingMs = CONNECTION_TIMEOUT_MS - (Date.now() - startedAt);
+            const remainingLoops = Math.max(1, Math.ceil(remainingMs / CONNECTION_POLL_INTERVAL));
+
+            stopWaiting(() => runPollLoop(remainingLoops));
+          },
+          cancel: () => clearTimeout(timeoutHandle),
+        };
+
+        timeoutHandle = setTimeout(() => {
+          stopWaiting(() => subscriber.next({ status: LedgerEventStatus.Timeout }));
+        }, CONNECTION_TIMEOUT_MS);
+      };
+
+      if (this.#transport?.observeState) {
+        if (this.#ledgerConnected) {
           subscriber.complete();
         } else {
-          let timeoutLoops = CONNECTION_TIMEOUT_MS / CONNECTION_POLL_INTERVAL;
-
-          const timer = setInterval(async () => {
-            if (--timeoutLoops <= 0) {
-              clearInterval(timer);
-              subscriber.next({ status: LedgerEventStatus.Timeout });
-            } else if (!this.#allowReconnect) {
-              return;
-            } else if (await retryConnection()) {
-              clearInterval(timer);
-              subscriber.complete();
-            }
-          }, CONNECTION_POLL_INTERVAL);
+          waitOnStateChannel();
         }
-      });
+      } else {
+        retryConnection().then(async shouldStopRetries => {
+          if (shouldStopRetries) {
+            subscriber.complete();
+          } else {
+            runPollLoop(fullLoopBudget);
+          }
+        });
+      }
     });
 
     observable.pipe(distinct(({ status }) => status)).subscribe(observer);
