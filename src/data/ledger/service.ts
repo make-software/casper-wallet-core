@@ -60,8 +60,26 @@ export class CasperLedgerService implements ICasperLedgerService {
 
   readonly ledgerEvents$: Observable<ILedgerEvent> = this.#ledgerEventStatusSubject.asObservable();
 
+  #connectInFlight: Promise<void> | null = null;
+
   /** @throws {LedgerError} */
-  async connect(
+  connect(
+    transportCreator: TransportCreator,
+    checkTransportAvailability: TransportAvailabilityCheck,
+    isBluetoothTransport = false,
+  ): Promise<void> {
+    this.#connectInFlight ??= this.#runConnect(
+      transportCreator,
+      checkTransportAvailability,
+      isBluetoothTransport,
+    ).finally(() => {
+      this.#connectInFlight = null;
+    });
+
+    return this.#connectInFlight;
+  }
+
+  async #runConnect(
     transportCreator: TransportCreator,
     checkTransportAvailability: TransportAvailabilityCheck,
     isBluetoothTransport = false,

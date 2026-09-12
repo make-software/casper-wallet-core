@@ -972,4 +972,81 @@ describe('CasperLedgerService', () => {
       expect(app1.signMessage).not.toHaveBeenCalled();
     });
   });
+
+  describe('concurrent connect attempts', () => {
+    it('shares one in-flight attempt between two concurrent connects', async () => {
+      const creator = jest.fn().mockResolvedValue(makeTransport());
+      const available = jest.fn().mockResolvedValue(true);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      const first = service.connect(creator, available);
+      const second = service.connect(creator, available);
+
+      await Promise.all([first, second]);
+
+      expect(creator).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails both concurrent callers from one shared failed attempt', async () => {
+      const creator = jest.fn().mockRejectedValue(new Error('boom'));
+      const available = jest.fn().mockResolvedValue(true);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      const first = service.connect(creator, available);
+      const second = service.connect(creator, available);
+
+      await expect(first).rejects.toBeInstanceOf(LedgerError);
+      await expect(second).rejects.toBeInstanceOf(LedgerError);
+
+      const captureError = async (p: Promise<void>): Promise<LedgerError> => {
+        try {
+          await p;
+          throw new Error('expected rejection');
+        } catch (e) {
+          return e as LedgerError;
+        }
+      };
+      const firstError = await captureError(first);
+      const secondError = await captureError(second);
+      expect(firstError.ledgerEvent.status).toBe(secondError.ledgerEvent.status);
+      expect(creator).toHaveBeenCalledTimes(2);
+    });
+
+    it('clears the latch after success so a later connect() runs a real attempt', async () => {
+      const creator = jest.fn().mockResolvedValue(makeTransport());
+      const available = jest.fn().mockResolvedValue(true);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await service.connect(creator, available);
+      await service.connect(creator, available);
+
+      expect(creator).toHaveBeenCalledTimes(2);
+    });
+
+    it('clears the latch after failure so a later connect() actually attempts again', async () => {
+      const creator = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce(makeTransport());
+      const available = jest.fn().mockResolvedValue(true);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await expect(service.connect(creator, available)).rejects.toBeInstanceOf(LedgerError);
+      await expect(service.connect(creator, available)).resolves.toBeUndefined();
+
+      expect(creator).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not latch an availability failure', async () => {
+      const creator = jest.fn().mockResolvedValue(makeTransport());
+      const available = jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await expect(service.connect(creator, available)).rejects.toBeInstanceOf(LedgerError);
+      await expect(service.connect(creator, available)).resolves.toBeUndefined();
+
+      expect(creator).toHaveBeenCalledTimes(1);
+    });
+  });
 });
