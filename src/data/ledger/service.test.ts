@@ -15,6 +15,7 @@ jest.mock('../../utils/common', () => ({
 }));
 
 const CONNECTION_POLL_INTERVAL = 3000;
+const CONNECTION_TIMEOUT_MS = 60000;
 
 const REAL_KEY = PrivateKey.generate(KeyAlgorithm.SECP256K1);
 const PUBLIC_KEY_HEX = REAL_KEY.publicKey.toHex();
@@ -1002,14 +1003,21 @@ describe('CasperLedgerService', () => {
       const app = makeFakeApp();
       const service = new CasperLedgerService({ createLedgerApp: () => app as never });
 
-      await service.connect(
+      const firstConnect = service.connect(
         async () => makeTransport(firstState.asObservable()),
         async () => true,
       );
-      await service.connect(
+      await flushMicrotasks();
+      firstState.next(casperConnected);
+      await firstConnect;
+
+      const secondConnect = service.connect(
         async () => makeTransport(secondState.asObservable()),
         async () => true,
       );
+      await flushMicrotasks();
+      secondState.next(casperConnected);
+      await secondConnect;
 
       const { events, restore } = spyOnEvents();
       firstState.next({ status: 'locked' });
@@ -1095,6 +1103,193 @@ describe('CasperLedgerService', () => {
       expect(events).toHaveLength(0);
       expect(service.isConnected).toBe(true);
       expect(app.getAppInfo.mock.calls.length).toBe(callsBefore);
+    });
+  });
+
+  describe('connection wait driven by device state', () => {
+    it('resolves connect() from state transitions without ever polling getAppInfo (row 1)', async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+
+      const connectPromise = service.connect(
+        async () => transport,
+        async () => true,
+      );
+      await flushMicrotasks();
+
+      state.next({ status: 'locked' });
+      state.next({ status: 'connected', app: { name: 'Casper', version: '3.0.5' } });
+      await connectPromise;
+
+      expect(service.isConnected).toBe(true);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+    });
+
+    it('gives up after CONNECTION_TIMEOUT_MS and rejects with Timeout when the channel never reaches connected (row 3)', async () => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+      const { events, restore } = spyOnEvents();
+
+      const connectPromise = service.connect(
+        async () => transport,
+        async () => true,
+      );
+      connectPromise.catch(() => undefined); // marks the eventual rejection handled before the timer fires
+      await flushMicrotasks();
+
+      await jest.advanceTimersByTimeAsync(CONNECTION_TIMEOUT_MS);
+      restore();
+
+      await expect(connectPromise).rejects.toMatchObject({
+        message: expect.stringContaining(LedgerEventStatus.Timeout),
+      });
+      expect(events.some(e => e.status === LedgerEventStatus.Timeout)).toBe(true);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('honours the reconnection gate: a disconnect severs the channel before a stray connected state can settle it (row 4)', async () => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+      const { events, restore } = spyOnEvents();
+
+      service
+        .connect(
+          async () => transport,
+          async () => true,
+        )
+        .catch(() => undefined);
+      await flushMicrotasks();
+      captureDisconnectHandler(transport)();
+      await flushMicrotasks();
+
+      state.next({ status: 'connected', app: { name: 'Casper', version: '3.0.5' } });
+      await flushMicrotasks();
+      restore();
+
+      expect(service.isConnected).toBe(false);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+      expect(events.some(e => e.status === LedgerEventStatus.Connected)).toBe(false);
+
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('emits DeviceLocked while waiting on the channel and keeps the attempt open (row 5)', async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+      const connectPromise = service.connect(
+        async () => transport,
+        async () => true,
+      );
+      await flushMicrotasks();
+      const { events, restore } = spyOnEvents();
+
+      state.next({ status: 'locked' });
+      await flushMicrotasks();
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.DeviceLocked)).toBe(true);
+      expect(service.isConnected).toBe(false);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+
+      state.next({ status: 'connected', app: { name: 'Casper', version: '3.0.5' } });
+      await connectPromise;
+
+      expect(service.isConnected).toBe(true);
+    });
+
+    it('emits CasperAppNotLoaded while waiting on the channel and keeps the attempt open (row 6)', async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+      const connectPromise = service.connect(
+        async () => transport,
+        async () => true,
+      );
+      await flushMicrotasks();
+      const { events, restore } = spyOnEvents();
+
+      state.next({ status: 'connected', app: { name: 'Ethereum', version: '1.0.0' } });
+      await flushMicrotasks();
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.CasperAppNotLoaded)).toBe(true);
+      expect(service.isConnected).toBe(false);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+
+      state.next({ status: 'connected', app: { name: 'Casper', version: '3.0.5' } });
+      await connectPromise;
+
+      expect(service.isConnected).toBe(true);
+    });
+
+    it('releases the state wait on disconnect() and never fires a belated Timeout (row 7)', async () => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+
+      service
+        .connect(
+          async () => transport,
+          async () => true,
+        )
+        .catch(() => undefined);
+      await flushMicrotasks();
+
+      await service.disconnect();
+
+      const { events, restore } = spyOnEvents();
+      await jest.advanceTimersByTimeAsync(CONNECTION_TIMEOUT_MS);
+      restore();
+
+      expect(events).toHaveLength(0);
+
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('falls back to the poll for the remainder of the timeout when the channel errors mid-wait (row 8)', async () => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+      const state = new Subject<LedgerDeviceState>();
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+      const transport = makeTransport(state.asObservable());
+
+      service
+        .connect(
+          async () => transport,
+          async () => true,
+        )
+        .catch(() => undefined);
+      await flushMicrotasks();
+
+      state.error(new Error('channel died'));
+      await flushMicrotasks();
+
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(CONNECTION_POLL_INTERVAL);
+
+      expect(app.getAppInfo).toHaveBeenCalled();
+
+      jest.clearAllTimers();
+      jest.useRealTimers();
     });
   });
 

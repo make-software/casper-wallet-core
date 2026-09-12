@@ -86,9 +86,10 @@ export interface ILedgerTransport {
   off(eventName: string, cb: (...args: any[]) => any): void;
   setExchangeTimeout(exchangeTimeout: number): void;
   /**
-   * Device state pushed by the transport. Optional: a transport with no state channel leaves
-   * the service on its APDU status-word classification, which stays the fallback for as long
-   * as this member is optional.
+   * Device state pushed by the transport. Optional: a transport with no channel stays on the
+   * APDU status-word fallback. One that implements this must emit state changes unprompted for
+   * as long as it has a subscriber, even while the service sends nothing to the device — a
+   * transport that cannot guarantee that should leave this member off instead.
    */
   observeState?(): Observable<LedgerDeviceState>;
 }
