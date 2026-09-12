@@ -879,4 +879,97 @@ describe('CasperLedgerService', () => {
       });
     });
   });
+
+  describe('transport replacement', () => {
+    it('closes nothing on the first connect', async () => {
+      const transport = makeTransport();
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await service.connect(
+        async () => transport,
+        async () => true,
+      );
+
+      expect(transport.close).not.toHaveBeenCalled();
+    });
+
+    it('closes the first transport before creating the second', async () => {
+      const order: string[] = [];
+      const first = makeTransport();
+      first.close.mockImplementation(async () => void order.push('close-first'));
+      const second = makeTransport();
+      const creator = jest
+        .fn()
+        .mockImplementationOnce(async () => first)
+        .mockImplementationOnce(async () => {
+          order.push('create-second');
+          return second;
+        });
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await service.connect(creator, async () => true);
+      await service.connect(creator, async () => true);
+
+      expect(order).toEqual(['close-first', 'create-second']);
+    });
+
+    it('detaches the first transport listener with the same handler reference it registered', async () => {
+      const first = makeTransport();
+      const second = makeTransport();
+      const creator = jest
+        .fn()
+        .mockImplementationOnce(async () => first)
+        .mockImplementationOnce(async () => second);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await service.connect(creator, async () => true);
+      const handler = captureDisconnectHandler(first);
+      await service.connect(creator, async () => true);
+
+      expect(first.off).toHaveBeenCalledWith('disconnect', handler);
+    });
+
+    it('completes the second connect even when the first close() rejects', async () => {
+      const first = makeTransport();
+      first.close.mockRejectedValueOnce(new Error('boom'));
+      const second = makeTransport();
+      const creator = jest
+        .fn()
+        .mockImplementationOnce(async () => first)
+        .mockImplementationOnce(async () => second);
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+
+      await service.connect(creator, async () => true);
+      await expect(service.connect(creator, async () => true)).resolves.toBeUndefined();
+
+      expect(service.isConnected).toBe(true);
+    });
+
+    it('routes subsequent calls only to the second transport, not the replaced one', async () => {
+      const first = makeTransport();
+      const second = makeTransport();
+      const creator = jest
+        .fn()
+        .mockImplementationOnce(async () => first)
+        .mockImplementationOnce(async () => second);
+      const app1 = makeFakeApp();
+      const app2 = makeFakeApp();
+      const appByTransport = new Map<unknown, ReturnType<typeof makeFakeApp>>([
+        [first, app1],
+        [second, app2],
+      ]);
+      const service = new CasperLedgerService({
+        createLedgerApp: transport => appByTransport.get(transport) as never,
+      });
+
+      await service.connect(creator, async () => true);
+      await service.connect(creator, async () => true);
+      await service.signMessage('msg', ACCOUNT);
+
+      expect(second.setExchangeTimeout).toHaveBeenCalledWith(10000);
+      expect(first.setExchangeTimeout).not.toHaveBeenCalled();
+      expect(app2.signMessage).toHaveBeenCalled();
+      expect(app1.signMessage).not.toHaveBeenCalled();
+    });
+  });
 });
