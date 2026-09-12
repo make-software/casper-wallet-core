@@ -1,6 +1,15 @@
 import { blake2b } from '@noble/hashes/blake2';
 import { HexBytes, PublicKey, Transaction } from 'casper-js-sdk';
-import { BehaviorSubject, debounceTime, distinct, Observable, Observer, Subscription } from 'rxjs';
+import {
+  BehaviorSubject,
+  debounceTime,
+  distinct,
+  distinctUntilChanged,
+  filter,
+  Observable,
+  Observer,
+  Subscription,
+} from 'rxjs';
 
 import {
   ICasperLedgerService,
@@ -11,6 +20,7 @@ import {
   ILedgerTransport,
   LedgerAccount,
   LedgerAccountsOptions,
+  LedgerDeviceState,
   LedgerError,
   LedgerEventStatus,
   SignResult,
@@ -36,10 +46,21 @@ function getBip44Path(index: number): string {
   ].join('/');
 }
 
+function isSameDeviceState(a: LedgerDeviceState, b: LedgerDeviceState): boolean {
+  return a.status === b.status && a.app?.name === b.app?.name && a.app?.version === b.app?.version;
+}
+
 export class CasperLedgerService implements ICasperLedgerService {
   cachedAccounts: LedgerAccount[] = [];
 
   #transport: ILedgerTransport | null = null;
+  #stateSubscription: Subscription | null = null;
+  /** The in-flight `#connectToLedger` wait's hooks into device-state transitions, when it has one. */
+  #connectionWaitHandlers: {
+    onConnected: () => void;
+    onChannelError: () => void;
+    cancel: () => void;
+  } | null = null;
   #isBluetoothTransport: boolean = false;
   #ledgerApp: ILedgerCasperApp | null = null;
   #ledgerConnected = false;
@@ -60,8 +81,26 @@ export class CasperLedgerService implements ICasperLedgerService {
 
   readonly ledgerEvents$: Observable<ILedgerEvent> = this.#ledgerEventStatusSubject.asObservable();
 
+  #connectInFlight: Promise<void> | null = null;
+
   /** @throws {LedgerError} */
-  async connect(
+  connect(
+    transportCreator: TransportCreator,
+    checkTransportAvailability: TransportAvailabilityCheck,
+    isBluetoothTransport = false,
+  ): Promise<void> {
+    this.#connectInFlight ??= this.#runConnect(
+      transportCreator,
+      checkTransportAvailability,
+      isBluetoothTransport,
+    ).finally(() => {
+      this.#connectInFlight = null;
+    });
+
+    return this.#connectInFlight;
+  }
+
+  async #runConnect(
     transportCreator: TransportCreator,
     checkTransportAvailability: TransportAvailabilityCheck,
     isBluetoothTransport = false,
@@ -107,9 +146,11 @@ export class CasperLedgerService implements ICasperLedgerService {
 
       const tryToConnect = async (withRetry = true): Promise<void> => {
         try {
+          await this.#releaseTransport();
           this.#transport = await transportCreator();
           this.#transport?.on('disconnect', this.#onDisconnect);
           this.#ledgerApp = this.#createLedgerApp(this.#transport);
+          this.#observeTransportState(this.#transport);
         } catch (e) {
           if (withRetry) {
             await delay(500);
@@ -153,6 +194,10 @@ export class CasperLedgerService implements ICasperLedgerService {
       this.#ledgerConnected = false;
     }
 
+    this.#connectionWaitHandlers?.cancel();
+    this.#connectionWaitHandlers = null;
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
     this.cachedAccounts = [];
 
     return true;
@@ -576,10 +621,34 @@ export class CasperLedgerService implements ICasperLedgerService {
     }
   };
 
+  /**
+   * Detaches and closes the current transport, if any, and drops the reference. Never rejects:
+   * a transport being replaced is already gone as far as the caller is concerned.
+   */
+  #releaseTransport = async (): Promise<void> => {
+    const transport = this.#transport;
+
+    if (!transport) return;
+
+    this.#transport = null;
+    this.#ledgerApp = null;
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
+
+    try {
+      transport.off('disconnect', this.#onDisconnect);
+      await transport.close();
+    } catch {
+      // best-effort: the transport is being discarded either way
+    }
+  };
+
   #onDisconnect = () => {
     this.#ledgerConnected = false;
     this.#allowReconnect = false;
     this.cachedAccounts = [];
+    this.#stateSubscription?.unsubscribe();
+    this.#stateSubscription = null;
     this.#ledgerEventStatusSubject.next({
       status: LedgerEventStatus.Disconnected,
     });
@@ -590,6 +659,54 @@ export class CasperLedgerService implements ICasperLedgerService {
       this.#allowReconnect = true;
     }, CONNECTION_POLL_INTERVAL * 1.2);
   };
+
+  /**
+   * Subscribes to the transport's state channel when it has one. Idempotent per transport, and
+   * released by `#releaseTransport`, `#onDisconnect` and `disconnect()`.
+   */
+  #observeTransportState(transport: ILedgerTransport): void {
+    if (!transport.observeState) return;
+
+    this.#stateSubscription = transport
+      .observeState()
+      .pipe(
+        filter(state => state.status !== 'busy' && state.status !== 'unknown'),
+        distinctUntilChanged(isSameDeviceState),
+      )
+      .subscribe({
+        next: state => this.#applyDeviceState(state),
+        error: () => {
+          this.#stateSubscription = null;
+          this.#connectionWaitHandlers?.onChannelError();
+        },
+      });
+  }
+
+  /** Maps a pushed device state to the same events the status-word path would raise. */
+  #applyDeviceState(state: LedgerDeviceState): void {
+    switch (state.status) {
+      case 'locked':
+        this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.DeviceLocked });
+        return;
+      case 'connected':
+        if (!state.app) return;
+
+        if (state.app.name !== 'Casper') {
+          this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.CasperAppNotLoaded });
+          return;
+        }
+
+        this.#ledgerConnected = true;
+        this.#ledgerEventStatusSubject.next({ status: LedgerEventStatus.Connected });
+        this.#connectionWaitHandlers?.onConnected();
+        return;
+      case 'disconnected':
+        this.#onDisconnect();
+        return;
+      default:
+        return;
+    }
+  }
 
   #getAccountPath = (acctIdx: number): string => getBip44Path(acctIdx);
 
@@ -604,6 +721,7 @@ export class CasperLedgerService implements ICasperLedgerService {
             this.#transport = await transportCreator();
             this.#transport.on('disconnect', this.#onDisconnect);
             this.#ledgerApp = this.#createLedgerApp(this.#transport);
+            this.#observeTransportState(this.#transport);
           } catch (e) {
             subscriber.next({
               status: this.#options.isPairingInvalidatedError?.(e)
@@ -654,25 +772,73 @@ export class CasperLedgerService implements ICasperLedgerService {
         return false;
       };
 
-      retryConnection().then(async shouldStopRetries => {
-        if (shouldStopRetries) {
+      const runPollLoop = (loopBudget: number): void => {
+        let timeoutLoops = loopBudget;
+
+        const timer = setInterval(async () => {
+          if (--timeoutLoops <= 0) {
+            clearInterval(timer);
+            subscriber.next({ status: LedgerEventStatus.Timeout });
+          } else if (!this.#allowReconnect) {
+            return;
+          } else if (await retryConnection()) {
+            clearInterval(timer);
+            subscriber.complete();
+          }
+        }, CONNECTION_POLL_INTERVAL);
+      };
+
+      const fullLoopBudget = CONNECTION_TIMEOUT_MS / CONNECTION_POLL_INTERVAL;
+
+      // Resolves from device-state transitions instead of polling getAppInfo(); falls back to
+      // runPollLoop for the remaining budget if the channel errors.
+      const waitOnStateChannel = (): void => {
+        const startedAt = Date.now();
+        let timeoutHandle: ReturnType<typeof setTimeout>;
+
+        const stopWaiting = (after: () => void): void => {
+          this.#connectionWaitHandlers = null;
+          clearTimeout(timeoutHandle);
+          after();
+        };
+
+        this.#connectionWaitHandlers = {
+          onConnected: () => {
+            // #onDisconnect tears down #stateSubscription in the same call that closes this
+            // gate, so no state reaches here while it's shut; the check stands for if that ever changes.
+            if (!this.#allowReconnect) return;
+
+            stopWaiting(() => subscriber.complete());
+          },
+          onChannelError: () => {
+            const remainingMs = CONNECTION_TIMEOUT_MS - (Date.now() - startedAt);
+            const remainingLoops = Math.max(1, Math.ceil(remainingMs / CONNECTION_POLL_INTERVAL));
+
+            stopWaiting(() => runPollLoop(remainingLoops));
+          },
+          cancel: () => clearTimeout(timeoutHandle),
+        };
+
+        timeoutHandle = setTimeout(() => {
+          stopWaiting(() => subscriber.next({ status: LedgerEventStatus.Timeout }));
+        }, CONNECTION_TIMEOUT_MS);
+      };
+
+      if (this.#transport?.observeState) {
+        if (this.#ledgerConnected) {
           subscriber.complete();
         } else {
-          let timeoutLoops = CONNECTION_TIMEOUT_MS / CONNECTION_POLL_INTERVAL;
-
-          const timer = setInterval(async () => {
-            if (--timeoutLoops <= 0) {
-              clearInterval(timer);
-              subscriber.next({ status: LedgerEventStatus.Timeout });
-            } else if (!this.#allowReconnect) {
-              return;
-            } else if (await retryConnection()) {
-              clearInterval(timer);
-              subscriber.complete();
-            }
-          }, CONNECTION_POLL_INTERVAL);
+          waitOnStateChannel();
         }
-      });
+      } else {
+        retryConnection().then(async shouldStopRetries => {
+          if (shouldStopRetries) {
+            subscriber.complete();
+          } else {
+            runPollLoop(fullLoopBudget);
+          }
+        });
+      }
     });
 
     observable.pipe(distinct(({ status }) => status)).subscribe(observer);
