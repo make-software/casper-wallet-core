@@ -107,6 +107,7 @@ export class CasperLedgerService implements ICasperLedgerService {
 
       const tryToConnect = async (withRetry = true): Promise<void> => {
         try {
+          await this.#releaseTransport();
           this.#transport = await transportCreator();
           this.#transport?.on('disconnect', this.#onDisconnect);
           this.#ledgerApp = this.#createLedgerApp(this.#transport);
@@ -573,6 +574,26 @@ export class CasperLedgerService implements ICasperLedgerService {
 
     if (evt) {
       this.#processError(evt);
+    }
+  };
+
+  /**
+   * Detaches and closes the current transport, if any, and drops the reference. Never rejects:
+   * a transport being replaced is already gone as far as the caller is concerned.
+   */
+  #releaseTransport = async (): Promise<void> => {
+    const transport = this.#transport;
+
+    if (!transport) return;
+
+    this.#transport = null;
+    this.#ledgerApp = null;
+
+    try {
+      transport.off('disconnect', this.#onDisconnect);
+      await transport.close();
+    } catch {
+      // best-effort: the transport is being discarded either way
     }
   };
 
