@@ -77,7 +77,21 @@ export class CasperLedgerService implements ICasperLedgerService {
   } | null = null;
   #isBluetoothTransport: boolean = false;
   #ledgerApp: ILedgerCasperApp | null = null;
-  #ledgerConnected = false;
+  #connectedSubject = new BehaviorSubject<boolean>(false);
+
+  /** Every transition of the connection flag, replayed to each new subscriber. */
+  readonly connected$: Observable<boolean> = this.#connectedSubject.asObservable();
+
+  get #ledgerConnected(): boolean {
+    return this.#connectedSubject.value;
+  }
+
+  set #ledgerConnected(connected: boolean) {
+    if (connected !== this.#connectedSubject.value) {
+      this.#connectedSubject.next(connected);
+    }
+  }
+
   #allowReconnect: boolean = true;
   /** A `connected` state that arrived while the reconnection gate was shut, replayed when it reopens. */
   #pendingConnectedState: { state: LedgerDeviceState; transport: ILedgerTransport } | null = null;
@@ -250,21 +264,29 @@ export class CasperLedgerService implements ICasperLedgerService {
   }
 
   async checkAppInfo(): Promise<LedgerEventStatus | null> {
-    if (this.#ledgerConnected && this.#ledgerApp) {
-      const appInfo = await this.#ledgerApp?.getAppInfo();
-
-      await this.#processDelayAfterAction();
-
-      if (appInfo.returnCode === 65535) {
-        return LedgerEventStatus.WaitingToSignPrevDeploy;
-      }
-
-      return appInfo.returnCode === 0x9000 && appInfo.appName === 'Casper'
-        ? null
-        : LedgerEventStatus.WaitingResponseFromDevice;
+    if (!this.#ledgerConnected || !this.#ledgerApp) {
+      return LedgerEventStatus.Disconnected;
     }
 
-    return LedgerEventStatus.WaitingResponseFromDevice;
+    const appInfo = await this.#ledgerApp.getAppInfo();
+
+    await this.#processDelayAfterAction();
+
+    // Not a device word: the app object answers 0xffff when an exchange threw something that
+    // was not a status word at all. Left as it was — see this change's D2.
+    if (appInfo.returnCode === 0xffff) {
+      return LedgerEventStatus.WaitingToSignPrevDeploy;
+    }
+
+    if (appInfo.returnCode === 0x5515) {
+      return LedgerEventStatus.DeviceLocked;
+    }
+
+    if (appInfo.returnCode !== 0x9000) {
+      return LedgerEventStatus.ErrorOpeningDevice;
+    }
+
+    return appInfo.appName === 'Casper' ? null : LedgerEventStatus.CasperAppNotLoaded;
   }
 
   /** @throws {LedgerError} message - ILedgerEvent JSON */

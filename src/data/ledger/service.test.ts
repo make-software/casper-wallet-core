@@ -5,6 +5,8 @@ import { BehaviorSubject, config as rxjsConfig, Observable, Subject } from 'rxjs
 import { CasperLedgerService } from './service';
 import {
   ICasperLedgerServiceOptions,
+  ILedgerEvent,
+  LEDGER_ERROR_STATUSES,
   LedgerDeviceState,
   LedgerError,
   LedgerEventStatus,
@@ -78,15 +80,36 @@ const connectService = async (
   return { service, transport };
 };
 
+const casperConnected = casperConnectedState;
+
+const connectWithState = async (state: Subject<LedgerDeviceState>) => {
+  const app = makeFakeApp({ getAppInfo: jest.fn(async () => undecidedAppInfo) });
+  const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+  const transport = makeTransport(state.asObservable());
+
+  service
+    .connect(
+      async () => transport,
+      async () => true,
+    )
+    .catch(() => undefined);
+  await flushMicrotasks();
+
+  return { service, transport, app };
+};
+
 /** Collects every raw BehaviorSubject.next() payload, bypassing the debounceTime(300) pipe. */
 const spyOnEvents = () => {
   const events: Array<{ status: LedgerEventStatus; [key: string]: unknown }> = [];
+  const realNext = BehaviorSubject.prototype.next;
   const spy = jest.spyOn(BehaviorSubject.prototype, 'next').mockImplementation(function (
     this: BehaviorSubject<unknown>,
     value: unknown,
   ) {
-    events.push(value as { status: LedgerEventStatus });
-    return Object.getPrototypeOf(BehaviorSubject.prototype).next.call(this, value);
+    if (value != null && typeof value === 'object' && 'status' in value) {
+      events.push(value as { status: LedgerEventStatus });
+    }
+    return realNext.call(this, value);
   });
   return { events, restore: () => spy.mockRestore() };
 };
@@ -431,6 +454,127 @@ describe('CasperLedgerService', () => {
 
       jest.clearAllTimers();
       jest.useRealTimers();
+    });
+  });
+
+  describe('checkAppInfo', () => {
+    const connectedWith = async (appInfo: Record<string, unknown>) => {
+      const app = makeFakeApp();
+      const { service } = await connectService(app);
+      app.getAppInfo.mockResolvedValue(appInfo as never);
+      return { service, app };
+    };
+
+    const lockedAppInfo = { returnCode: 21781, appName: 'Casper', appVersion: '3.0.0' };
+
+    it('resolves DeviceLocked for returnCode 0x5515', async () => {
+      const { service } = await connectedWith(lockedAppInfo);
+
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.DeviceLocked);
+    });
+
+    it('rejects with DeviceLocked and emits it when the connection check hits a locked device', async () => {
+      const { service } = await connectedWith(lockedAppInfo);
+      const { events, restore } = spyOnEvents();
+
+      await expect(service.signTransaction(makeTx(), ACCOUNT)).rejects.toMatchObject({
+        message: expect.stringContaining(LedgerEventStatus.DeviceLocked),
+      });
+      restore();
+
+      expect(events.some(e => e.status === LedgerEventStatus.DeviceLocked)).toBe(true);
+    });
+
+    it('resolves null when the Casper app is open and idle', async () => {
+      const { service } = await connectedWith(okAppInfo);
+
+      await expect(service.checkAppInfo()).resolves.toBeNull();
+    });
+
+    it('resolves CasperAppNotLoaded when another app is open', async () => {
+      const { service } = await connectedWith({
+        returnCode: 0x9000,
+        appName: 'Bitcoin',
+        appVersion: '1.0.0',
+      });
+
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.CasperAppNotLoaded);
+    });
+
+    it('resolves WaitingToSignPrevDeploy for returnCode 0xffff', async () => {
+      const { service } = await connectedWith({
+        returnCode: 0xffff,
+        appName: 'Casper',
+        appVersion: '3.0.0',
+      });
+
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.WaitingToSignPrevDeploy);
+    });
+
+    it('resolves ErrorOpeningDevice for an unclassified status word', async () => {
+      const { service } = await connectedWith({
+        returnCode: 0x6f00,
+        appName: 'Casper',
+        appVersion: '3.0.0',
+      });
+
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.ErrorOpeningDevice);
+    });
+
+    it('resolves Disconnected when connected without an app object', async () => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+      const state = new Subject<LedgerDeviceState>();
+      const service = new CasperLedgerService({ createLedgerApp: () => null as never });
+
+      service
+        .connect(
+          async () => makeTransport(state.asObservable()),
+          async () => true,
+        )
+        .catch(() => undefined);
+      await flushMicrotasks();
+      state.next(casperConnected);
+      await flushMicrotasks();
+
+      expect(service.isConnected).toBe(true);
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.Disconnected);
+
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('resolves Disconnected without calling getAppInfo when not connected', async () => {
+      const app = makeFakeApp();
+      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
+
+      await expect(service.checkAppInfo()).resolves.toBe(LedgerEventStatus.Disconnected);
+      expect(app.getAppInfo).not.toHaveBeenCalled();
+    });
+
+    it('returns only error statuses, with Disconnected as the one exception', async () => {
+      const app = makeFakeApp();
+      const { service } = await connectService(app);
+      const seen: LedgerEventStatus[] = [];
+
+      // 'Bitcoin' keeps the 0x9000 row non-null, so every row contributes a status.
+      for (const returnCode of [21781, 0x9000, 0xffff, 0x6f00]) {
+        app.getAppInfo.mockResolvedValue({
+          returnCode,
+          appName: 'Bitcoin',
+          appVersion: '3.0.0',
+        } as never);
+        const status = await service.checkAppInfo();
+        if (status) seen.push(status);
+      }
+
+      await service.disconnect();
+      const whileDisconnected = await service.checkAppInfo();
+      if (whileDisconnected) seen.push(whileDisconnected);
+
+      expect(seen).toHaveLength(5);
+      expect(seen.filter(status => !LEDGER_ERROR_STATUSES.has(status))).toEqual([
+        LedgerEventStatus.Disconnected,
+      ]);
     });
   });
 
@@ -930,24 +1074,6 @@ describe('CasperLedgerService', () => {
       jest.clearAllTimers();
       jest.useRealTimers();
     });
-
-    const casperConnected = casperConnectedState;
-
-    const connectWithState = async (state: Subject<LedgerDeviceState>) => {
-      const app = makeFakeApp({ getAppInfo: jest.fn(async () => undecidedAppInfo) });
-      const service = new CasperLedgerService({ createLedgerApp: () => app as never });
-      const transport = makeTransport(state.asObservable());
-
-      service
-        .connect(
-          async () => transport,
-          async () => true,
-        )
-        .catch(() => undefined);
-      await flushMicrotasks();
-
-      return { service, transport, app };
-    };
 
     it('raises DeviceLocked without an extra getAppInfo call (row 1)', async () => {
       const state = new Subject<LedgerDeviceState>();
@@ -1763,6 +1889,160 @@ describe('CasperLedgerService', () => {
       expect(usbCreator).toHaveBeenCalledTimes(1);
       expect(btCreator).toHaveBeenCalledTimes(1);
       expect(usbTransport.close).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('connected$', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['queueMicrotask', 'nextTick'] });
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    const collectConnected = (service: CasperLedgerService) => {
+      const seen: boolean[] = [];
+      const sub = service.connected$.subscribe(v => seen.push(v));
+      return { seen, stop: () => sub.unsubscribe() };
+    };
+
+    const connectedViaChannel = async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const connected = await connectWithState(state);
+      state.next(casperConnected);
+      await flushMicrotasks();
+      return { state, ...connected };
+    };
+
+    it('emits false when the channel reports the device locked', async () => {
+      const { state, service } = await connectedViaChannel();
+      const { seen, stop } = collectConnected(service);
+
+      state.next({ status: 'locked' });
+      await flushMicrotasks();
+      stop();
+
+      expect(seen).toEqual([true, false]);
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('emits true when the device comes back after a lock', async () => {
+      const { state, service } = await connectedViaChannel();
+      state.next({ status: 'locked' });
+      await flushMicrotasks();
+      const { seen, stop } = collectConnected(service);
+
+      state.next(casperConnected);
+      await flushMicrotasks();
+      stop();
+
+      expect(seen).toEqual([false, true]);
+      expect(service.isConnected).toBe(true);
+    });
+
+    it('emits false when the transport fires its own disconnect event', async () => {
+      const { service, transport } = await connectedViaChannel();
+      const { seen, stop } = collectConnected(service);
+
+      captureDisconnectHandler(transport)();
+      await flushMicrotasks();
+      stop();
+
+      expect(seen).toEqual([true, false]);
+    });
+
+    it('emits false exactly once when disconnect() is called', async () => {
+      const { service } = await connectService(makeFakeApp());
+      const { seen, stop } = collectConnected(service);
+
+      await service.disconnect();
+      stop();
+
+      expect(seen).toEqual([true, false]);
+    });
+
+    it('emits true when the status-word path reaches Connected', async () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const { seen, stop } = collectConnected(service);
+
+      await service.connect(
+        async () => makeTransport(),
+        async () => true,
+      );
+      stop();
+
+      expect(seen).toEqual([false, true]);
+    });
+
+    it('emits once, not twice, for two consecutive locked states', async () => {
+      const { state, service } = await connectedViaChannel();
+      const { seen, stop } = collectConnected(service);
+
+      state.next({ status: 'locked' });
+      state.next({ status: 'locked' });
+      await flushMicrotasks();
+      stop();
+
+      expect(seen).toEqual([true, false]);
+    });
+
+    it('replays true to a subscriber that arrives after the service connected', async () => {
+      const { service } = await connectService(makeFakeApp());
+      const { seen, stop } = collectConnected(service);
+      stop();
+
+      expect(seen).toEqual([true]);
+    });
+
+    it('replays false to a subscriber on a service that never connected', () => {
+      const service = new CasperLedgerService({ createLedgerApp: () => makeFakeApp() as never });
+      const { seen, stop } = collectConnected(service);
+      stop();
+
+      expect(seen).toEqual([false]);
+    });
+
+    it('keeps isConnected equal to the last value it emitted', async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const { service, transport } = await connectWithState(state);
+      const seen: boolean[] = [];
+      const sub = service.connected$.subscribe(v => {
+        seen.push(v);
+        expect(service.isConnected).toBe(v);
+      });
+
+      state.next(casperConnected);
+      state.next({ status: 'locked' });
+      state.next(casperConnected);
+      await flushMicrotasks();
+      captureDisconnectHandler(transport)();
+      await flushMicrotasks();
+      sub.unsubscribe();
+
+      expect(seen).toEqual([false, true, false, true, false]);
+      expect(service.isConnected).toBe(false);
+    });
+
+    it('leaves the ILedgerEvent sequence unchanged across a lock and a recovery', async () => {
+      const state = new Subject<LedgerDeviceState>();
+      const { service } = await connectWithState(state);
+      const events: ILedgerEvent[] = [];
+      const sub = service.ledgerEvents$.subscribe(e => events.push(e));
+
+      state.next(casperConnected);
+      state.next({ status: 'locked' });
+      state.next(casperConnected);
+      await flushMicrotasks();
+      sub.unsubscribe();
+
+      expect(events).toEqual([
+        { status: LedgerEventStatus.Disconnected },
+        { status: LedgerEventStatus.Connected },
+        { status: LedgerEventStatus.DeviceLocked },
+        { status: LedgerEventStatus.Connected },
+      ]);
     });
   });
 });

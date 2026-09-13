@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **`ICasperLedgerService.connected$`** — an `Observable<boolean>` of the service's own connection
+  flag, replayed to each new subscriber and emitting only on a change. A consumer that mirrored
+  `Connected`/`Disconnected` off the event stream should subscribe to this instead: the flag also
+  moves on statuses the stream reports as something else — a locked device arrives as
+  `DeviceLocked` — so mirroring the stream leaves a stale `true`.
+
 - **`ILedgerTransport.observeState`** (optional) with `LedgerDeviceState` and
   `LedgerDeviceStatus` (`domain/ledger`) — a transport that can report device state pushes it
   instead of having the service poll `getAppInfo`. Implementing it commits the adapter to a
@@ -18,6 +24,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   app identity still resolves; leaving the member off changes nothing.
 
 ### Changed
+
+- **`checkAppInfo()` names a locked device.** A device answering `0x5515` now resolves
+  `DeviceLocked`, an unclassified status word resolves `ErrorOpeningDevice`, a non-Casper app
+  resolves `CasperAppNotLoaded`, and no connection resolves `Disconnected`; `WaitingResponseFromDevice`
+  is no longer in its range. A consumer that rendered that status as live progress — including
+  through the `LedgerError` `signTransaction` throws — should expect these instead and give each
+  one error framing.
 
 - **`connect()` serialises concurrent attempts.** Callers arriving while an attempt is running
   share it when they pass the same `transportCreator`, availability check and transport kind, and
