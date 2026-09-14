@@ -1,7 +1,8 @@
 import type Transport from '@ledgerhq/hw-transport';
 import type CasperApp from '@zondax/ledger-casper';
+import { Observable } from 'rxjs';
 
-import type { ILedgerCasperApp, ILedgerTransport } from '../../domain';
+import type { ILedgerCasperApp, ILedgerTransport, LedgerDeviceState } from '../../domain';
 
 /**
  * `ILedgerTransport` and `ILedgerCasperApp` are declared by hand so the vendor packages stay
@@ -14,5 +15,21 @@ describe('vendor Ledger contracts', () => {
     const app: ILedgerCasperApp = {} as CasperApp;
 
     expect([transport, app]).toHaveLength(2);
+  });
+
+  it('are assignable with and without a state channel', () => {
+    const withoutState: ILedgerTransport = {
+      close: async () => {},
+      on: () => {},
+      off: () => {},
+      setExchangeTimeout: () => {},
+    };
+
+    const withState: ILedgerTransport = {
+      ...withoutState,
+      observeState: () => new Observable<LedgerDeviceState>(),
+    };
+
+    expect([withoutState, withState]).toHaveLength(2);
   });
 });

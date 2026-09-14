@@ -34,6 +34,12 @@ export interface ICasperLedgerService {
   /** Accounts from the last successful {@link getAccountList}; cleared on disconnect. */
   cachedAccounts: LedgerAccount[];
   readonly isConnected: boolean;
+  /**
+   * Every transition of the connection flag, replayed to each new subscriber. The flag moves on
+   * states the event stream reports as something other than `Disconnected` — a locked device is
+   * one — so a consumer mirroring that stream cannot derive it.
+   */
+  readonly connected$: Observable<boolean>;
   subscribeToLedgerEventStatus(onData: (evt: ILedgerEvent) => void): Subscription;
   /**
    * The same events as {@link subscribeToLedgerEventStatus}, un-debounced, for consumers that

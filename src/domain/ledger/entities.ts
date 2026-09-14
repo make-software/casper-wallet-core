@@ -1,3 +1,5 @@
+import type { Observable } from 'rxjs';
+
 export enum LedgerEventStatus {
   Disconnected = 'ledger-disconnected',
   NotAvailable = 'ledger-not-available',
@@ -63,6 +65,15 @@ export interface SignResult {
 export type LedgerTransport = 'USB' | 'Bluetooth';
 export type SelectedTransport = LedgerTransport | undefined;
 
+/** Device state as this library models it, independent of any vendor SDK. */
+export type LedgerDeviceStatus = 'connected' | 'locked' | 'busy' | 'disconnected' | 'unknown';
+
+export interface LedgerDeviceState {
+  status: LedgerDeviceStatus;
+  /** The app the device currently has open, when the transport can report it. */
+  app?: { name: string; version: string };
+}
+
 /**
  * The transport surface the Ledger service drives — satisfied equally by
  * `@ledgerhq/hw-transport`'s `Transport` and by an app's own DMK-session adapter. `'disconnect'` is
@@ -74,6 +85,13 @@ export interface ILedgerTransport {
   on(eventName: string, cb: (...args: any[]) => any): void;
   off(eventName: string, cb: (...args: any[]) => any): void;
   setExchangeTimeout(exchangeTimeout: number): void;
+  /**
+   * Device state pushed by the transport. Optional: a transport with no channel stays on the
+   * APDU status-word fallback. One that implements this must emit state changes unprompted for
+   * as long as it has a subscriber, even while the service sends nothing to the device — a
+   * transport that cannot guarantee that should leave this member off instead.
+   */
+  observeState?(): Observable<LedgerDeviceState>;
 }
 
 /** The returned object must also satisfy whatever the app's `createLedgerApp` consumes. */
