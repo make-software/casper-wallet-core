@@ -481,6 +481,180 @@ describe('createSwapFlowRunner', () => {
     expect(deps.dexContractRepository.checkApprovalRequired).not.toHaveBeenCalled();
   });
 
+  describe('pendingApproval', () => {
+    const PENDING = { hash: '0xpending-approval', isDeploy: false };
+
+    it('ignores a handed-in approval once the allowance is already sufficient', async () => {
+      const buildApprovalTransaction = jest.fn().mockResolvedValue(BUILT_APPROVAL);
+      const waitForTransaction = jest.fn(async ({ hash }: { hash: string }) =>
+        outcome(hash, 'success'),
+      );
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(false),
+          buildApprovalTransaction,
+          buildSwapTransaction: jest.fn().mockResolvedValue(BUILT_SWAP),
+        }),
+        transactionStatusRepository: { observeTransaction: jest.fn(), waitForTransaction },
+      });
+
+      const { types } = await collect(deps, startParams({ pendingApproval: PENDING }));
+
+      expect(types).toEqual([
+        'approval:checking',
+        'approval:not-required',
+        'swap:signing',
+        'swap:sent',
+        'swap:confirmed',
+      ]);
+      expect(buildApprovalTransaction).not.toHaveBeenCalled();
+      expect(waitForTransaction).not.toHaveBeenCalledWith(
+        expect.objectContaining({ hash: PENDING.hash }),
+      );
+    });
+
+    it('waits for a handed-in approval instead of submitting a new one while it is still settling', async () => {
+      const buildApprovalTransaction = jest.fn().mockResolvedValue(BUILT_APPROVAL);
+      const sendDexTransaction = jest.fn().mockResolvedValue('0xnew-approval');
+      const waitForTransaction = jest.fn(async ({ hash }: { hash: string }) =>
+        outcome(hash, 'success'),
+      );
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(true),
+          buildApprovalTransaction,
+          buildSwapTransaction: jest.fn().mockResolvedValue(BUILT_SWAP),
+        }),
+        casperTransactionsRepository: { sendDexTransaction },
+        transactionStatusRepository: { observeTransaction: jest.fn(), waitForTransaction },
+      });
+
+      const { types, result } = await collect(deps, startParams({ pendingApproval: PENDING }));
+
+      expect(types).toEqual([
+        'approval:checking',
+        'approval:sent',
+        'approval:confirmed',
+        'swap:signing',
+        'swap:sent',
+        'swap:confirmed',
+      ]);
+      expect(result.approvalHash).toBe(PENDING.hash);
+      expect(buildApprovalTransaction).not.toHaveBeenCalled();
+      expect(sendDexTransaction).not.toHaveBeenCalledWith(
+        expect.objectContaining({ built: BUILT_APPROVAL }),
+      );
+      expect(waitForTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ hash: PENDING.hash, isDeploy: PENDING.isDeploy }),
+      );
+    });
+
+    it('fails the approval leg without running the swap when the handed-in approval settles as a failure', async () => {
+      const buildSwapTransaction = jest.fn().mockResolvedValue(BUILT_SWAP);
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(true),
+          buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT_APPROVAL),
+          buildSwapTransaction,
+        }),
+        transactionStatusRepository: {
+          observeTransaction: jest.fn(),
+          waitForTransaction: jest.fn(async ({ hash }: { hash: string }) =>
+            outcome(hash, 'failure', 'User error: 1'),
+          ),
+        },
+      });
+
+      const { types, result } = await collect(deps, startParams({ pendingApproval: PENDING }));
+
+      expect(types).toEqual(['approval:checking', 'approval:sent', 'failed']);
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(buildSwapTransaction).not.toHaveBeenCalled();
+    });
+
+    it('fails the approval leg without running the swap when the wait on the handed-in approval throws', async () => {
+      const buildSwapTransaction = jest.fn().mockResolvedValue(BUILT_SWAP);
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(true),
+          buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT_APPROVAL),
+          buildSwapTransaction,
+        }),
+        transactionStatusRepository: {
+          observeTransaction: jest.fn(),
+          waitForTransaction: jest
+            .fn()
+            .mockRejectedValue(new TransactionTimeoutError(PENDING.hash)),
+        },
+      });
+
+      const { types, result } = await collect(deps, startParams({ pendingApproval: PENDING }));
+
+      expect(types).toEqual(['approval:checking', 'approval:sent', 'failed']);
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(buildSwapTransaction).not.toHaveBeenCalled();
+    });
+
+    it('cancels the approval leg when cancel lands while waiting on the handed-in approval', async () => {
+      let releaseWait: () => void = () => undefined;
+      const buildSwapTransaction = jest.fn().mockResolvedValue(BUILT_SWAP);
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(true),
+          buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT_APPROVAL),
+          buildSwapTransaction,
+        }),
+        transactionStatusRepository: {
+          observeTransaction: jest.fn(),
+          waitForTransaction: jest.fn(
+            ({ signal }: { signal?: AbortSignal }) =>
+              new Promise<ITransactionOutcome>((_resolve, reject) => {
+                releaseWait = () => reject(new TransactionWatchCancelledError(PENDING.hash));
+                signal?.addEventListener('abort', releaseWait, { once: true });
+              }),
+          ),
+        },
+      });
+
+      const handle = createSwapFlowRunner(deps).start(startParams({ pendingApproval: PENDING }));
+      const events = firstValueFrom(handle.events$.pipe(toArray()));
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      handle.cancel();
+      releaseWait();
+
+      const result = await handle.done;
+      const types = (await events).map(e => e.type);
+
+      expect(types).toEqual(['approval:checking', 'approval:sent', 'cancelled']);
+      expect(result.status).toBe('cancelled');
+      expect(buildSwapTransaction).not.toHaveBeenCalled();
+    });
+
+    it('honours isDeploy: true on the handed-in approval', async () => {
+      const waitForTransaction = jest.fn(async ({ hash }: { hash: string }) =>
+        outcome(hash, 'success'),
+      );
+      const deps = makeDeps({
+        dexContractRepository: stubDexContractRepository({
+          checkApprovalRequired: jest.fn().mockResolvedValue(true),
+          buildApprovalTransaction: jest.fn().mockResolvedValue(BUILT_APPROVAL),
+          buildSwapTransaction: jest.fn().mockResolvedValue(BUILT_SWAP),
+        }),
+        transactionStatusRepository: { observeTransaction: jest.fn(), waitForTransaction },
+      });
+
+      await collect(
+        deps,
+        startParams({ pendingApproval: { hash: '0xdeploy-approval', isDeploy: true } }),
+      );
+
+      expect(waitForTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ hash: '0xdeploy-approval', isDeploy: true }),
+      );
+    });
+  });
+
   it('classifies an on-device rejection as cancelled without a supplied classifier', async () => {
     const deps = makeDeps({
       casperTransactionsRepository: {

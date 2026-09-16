@@ -88,6 +88,13 @@ export interface IStartSwapFlowParams {
    * always awaited regardless — submitting a swap before its allowance is on chain reverts it.
    */
   awaitSettlement?: boolean;
+  /**
+   * An approval this trade already submitted on an earlier attempt. When the allowance is still
+   * insufficient the flow waits for this transaction instead of submitting a second approval —
+   * without it, a retry that runs while the first approval is still settling pays for another.
+   * Ignored once the allowance is on chain, where the contract read is authoritative.
+   */
+  pendingApproval?: { hash: string; isDeploy: boolean };
 }
 
 /**

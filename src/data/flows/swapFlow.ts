@@ -156,6 +156,7 @@ const runSwap = async function* (
     slippage,
     deadline,
     awaitSettlement = true,
+    pendingApproval,
   } = params;
   const isNative = firstToken.id === CSPR_NATIVE_TOKEN_ID;
 
@@ -208,6 +209,43 @@ const runSwap = async function* (
 
   if (!approvalRequired) {
     yield { type: 'approval:not-required' };
+  } else if (pendingApproval) {
+    yield { type: 'approval:sent', hash: pendingApproval.hash };
+
+    let settled: ITransactionOutcome;
+
+    try {
+      settled = await deps.transactionStatusRepository.waitForTransaction({
+        hash: pendingApproval.hash,
+        network: deps.network,
+        isDeploy: pendingApproval.isDeploy,
+        signal,
+      });
+    } catch (error) {
+      yield signal.aborted
+        ? { type: 'cancelled', leg: 'approval' }
+        : { type: 'failed', leg: 'approval', error };
+
+      return;
+    }
+
+    if (signal.aborted) {
+      yield { type: 'cancelled', leg: 'approval' };
+
+      return;
+    }
+
+    if (settled.status === 'failure') {
+      yield {
+        type: 'failed',
+        leg: 'approval',
+        error: new Error(`Transaction failed: ${settled.errorMessage ?? 'unknown reason'}`),
+      };
+
+      return;
+    }
+
+    yield { type: 'approval:confirmed' };
   } else {
     const approved = yield* submitLeg(deps, signal, 'approval', { awaitSettlement: true }, () =>
       deps.dexContractRepository.buildApprovalTransaction({
