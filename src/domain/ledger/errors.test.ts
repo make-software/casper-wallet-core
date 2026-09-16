@@ -1,5 +1,11 @@
 import { ILedgerEvent, LedgerEventStatus } from './entities';
-import { isLedgerErrorEvent, LEDGER_ERROR_STATUSES, LedgerError } from './errors';
+import {
+  isLedgerErrorEvent,
+  LEDGER_ERROR_STATUSES,
+  LEDGER_SUBMIT_OUTCOME_STATUSES,
+  ledgerEventAnswersSubmit,
+  LedgerError,
+} from './errors';
 
 describe('LedgerEventStatus', () => {
   it('has all 27 members with mobile-matching string values', () => {
@@ -53,5 +59,45 @@ describe('isLedgerErrorEvent', () => {
     expect(isLedgerErrorEvent({ status: LedgerEventStatus.Timeout })).toBe(true);
     expect(isLedgerErrorEvent({ status: LedgerEventStatus.Connected })).toBe(false);
     expect(isLedgerErrorEvent({ status: LedgerEventStatus.PermissionWindowFailed })).toBe(false);
+  });
+});
+
+describe('LEDGER_SUBMIT_OUTCOME_STATUSES', () => {
+  it('holds exactly the six statuses that answer for a submit', () => {
+    expect(LEDGER_SUBMIT_OUTCOME_STATUSES.size).toBe(6);
+  });
+
+  it.each([
+    LedgerEventStatus.SignatureCompleted,
+    LedgerEventStatus.SignatureCanceled,
+    LedgerEventStatus.SignatureFailed,
+    LedgerEventStatus.MsgSignatureCompleted,
+    LedgerEventStatus.MsgSignatureCanceled,
+    LedgerEventStatus.MsgSignatureFailed,
+  ])('%s answers for a submit', status => {
+    expect(ledgerEventAnswersSubmit(status)).toBe(true);
+  });
+
+  it.each([
+    LedgerEventStatus.DeviceLocked,
+    LedgerEventStatus.CasperAppNotLoaded,
+    LedgerEventStatus.Disconnected,
+    LedgerEventStatus.WaitingResponseFromDevice,
+    LedgerEventStatus.SignatureRequestedToUser,
+  ])('%s does not answer for a submit', status => {
+    expect(ledgerEventAnswersSubmit(status)).toBe(false);
+  });
+
+  it('does not treat an interruption as an answer merely because it is an error', () => {
+    // Guards the mistake this set exists to prevent: both of these are in
+    // LEDGER_ERROR_STATUSES, and neither answers for a submit.
+    expect(LEDGER_ERROR_STATUSES.has(LedgerEventStatus.DeviceLocked)).toBe(true);
+    expect(ledgerEventAnswersSubmit(LedgerEventStatus.DeviceLocked)).toBe(false);
+    expect(LEDGER_ERROR_STATUSES.has(LedgerEventStatus.CasperAppNotLoaded)).toBe(true);
+    expect(ledgerEventAnswersSubmit(LedgerEventStatus.CasperAppNotLoaded)).toBe(false);
+  });
+
+  it('leaves the existing error set at its 15 members', () => {
+    expect(LEDGER_ERROR_STATUSES.size).toBe(15);
   });
 });
