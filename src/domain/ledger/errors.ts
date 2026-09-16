@@ -39,3 +39,22 @@ export const LEDGER_CANCELLATION_STATUSES: ReadonlySet<LedgerEventStatus> = new 
  */
 export const isLedgerSignatureCancelled = (error: unknown): boolean =>
   error instanceof LedgerError && LEDGER_CANCELLATION_STATUSES.has(error.ledgerEvent.status);
+
+/**
+ * The statuses that answer for a submit: the device reported an outcome and the submit must
+ * never be re-issued afterwards. Distinct from {@link LEDGER_ERROR_STATUSES}, which also holds
+ * interruptions — `DeviceLocked` and `CasperAppNotLoaded` leave a submit unanswered, which is
+ * the case recovery exists for.
+ */
+export const LEDGER_SUBMIT_OUTCOME_STATUSES: ReadonlySet<LedgerEventStatus> = new Set([
+  LedgerEventStatus.SignatureCompleted,
+  LedgerEventStatus.SignatureCanceled,
+  LedgerEventStatus.SignatureFailed,
+  LedgerEventStatus.MsgSignatureCompleted,
+  LedgerEventStatus.MsgSignatureCanceled,
+  LedgerEventStatus.MsgSignatureFailed,
+]);
+
+/** Whether the device has answered for a submit — see {@link LEDGER_SUBMIT_OUTCOME_STATUSES}. */
+export const ledgerEventAnswersSubmit = (status: LedgerEventStatus): boolean =>
+  LEDGER_SUBMIT_OUTCOME_STATUSES.has(status);
