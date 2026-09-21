@@ -6,47 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-
-- **`ICasperLedgerService.connected$`** — an `Observable<boolean>` of the service's own connection
-  flag, replayed to each new subscriber and emitting only on a change. A consumer that mirrored
-  `Connected`/`Disconnected` off the event stream should subscribe to this instead: the flag also
-  moves on statuses the stream reports as something else — a locked device arrives as
-  `DeviceLocked` — so mirroring the stream leaves a stale `true`.
-
-- **`ILedgerTransport.observeState`** (optional) with `LedgerDeviceState` and
-  `LedgerDeviceStatus` (`domain/ledger`) — a transport that can report device state pushes it
-  instead of having the service poll `getAppInfo`. Implementing it commits the adapter to a
-  liveness contract: it **must emit state changes unprompted for as long as it has a subscriber**,
-  including while core sends nothing to the device. An adapter that cannot guarantee that should
-  leave the member off and stay on the APDU status-word path. Core keeps the status-word poll
-  running underneath the state wait, so a channel that goes silent or reports `connected` with no
-  app identity still resolves; leaving the member off changes nothing.
-
-### Changed
-
-- **`checkAppInfo()` names a locked device.** A device answering `0x5515` now resolves
-  `DeviceLocked`, an unclassified status word resolves `ErrorOpeningDevice`, a non-Casper app
-  resolves `CasperAppNotLoaded`, and no connection resolves `Disconnected`; `WaitingResponseFromDevice`
-  is no longer in its range. A consumer that rendered that status as live progress — including
-  through the `LedgerError` `signTransaction` throws — should expect these instead and give each
-  one error framing.
-
-- **`connect()` serialises concurrent attempts.** Callers arriving while an attempt is running
-  share it when they pass the same `transportCreator`, availability check and transport kind, and
-  are queued behind it when they do not — a second call can no longer orphan a device session or
-  be answered by an attempt against a different transport.
-- **A transport being replaced is closed first.** `connect()` detaches and closes the previous
-  transport before creating its replacement, and `disconnect()` does so whether or not the attempt
-  ever reached "connected" — a cancelled connect no longer leaves the device session claimed.
-- Documented the `ILedgerTransport` contract: it is transport-agnostic, satisfied equally by
-  `@ledgerhq/hw-transport`'s `Transport` and by an app's own DMK-session adapter. An adapter author
-  must subscribe only `'disconnect'`, fire it at most once per session, and latch
-  `setExchangeTimeout` for subsequent exchanges rather than applying it to one in flight;
-  `createLedgerApp`'s app object, not the transport, produces the `returnCode` values core
-  classifies. No behaviour change.
-
-## [2.0.0] - 2026-09-08 — Swap / DEX, shared transactions and Ledger
+## [2.0.0] - 2026-09-21 — Swap / DEX, shared transactions and Ledger
 
 ### Added
 
@@ -187,6 +147,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   own strings, and the type makes an incomplete map a compile error. A test scans `src/` to keep
   the list exhaustive.
 
+- **`ICasperLedgerService.connected$`** — an `Observable<boolean>` of the service's own connection
+  flag, replayed to each new subscriber and emitting only on a change. A consumer that mirrored
+  `Connected`/`Disconnected` off the event stream should subscribe to this instead: the flag also
+  moves on statuses the stream reports as something else — a locked device arrives as
+  `DeviceLocked` — so mirroring the stream leaves a stale `true`.
+
+- **`ILedgerTransport.observeState`** (optional) with `LedgerDeviceState` and
+  `LedgerDeviceStatus` (`domain/ledger`) — a transport that can report device state pushes it
+  instead of having the service poll `getAppInfo`. Implementing it commits the adapter to a
+  liveness contract: it **must emit state changes unprompted for as long as it has a subscriber**,
+  including while core sends nothing to the device. An adapter that cannot guarantee that should
+  leave the member off and stay on the APDU status-word path. Core keeps the status-word poll
+  running underneath the state wait, so a channel that goes silent or reports `connected` with no
+  app identity still resolves; leaving the member off changes nothing.
+
+- **`LEDGER_SUBMIT_OUTCOME_STATUSES` / `ledgerEventAnswersSubmit`** (`domain/ledger`) — the six
+  statuses that answer for a submit, letting a client tell an answered submit from an interrupted
+  one and never re-issue one the device already signed. `LEDGER_ERROR_STATUSES` cannot serve here:
+  it also holds `DeviceLocked` and `CasperAppNotLoaded`, which interrupt a submit without
+  answering it.
+
+- **`createLedgerSubmitResume`** (`domain/ledger`) — one tested answer to whether an outstanding
+  Ledger submit may be re-issued once the device comes back, so neither wallet client writes that
+  logic again. Outstanding is refcounted rather than a flag, because a resumed submit overlaps the
+  one it resumes; the submit boundary itself stays the caller's.
+
+- **`IStartSwapFlowParams.pendingApproval`** (optional) — an approval this trade already submitted
+  on an earlier attempt. While the allowance is still insufficient the swap flow waits on that
+  transaction instead of submitting a second one; a retry running before the first approval
+  settles would otherwise pay for another. Ignored once the allowance is on chain, where the
+  contract read is authoritative.
+
 ### Changed
 
 - **BREAKING — `IBuiltDexTransaction` is a discriminated union.** Exactly one of
@@ -228,6 +220,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `OnRampError`, `ValidatorError`, `AppEventsError`, `ContractPackageError`, `Eip712Error`,
   `TxSignatureRequestError`) now extends `DomainError`. Construction, `type`, `name` and
   `traceable` are unchanged; each instance additionally carries `sourceError`.
+
+- **`checkAppInfo()` names a locked device.** A device answering `0x5515` now resolves
+  `DeviceLocked`, an unclassified status word resolves `ErrorOpeningDevice`, a non-Casper app
+  resolves `CasperAppNotLoaded`, and no connection resolves `Disconnected`; `WaitingResponseFromDevice`
+  is no longer in its range. A consumer that rendered that status as live progress — including
+  through the `LedgerError` `signTransaction` throws — should expect these instead and give each
+  one error framing.
+
+- **`connect()` serialises concurrent attempts.** Callers arriving while an attempt is running
+  share it when they pass the same `transportCreator`, availability check and transport kind, and
+  are queued behind it when they do not — a second call can no longer orphan a device session or
+  be answered by an attempt against a different transport.
+- **A transport being replaced is closed first.** `connect()` detaches and closes the previous
+  transport before creating its replacement, and `disconnect()` does so whether or not the attempt
+  ever reached "connected" — a cancelled connect no longer leaves the device session claimed.
+- Documented the `ILedgerTransport` contract: it is transport-agnostic, satisfied equally by
+  `@ledgerhq/hw-transport`'s `Transport` and by an app's own DMK-session adapter. An adapter author
+  must subscribe only `'disconnect'`, fire it at most once per session, and latch
+  `setExchangeTimeout` for subsequent exchanges rather than applying it to one in flight;
+  `createLedgerApp`'s app object, not the transport, produces the `returnCode` values core
+  classifies. No behaviour change.
 
 ### Fixed
 
@@ -458,7 +471,8 @@ Tag exists; no GitHub release notes were published. See the
 Tagged but not published as GitHub Releases. See the
 [tag list](https://github.com/make-software/casper-wallet-core/tags) for history.
 
-[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/make-software/casper-wallet-core/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/make-software/casper-wallet-core/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/make-software/casper-wallet-core/compare/v1.2.0...v1.2.1
