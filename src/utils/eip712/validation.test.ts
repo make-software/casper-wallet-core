@@ -27,31 +27,36 @@ describe('validatePrimaryType', () => {
   });
 });
 
-describe('resolveDomainTypes (4-step priority)', () => {
-  it('1) prefers types.EIP712Domain', () => {
-    const custom = [{ name: 'name', type: 'string' }];
-    const res = resolveDomainTypes(
-      DOMAIN,
-      { EIP712Domain: custom } as unknown as IEIP712Types,
-      undefined,
+describe('resolveDomainTypes', () => {
+  const casperTypes = () => CASPER_DOMAIN_TYPES.filter(f => DOMAIN[f.name] != null);
+
+  it('accepts types.EIP712Domain equal to the Casper domain types', () => {
+    const res = resolveDomainTypes(DOMAIN, { EIP712Domain: casperTypes() }, undefined);
+    expect(res).toEqual(casperTypes());
+  });
+
+  it('accepts options.domainTypes equal to the Casper domain types', () => {
+    const res = resolveDomainTypes(DOMAIN, {}, casperTypes());
+    expect(res).toEqual(casperTypes());
+  });
+
+  it.each([
+    ['types.EIP712Domain', { EIP712Domain: [{ name: 'name', type: 'string' }] }, undefined],
+    ['options.domainTypes', {}, [{ name: 'name', type: 'string' }]],
+  ])('throws DOMAIN_TYPES_REQUIRED when %s differs', (_, types, option) => {
+    expect(() => resolveDomainTypes(DOMAIN, types, option)).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.DOMAIN_TYPES_REQUIRED }),
     );
-    expect(res).toBe(custom);
   });
 
-  it('2) falls back to options.domainTypes', () => {
-    const opt = [{ name: 'name', type: 'string' }];
-    const res = resolveDomainTypes(DOMAIN, {} as unknown as IEIP712Types, opt);
-    expect(res).toBe(opt);
-  });
-
-  it('3) derives from CASPER_DOMAIN_TYPES for known fields', () => {
+  it('derives from CASPER_DOMAIN_TYPES for known fields', () => {
     const res = resolveDomainTypes(DOMAIN, {} as unknown as IEIP712Types, undefined);
     expect(res.map(f => f.name)).toEqual(
       CASPER_DOMAIN_TYPES.filter(f => DOMAIN[f.name] != null).map(f => f.name),
     );
   });
 
-  it('4) throws DOMAIN_TYPES_REQUIRED for unknown domain field', () => {
+  it('throws DOMAIN_TYPES_REQUIRED for an unknown domain field', () => {
     let caught: unknown;
     try {
       resolveDomainTypes({ unexpected: 'x' }, {} as unknown as IEIP712Types, undefined);
@@ -68,6 +73,15 @@ describe('validateTypedDataEIP712FieldTypes', () => {
     expect(() =>
       validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type: 'uint256[]' }] }),
     ).toThrow(EIP712Error);
+  });
+
+  it('rejects a struct-typed field', () => {
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({
+        Order: [{ name: 'details', type: 'Details' }],
+        Details: [{ name: 'value', type: 'uint256' }],
+      }),
+    ).toThrow(expect.objectContaining({ errorCode: SignTypedDataErrorCodes.UNSUPPORTED_TYPE }));
   });
 
   it('allows bytes32', () => {

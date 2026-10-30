@@ -1,4 +1,5 @@
-import { PermitTypes, buildDomain } from '@casper-ecosystem/casper-eip-712';
+import { CASPER_DOMAIN_TYPES, PermitTypes, buildDomain } from '@casper-ecosystem/casper-eip-712';
+import { SignTypedDataErrorCodes } from '../../domain';
 import { computeTypedDataEIP712Digest } from './digest';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
@@ -43,5 +44,68 @@ describe('computeTypedDataEIP712Digest', () => {
   it('rejects unknown message fields only when asked', () => {
     const withExtra = { ...TYPED_DATA, message: { ...MESSAGE, extra: 1n } };
     expect(() => computeTypedDataEIP712Digest(withExtra, { rejectUnknownFields: true })).toThrow();
+  });
+});
+
+describe('computeTypedDataEIP712Digest — strict type validation', () => {
+  const ORDER_TYPES = {
+    Order: [
+      { name: 'nonce', type: 'uint256' },
+      { name: 'details', type: 'Details' },
+    ],
+    Details: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+    ],
+  };
+
+  it('rejects a struct-typed field with UNSUPPORTED_TYPE', () => {
+    const order = {
+      domain: DOMAIN,
+      types: ORDER_TYPES,
+      primaryType: 'Order',
+      message: { nonce: 1n, details: { to: '0x00' + '02'.repeat(32), value: 999999999n } },
+    };
+    expect(() => computeTypedDataEIP712Digest(order)).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.UNSUPPORTED_TYPE }),
+    );
+  });
+
+  it('rejects options.domainTypes that differ from the Casper domain types', () => {
+    const reordered = [
+      { name: 'contract_package_hash', type: 'bytes32' },
+      { name: 'chain_name', type: 'string' },
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+    ];
+    expect(() => computeTypedDataEIP712Digest(TYPED_DATA, { domainTypes: reordered })).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.DOMAIN_TYPES_REQUIRED }),
+    );
+  });
+
+  it('rejects types.EIP712Domain that differs from the Casper domain types', () => {
+    const retyped = {
+      ...TYPED_DATA,
+      types: {
+        ...PermitTypes,
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chain_name', type: 'string' },
+          { name: 'contract_package_hash', type: 'string' },
+        ],
+      },
+    };
+    expect(() => computeTypedDataEIP712Digest(retyped)).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.DOMAIN_TYPES_REQUIRED }),
+    );
+  });
+
+  it('accepts explicit domain types equal to the Casper domain types', () => {
+    const { digest } = computeTypedDataEIP712Digest(
+      { ...TYPED_DATA, types: { ...PermitTypes, EIP712Domain: [...CASPER_DOMAIN_TYPES] } },
+      { domainTypes: [...CASPER_DOMAIN_TYPES] },
+    );
+    expect(digest).toBe('0x545a8088d6365ada6ef282f4d5979c655cd428b4115cbf65f561bcd65767a98c');
   });
 });
