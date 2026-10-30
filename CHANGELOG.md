@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [2.0.1] - 2026-10-30
 
+### Fixed
+
+- EIP-712: a `uint*`/`int*` value given as a decimal string (`value: '1000'`, the form the
+  Casper Wallet SDK documents) was hashed as hex bytes (`0x1000` = 4096) while the approval
+  screen showed `1000`. Numeric values are now normalised to the integer they read as before
+  hashing, and display rows carry that integer in decimal, matching the library's Go reference.
+  Accepted forms: `bigint`, safe integer, digit-only decimal string, and an even-length `0x`
+  hex string. Negative values are rejected for every integer type.
+
 ### Changed
 
 - EIP-712: `computeDigest`, `prepareSignatureRequest` and `signTypedData` reject a struct-typed
@@ -13,6 +22,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - EIP-712: `types.EIP712Domain` and `options.domainTypes` are accepted only when they equal the
   `CASPER_DOMAIN_TYPES` fields present in the domain, in that order; anything else is rejected
   with `DOMAIN_TYPES_REQUIRED`. Omitting both keeps working as before.
+- EIP-712: message and domain values are validated against what the encoder hashes. `bool`
+  must be a boolean, `string` a string, `address` 20 or 33 hex bytes, `bytes32` 32 hex bytes;
+  numbers are range-checked for their bit width; a declared field missing from the message is
+  rejected. All with `INVALID_PARAMS`. Field types outside `address`, `bool`, `bytes`,
+  `bytes32`, `string`, `uintN`, `intN` are rejected with `UNSUPPORTED_TYPE`.
+- EIP-712: the domain must carry all four Casper fields (`name`, `version`, `chain_name`,
+  `contract_package_hash`), the shape reference verifiers hash with `CasperDomainTypes`, and
+  `chain_name` must name a known Casper network; a `null` domain value is rejected. All fail
+  with `INVALID_PARAMS`. `enrichment.contractPackage` can no longer be `'absent'` for a request
+  built by `prepareSignatureRequest`.
+- EIP-712: `IEIP712Repository.buildDisplayModel` validates the typed data first and throws
+  `EIP712Error` on anything `computeDigest` would reject.
+
+### Deprecated
+
+- `IPrepareEIP712SignatureRequestParams.network` is ignored; the network always comes from
+  `domain.chain_name`.
 
 ## [2.0.0] - 2026-09-21 — Swap / DEX, shared transactions and Ledger
 
