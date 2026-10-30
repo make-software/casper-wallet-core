@@ -4,6 +4,16 @@ All notable changes to **CasperWalletCore** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-10-30
+
+### Changed
+
+- EIP-712: `computeDigest`, `prepareSignatureRequest` and `signTypedData` reject a struct-typed
+  field with `UNSUPPORTED_TYPE`. Request a flat primary type.
+- EIP-712: `types.EIP712Domain` and `options.domainTypes` are accepted only when they equal the
+  `CASPER_DOMAIN_TYPES` fields present in the domain, in that order; anything else is rejected
+  with `DOMAIN_TYPES_REQUIRED`. Omitting both keeps working as before.
+
 ## [2.0.0] - 2026-09-21 — Swap / DEX, shared transactions and Ledger
 
 ### Added
