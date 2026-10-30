@@ -26,6 +26,7 @@ import {
   computeTypedDataEIP712Digest,
   getCasperNetworkByChainName,
   recoverTypedDataEIP712SignerAddress,
+  validateTypedDataEIP712,
   verifyTypedDataEIP712Signature,
 } from '../../../utils';
 // By path: the `utils` barrel no longer re-exports the signer, so that the DTO layer can import
@@ -46,7 +47,7 @@ import {
  * contract-package data over HTTP (best-effort — each lookup is isolated in its own try/catch, so a
  * flaky API never breaks the request). The other methods are synchronous pure-CPU work.
  *
- * `computeDigest`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
+ * `computeDigest`, `buildDisplayModel`, `signDigest` and `signTypedData` wrap unexpected failures in {@link EIP712Error}.
  * `prepareSignatureRequest` surfaces digest/validation failures as {@link EIP712Error} (via
  * `computeDigest`) and swallows enrichment-lookup failures (best-effort). `recoverSigner` and
  * `verifySignature` surface raw library errors.
@@ -67,6 +68,11 @@ export class EIP712Repository implements IEIP712Repository {
   }
 
   buildDisplayModel(typedData: IEIP712TypedData): IEIP712DisplayModel {
+    try {
+      validateTypedDataEIP712(typedData);
+    } catch (e) {
+      throw isEIP712Error(e) ? e : new EIP712Error(e, 'validateTypedDataEIP712');
+    }
     return buildTypedDataEIP712DisplayModel(typedData);
   }
 

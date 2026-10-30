@@ -354,4 +354,44 @@ describe('buildTypedDataEIP712DisplayModel — dates', () => {
     expect(row.presentation).toBe('number');
     expect(row.displayValue).toBe('oops');
   });
+
+  it('decodes a 0x hex number to decimal', () => {
+    const row = buildTypedDataEIP712DisplayModel({
+      ...base,
+      message: { ...base.message, value: '0x03e8' },
+    }).messageRows.find(r => r.label === 'Value')!;
+    expect(row.presentation).toBe('number');
+    expect(row.value).toBe('1000');
+    expect(row.displayValue).toBe('1000');
+  });
+
+  it('decodes a 0x hex timestamp before formatting it', () => {
+    const hex = '0x' + (1782680400).toString(16);
+    const row = buildTypedDataEIP712DisplayModel({
+      ...base,
+      message: { ...base.message, validAfter: hex },
+    }).messageRows.find(r => r.label === 'Valid After')!;
+    expect(row.presentation).toBe('date');
+    expect(row.value).toBe('1782680400');
+    expect(row.displayValue).toContain('2026');
+  });
+
+  it('recognises a hex sentinel', () => {
+    const row = buildTypedDataEIP712DisplayModel({
+      ...base,
+      message: { ...base.message, validBefore: '0x00' },
+    }).messageRows.find(r => r.label === 'Valid Before')!;
+    expect(row.displayValue).toBe('Expired');
+  });
+
+  it('does not decode hex for non-number types', () => {
+    const td = {
+      ...base,
+      types: { ...base.types, Auth: [{ name: 'tag', type: 'bytes32' }] },
+      message: { tag: '0x' + '01'.repeat(32) },
+    };
+    const row = buildTypedDataEIP712DisplayModel(td).messageRows[0];
+    expect(row.presentation).toBe('hash');
+    expect(row.value).toBe('0x' + '01'.repeat(32));
+  });
 });

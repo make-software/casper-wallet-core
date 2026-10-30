@@ -50,7 +50,8 @@ export interface IPrepareEIP712SignatureRequestParams {
 /**
  * `prepareSignatureRequest` is asynchronous: it enriches the typed data with account info and
  * contract-package data over HTTP. The remaining methods are synchronous — EIP-712 validation,
- * hashing and signing are pure CPU work with no I/O.
+ * hashing and signing are pure CPU work with no I/O. `buildDisplayModel` validates the typed data
+ * and throws `EIP712Error` when it is invalid.
  */
 export interface IEIP712Repository {
   computeDigest(typedData: IEIP712TypedData, options?: IEIP712SignTypedDataOptions): IEIP712Digest;

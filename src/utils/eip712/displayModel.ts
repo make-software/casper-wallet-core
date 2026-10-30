@@ -11,6 +11,7 @@ import {
 } from '../../domain';
 import { Maybe } from '../../typings';
 import { decodeEip712Address } from './address';
+import { parseEip712Number, parseNumberType } from './numbers';
 
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
@@ -116,11 +117,13 @@ export interface IEIP712DisplayEnrichment {
 function toRow(
   key: string,
   type: string,
-  value: string,
+  rawValue: string,
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
 ): IEIP712DisplayRow {
   const label = keyToLabel(key);
+  const parsed = parseNumberType(type) ? parseEip712Number(rawValue) : null;
+  const value = parsed === null ? rawValue : parsed.toString();
 
   // Domain contract_package_hash is a bytes32 (no Key tag) — always a package hash.
   if (section === 'domain' && key === 'contract_package_hash') {

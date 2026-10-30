@@ -55,6 +55,13 @@ describe('EIP712Repository', () => {
     expect(model.messageRows).toHaveLength(5);
   });
 
+  it('buildDisplayModel rejects typed data the digest would reject', () => {
+    const bad = { ...TYPED_DATA, message: { ...MESSAGE, value: 'abc' } };
+    expect(() => repo.buildDisplayModel(bad)).toThrow(
+      expect.objectContaining({ errorCode: 'INVALID_PARAMS' }),
+    );
+  });
+
   it('signDigest produces a 02-prefixed secp256k1 signature', () => {
     const key = PrivateKey.fromHex('11'.repeat(32), KeyAlgorithm.SECP256K1);
     const result = repo.signDigest({ privateKey: key, digest: EXPECTED_DIGEST });
