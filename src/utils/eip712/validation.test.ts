@@ -6,6 +6,7 @@ import {
   validateNoUnknownMessageFields,
   validatePrimaryType,
   validateTypedDataEIP712,
+  validateTypedDataEIP712Domain,
   validateTypedDataEIP712FieldTypes,
   validateTypedDataEIP712Values,
 } from './validation';
@@ -232,5 +233,79 @@ describe('validateTypedDataEIP712 — unknown fields', () => {
 
   it('allows an extra message key by default', () => {
     expect(() => validateTypedDataEIP712(typedData)).not.toThrow();
+  });
+});
+
+const domainWithout = (key: string) =>
+  Object.fromEntries(Object.entries(DOMAIN).filter(([k]) => k !== key));
+
+describe('validateTypedDataEIP712Domain', () => {
+  const WITHOUT_CHAIN = domainWithout('chain_name');
+  const WITHOUT_PACKAGE = domainWithout('contract_package_hash');
+
+  it('accepts the full Casper domain with mainnet, testnet and CAIP-2 chain names', () => {
+    expect(() => validateTypedDataEIP712Domain(DOMAIN)).not.toThrow();
+    expect(() =>
+      validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: 'casper-test' }),
+    ).not.toThrow();
+    expect(() =>
+      validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: 'casper:casper-test' }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['missing chain_name', WITHOUT_CHAIN],
+    ['missing contract_package_hash', WITHOUT_PACKAGE],
+    ['missing name', domainWithout('name')],
+    ['missing version', domainWithout('version')],
+    ['unmappable chain_name', { ...DOMAIN, chain_name: 'unknown-chain' }],
+    ['non-string chain_name', { ...DOMAIN, chain_name: 1 }],
+    ['null value', { ...DOMAIN, contract_package_hash: null }],
+    ['undefined value', { ...DOMAIN, version: undefined }],
+  ])('rejects %s with INVALID_PARAMS', (_, domain) =>
+    expectInvalid(() => validateTypedDataEIP712Domain(domain)),
+  );
+
+  it('names the missing field', () => {
+    expect(() => validateTypedDataEIP712Domain(WITHOUT_CHAIN)).toThrow(/chain_name/);
+    expect(() => validateTypedDataEIP712Domain(WITHOUT_PACKAGE)).toThrow(/contract_package_hash/);
+  });
+});
+
+describe('validateTypedDataEIP712 — domain values', () => {
+  const td = (domain: Record<string, unknown>) => ({
+    domain,
+    types: PermitTypes,
+    primaryType: 'Permit',
+    message: {
+      owner: '0x00' + '02'.repeat(32),
+      spender: '0x01' + '03'.repeat(32),
+      value: 1n,
+      nonce: 0n,
+      deadline: 1n,
+    },
+  });
+
+  it('type-checks domain values against the resolved domain types', () => {
+    expectInvalid(() =>
+      validateTypedDataEIP712(td({ ...DOMAIN, contract_package_hash: '0x' + '01'.repeat(31) })),
+    );
+    expectInvalid(() => validateTypedDataEIP712(td({ ...DOMAIN, name: 1 })));
+  });
+
+  it('resolves the full Casper domain types in canonical order', () => {
+    expect(validateTypedDataEIP712(td(DOMAIN)).map(f => f.name)).toEqual([
+      'name',
+      'version',
+      'chain_name',
+      'contract_package_hash',
+    ]);
+  });
+
+  it('keeps DOMAIN_TYPES_REQUIRED for an unknown domain key', () => {
+    expectInvalid(
+      () => validateTypedDataEIP712(td({ ...DOMAIN, foo: 'x' })),
+      SignTypedDataErrorCodes.DOMAIN_TYPES_REQUIRED,
+    );
   });
 });

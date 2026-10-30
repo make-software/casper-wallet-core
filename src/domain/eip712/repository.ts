@@ -40,7 +40,7 @@ export interface IEIP712VerifySignatureParams {
 export interface IPrepareEIP712SignatureRequestParams {
   typedData: IEIP712TypedData;
   signingPublicKeyHex: string;
-  /** Fallback network when `domain.chain_name` cannot be mapped. */
+  /** @deprecated Ignored. The network is always derived from `domain.chain_name`, which must map to a known Casper network. */
   network?: CasperNetwork;
   options?: IEIP712SignTypedDataOptions;
   /** Default `true`. */

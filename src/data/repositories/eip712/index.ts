@@ -97,16 +97,12 @@ export class EIP712Repository implements IEIP712Repository {
   async prepareSignatureRequest({
     typedData,
     signingPublicKeyHex,
-    network: networkParam,
     options,
     withProxyHeader = true,
   }: IPrepareEIP712SignatureRequestParams): Promise<IEIP712SignatureRequest> {
     const { digest, hashArtifacts } = this.computeDigest(typedData, options);
 
-    const network =
-      getCasperNetworkByChainName(String(typedData.domain[EIP712_CHAIN_NAME_KEY] ?? '')) ??
-      networkParam ??
-      null;
+    const network = getCasperNetworkByChainName(String(typedData.domain[EIP712_CHAIN_NAME_KEY]));
 
     let accountInfoMap: Record<string, IAccountInfo> = {};
     let contractPackageMap: Record<string, IContractPackage> = {};

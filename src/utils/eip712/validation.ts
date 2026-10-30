@@ -7,6 +7,7 @@ import {
   IEIP712Types,
   SignTypedDataErrorCodes,
 } from '../../domain';
+import { getCasperNetworkByChainName } from '../casperSdk/network';
 import { IEIP712NumberType, parseEip712Number, parseNumberType } from './numbers';
 
 const ARRAY_PATTERN = /\[/; // matches any array syntax: [], [N]
@@ -89,6 +90,28 @@ export function validateTypedDataEIP712Values(
     } else if (type === 'string') {
       if (typeof value !== 'string') throw invalidValue(owner, name, 'expected a string');
     }
+  }
+}
+
+/**
+ * Requires the full Casper domain, the shape reference verifiers hash with `CasperDomainTypes`:
+ * every field of `CASPER_DOMAIN_TYPES` present and non-null, and `chain_name` mappable by
+ * `getCasperNetworkByChainName`.
+ * @throws EIP712Error `INVALID_PARAMS`.
+ */
+export function validateTypedDataEIP712Domain(domain: Record<string, unknown>): void {
+  for (const { name } of CASPER_DOMAIN_TYPES) {
+    if (domain[name] === undefined || domain[name] === null) {
+      throw invalidValue('EIP712Domain', name, 'missing');
+    }
+  }
+  const chainName = domain.chain_name;
+  if (typeof chainName !== 'string' || getCasperNetworkByChainName(chainName) === null) {
+    throw invalidValue(
+      'EIP712Domain',
+      'chain_name',
+      'expected a chain name of a known Casper network',
+    );
   }
 }
 
@@ -214,8 +237,10 @@ export function validateTypedDataEIP712(
 ): IEIP712Field[] {
   const { domain, types, primaryType, message } = typedData;
   validatePrimaryType(types, primaryType);
+  validateTypedDataEIP712Domain(domain);
   const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);
   validateTypedDataEIP712FieldTypes(types);
+  validateTypedDataEIP712Values('EIP712Domain', resolvedDomainTypes, domain);
   validateTypedDataEIP712Values(primaryType, types[primaryType], message);
   if (options.rejectUnknownFields) {
     validateNoUnknownMessageFields(types, primaryType, message);

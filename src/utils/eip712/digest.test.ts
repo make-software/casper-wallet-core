@@ -45,6 +45,18 @@ describe('computeTypedDataEIP712Digest', () => {
     const withExtra = { ...TYPED_DATA, message: { ...MESSAGE, extra: 1n } };
     expect(() => computeTypedDataEIP712Digest(withExtra, { rejectUnknownFields: true })).toThrow();
   });
+
+  it('rejects a domain without a mappable chain_name', () => {
+    const unbound = Object.fromEntries(Object.entries(DOMAIN).filter(([k]) => k !== 'chain_name'));
+    expect(() => computeTypedDataEIP712Digest({ ...TYPED_DATA, domain: unbound })).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }),
+    );
+  });
+
+  it('computes a digest for a testnet domain', () => {
+    const testnet = { ...TYPED_DATA, domain: { ...DOMAIN, chain_name: 'casper-test' } };
+    expect(computeTypedDataEIP712Digest(testnet).digest).toMatch(/^0x[0-9a-f]{64}$/);
+  });
 });
 
 describe('computeTypedDataEIP712Digest — strict type validation', () => {
