@@ -9,6 +9,7 @@ import {
   toHex,
 } from '@casper-ecosystem/casper-eip-712';
 import { IEIP712Digest, IEIP712SignTypedDataOptions, IEIP712TypedData } from '../../domain';
+import { normalizeEip712Numbers } from './numbers';
 import {
   resolveDomainTypes,
   validateNoUnknownMessageFields,
@@ -30,10 +31,11 @@ export function computeTypedDataEIP712Digest(
     validateNoUnknownMessageFields(types, primaryType, message);
   }
 
+  const normalizedMessage = normalizeEip712Numbers(types[primaryType], message);
   const eip712Domain = domain as EIP712Domain;
 
   const digest = toHex(
-    hashTypedData(eip712Domain, types, primaryType, message, {
+    hashTypedData(eip712Domain, types, primaryType, normalizedMessage, {
       domainTypes: resolvedDomainTypes,
     }),
   );
@@ -50,7 +52,7 @@ export function computeTypedDataEIP712Digest(
       domainTypeString: buildDomainTypeString(eip712Domain, resolvedDomainTypes),
       domain,
       domainSeparator: toHex(hashDomainSeparator(eip712Domain, resolvedDomainTypes)),
-      structHash: toHex(hashStruct(primaryType, types, message)),
+      structHash: toHex(hashStruct(primaryType, types, normalizedMessage)),
       canonicalTypeString,
       typeHash: toHex(computeTypeHash(canonicalTypeString)),
     },

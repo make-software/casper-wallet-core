@@ -45,6 +45,14 @@ describe('recover/verify', () => {
     ).toBe(true);
   });
 
+  it('recovers the same address for a decimal-string and a bigint value', () => {
+    const sig = recoverableSig();
+    const asString = { ...TYPED_DATA, message: { ...TYPED_DATA.message, value: '1000' } };
+    expect(recoverTypedDataEIP712SignerAddress({ typedData: asString, signature: sig })).toBe(
+      recoverTypedDataEIP712SignerAddress({ typedData: TYPED_DATA, signature: sig }),
+    );
+  });
+
   it('re-exports lib helpers for consumers', () => {
     expect(ReexportedPermitTypes).toBeDefined();
     expect(CASPER_DOMAIN_TYPES.map(f => f.name)).toContain('contract_package_hash');

@@ -109,3 +109,18 @@ describe('computeTypedDataEIP712Digest — strict type validation', () => {
     expect(digest).toBe('0x545a8088d6365ada6ef282f4d5979c655cd428b4115cbf65f561bcd65767a98c');
   });
 });
+
+describe('computeTypedDataEIP712Digest — numeric forms', () => {
+  const withValue = (value: unknown) => ({ ...TYPED_DATA, message: { ...MESSAGE, value } });
+  const digestOf = (value: unknown) => computeTypedDataEIP712Digest(withValue(value)).digest;
+
+  it('hashes a decimal string as the decimal it reads as', () => {
+    expect(digestOf('1000')).toBe(digestOf(1000n));
+    expect(digestOf('1000')).not.toBe(digestOf(4096n));
+  });
+
+  it('hashes 0x hex and safe numbers like the bigint', () => {
+    expect(digestOf('0x03e8')).toBe(digestOf(1000n));
+    expect(digestOf(1000)).toBe(digestOf(1000n));
+  });
+});

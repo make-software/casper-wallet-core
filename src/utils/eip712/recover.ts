@@ -11,6 +11,7 @@ import {
   verifySignature as libVerifySignature,
 } from '@casper-ecosystem/casper-eip-712';
 import { IEIP712RecoverSignerParams, IEIP712VerifySignatureParams } from '../../domain';
+import { normalizeEip712Numbers } from './numbers';
 import { resolveDomainTypes } from './validation';
 
 /**
@@ -30,7 +31,7 @@ export function recoverTypedDataEIP712SignerAddress({
     domain as EIP712Domain,
     types,
     primaryType,
-    message,
+    normalizeEip712Numbers(types[primaryType], message),
     signature,
     { domainTypes: resolvedDomainTypes },
   );
