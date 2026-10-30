@@ -123,4 +123,37 @@ describe('computeTypedDataEIP712Digest — numeric forms', () => {
     expect(digestOf('0x03e8')).toBe(digestOf(1000n));
     expect(digestOf(1000)).toBe(digestOf(1000n));
   });
+
+  const expectInvalidParams = (td: Parameters<typeof computeTypedDataEIP712Digest>[0]) =>
+    expect(() => computeTypedDataEIP712Digest(td)).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }),
+    );
+
+  it.each([['abc'], ['1e3'], [''], ['-1'], ['0x3e8'], [2 ** 53]])('rejects %p for uint256', value =>
+    expectInvalidParams(withValue(value)),
+  );
+
+  it.each([['abc'], ['1e3'], [''], ['0x3e8']])('names Permit.value when rejecting %p', value =>
+    expect(() => computeTypedDataEIP712Digest(withValue(value))).toThrow(/Permit\.value/),
+  );
+
+  it('rejects a null declared field', () => {
+    expectInvalidParams({ ...TYPED_DATA, message: { ...MESSAGE, nonce: null } });
+  });
+
+  it('rejects a bool given as a string', () => {
+    expectInvalidParams({
+      domain: DOMAIN,
+      types: { Flag: [{ name: 'ok', type: 'bool' }] },
+      primaryType: 'Flag',
+      message: { ok: 'false' },
+    });
+  });
+
+  it('rejects a missing declared field', () => {
+    const rest = Object.fromEntries(Object.entries(MESSAGE).filter(([key]) => key !== 'nonce'));
+    expect(() => computeTypedDataEIP712Digest({ ...TYPED_DATA, message: rest })).toThrow(
+      /Permit\.nonce/,
+    );
+  });
 });

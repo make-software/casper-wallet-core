@@ -1,8 +1,96 @@
 import { CASPER_DOMAIN_TYPES } from '@casper-ecosystem/casper-eip-712';
-import { EIP712Error, IEIP712Field, IEIP712Types, SignTypedDataErrorCodes } from '../../domain';
+import {
+  EIP712Error,
+  IEIP712Field,
+  IEIP712SignTypedDataOptions,
+  IEIP712TypedData,
+  IEIP712Types,
+  SignTypedDataErrorCodes,
+} from '../../domain';
+import { IEIP712NumberType, parseEip712Number, parseNumberType } from './numbers';
 
 const ARRAY_PATTERN = /\[/; // matches any array syntax: [], [N]
 const BYTES_1_TO_31_PATTERN = /^bytes([1-9]|[12][0-9]|3[01])$/;
+const STRICT_HEX_PATTERN = /^(?:0x)?(?:[0-9a-fA-F]{2})*$/;
+const PRIMITIVE_TYPES = new Set(['address', 'bool', 'bytes', 'bytes32', 'string']);
+
+function isSupportedFieldType(type: string): boolean {
+  return PRIMITIVE_TYPES.has(type) || parseNumberType(type) !== null;
+}
+
+function hexByteLength(value: string): number {
+  return (value.startsWith('0x') ? value.length - 2 : value.length) / 2;
+}
+
+function invalidValue(owner: string, name: string, reason: string): EIP712Error {
+  return new EIP712Error(
+    new Error(`Invalid value for ${owner}.${name}: ${reason}`),
+    'validateTypedDataEIP712',
+    SignTypedDataErrorCodes.INVALID_PARAMS,
+  );
+}
+
+function validateNumber(
+  owner: string,
+  name: string,
+  numberType: IEIP712NumberType,
+  value: unknown,
+): void {
+  const n = parseEip712Number(value);
+  if (n === null) {
+    throw invalidValue(
+      owner,
+      name,
+      'expected a bigint, a safe integer, a decimal string or an even-length 0x hex string',
+    );
+  }
+  const { unsigned, bits } = numberType;
+  const max = (BigInt(1) << BigInt(unsigned ? bits : bits - 1)) - BigInt(1);
+  if (n < BigInt(0) || n > max) {
+    throw invalidValue(owner, name, `out of range for ${unsigned ? 'u' : ''}int${bits}`);
+  }
+}
+
+function validateHex(owner: string, name: string, value: unknown, byteLengths?: number[]): void {
+  if (typeof value !== 'string' || !STRICT_HEX_PATTERN.test(value)) {
+    throw invalidValue(owner, name, 'expected an even-length hex string');
+  }
+  if (byteLengths && !byteLengths.includes(hexByteLength(value))) {
+    throw invalidValue(owner, name, `expected ${byteLengths.join(' or ')} bytes`);
+  }
+}
+
+/**
+ * Checks each declared field's value against what the encoder will hash, so the display can
+ * show the same meaning. `owner` names the struct in error messages.
+ * @throws EIP712Error `INVALID_PARAMS` on a missing, mistyped, malformed or out-of-range value.
+ */
+export function validateTypedDataEIP712Values(
+  owner: string,
+  fields: IEIP712Field[],
+  values: Record<string, unknown>,
+): void {
+  for (const { name, type } of fields) {
+    const value = values[name];
+    if (value === undefined || value === null) {
+      throw invalidValue(owner, name, 'missing');
+    }
+    const numberType = parseNumberType(type);
+    if (numberType) {
+      validateNumber(owner, name, numberType, value);
+    } else if (type === 'address') {
+      validateHex(owner, name, value, [20, 33]);
+    } else if (type === 'bytes32') {
+      validateHex(owner, name, value, [32]);
+    } else if (type === 'bytes') {
+      if (!(value instanceof Uint8Array)) validateHex(owner, name, value);
+    } else if (type === 'bool') {
+      if (typeof value !== 'boolean') throw invalidValue(owner, name, 'expected a boolean');
+    } else if (type === 'string') {
+      if (typeof value !== 'string') throw invalidValue(owner, name, 'expected a string');
+    }
+  }
+}
 
 export function validatePrimaryType(types: IEIP712Types, primaryType: string): void {
   if (!types[primaryType]) {
@@ -57,8 +145,8 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
 }
 
 /**
- * Rejects unsupported field types: arrays, `bytes1`..`bytes31`, and struct references (a field
- * whose type is another entry of `types`).
+ * Rejects arrays, `bytes1`..`bytes31`, struct references and any type outside `address`, `bool`,
+ * `bytes`, `bytes32`, `string`, `uintN`, `intN`.
  * @throws EIP712Error `UNSUPPORTED_TYPE`.
  */
 export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
@@ -87,6 +175,13 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
           SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
         );
       }
+      if (!isSupportedFieldType(field.type)) {
+        throw new EIP712Error(
+          new Error(`Unsupported type: "${field.type}" in ${typeName}.${field.name}`),
+          'validateTypedDataEIP712',
+          SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+        );
+      }
     }
   }
 }
@@ -106,4 +201,24 @@ export function validateNoUnknownMessageFields(
       );
     }
   }
+}
+
+/**
+ * Runs every typed-data check in the order the digest needs them and returns the resolved
+ * domain types. Both the digest and the display model are built only after this passes.
+ * @throws EIP712Error with the code of the first failing check.
+ */
+export function validateTypedDataEIP712(
+  typedData: IEIP712TypedData,
+  options: Pick<IEIP712SignTypedDataOptions, 'domainTypes' | 'rejectUnknownFields'> = {},
+): IEIP712Field[] {
+  const { domain, types, primaryType, message } = typedData;
+  validatePrimaryType(types, primaryType);
+  const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);
+  validateTypedDataEIP712FieldTypes(types);
+  validateTypedDataEIP712Values(primaryType, types[primaryType], message);
+  if (options.rejectUnknownFields) {
+    validateNoUnknownMessageFields(types, primaryType, message);
+  }
+  return resolvedDomainTypes;
 }

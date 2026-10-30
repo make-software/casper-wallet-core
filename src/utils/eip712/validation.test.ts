@@ -5,7 +5,9 @@ import {
   resolveDomainTypes,
   validateNoUnknownMessageFields,
   validatePrimaryType,
+  validateTypedDataEIP712,
   validateTypedDataEIP712FieldTypes,
+  validateTypedDataEIP712Values,
 } from './validation';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
@@ -120,5 +122,115 @@ describe('validateNoUnknownMessageFields', () => {
     expect(() =>
       validateNoUnknownMessageFields(PermitTypes, 'Permit', { owner: 'x' }),
     ).not.toThrow();
+  });
+});
+
+const expectInvalid = (fn: () => void, code: string = SignTypedDataErrorCodes.INVALID_PARAMS) =>
+  expect(fn).toThrow(expect.objectContaining({ errorCode: code }));
+
+describe('validateTypedDataEIP712Values', () => {
+  const one = (type: string, value: unknown) => () =>
+    validateTypedDataEIP712Values('T', [{ name: 'a', type }], { a: value });
+
+  it('accepts bigint, safe number, decimal string and 0x hex for uint256', () => {
+    expect(one('uint256', 1000n)).not.toThrow();
+    expect(one('uint256', 1000)).not.toThrow();
+    expect(one('uint256', '1000')).not.toThrow();
+    expect(one('uint256', '0x03e8')).not.toThrow();
+    expect(one('uint256', (1n << 256n) - 1n)).not.toThrow();
+  });
+
+  it.each([
+    ['garbage', 'abc'],
+    ['exponent', '1e3'],
+    ['empty', ''],
+    ['odd-length hex', '0x3e8'],
+    ['unsafe number', 2 ** 53],
+    ['negative bigint', -1n],
+    ['negative string', '-1'],
+    ['over 256 bits', 1n << 256n],
+    ['null', null],
+    ['undefined', undefined],
+  ])('rejects %s for uint256', (_, value) => expectInvalid(one('uint256', value)));
+
+  it('range-checks uint8 and int8 and rejects negatives for int8', () => {
+    expect(one('uint8', 255n)).not.toThrow();
+    expect(one('uint8', '255')).not.toThrow();
+    expectInvalid(one('uint8', 256n));
+    expect(one('int8', 0n)).not.toThrow();
+    expect(one('int8', '127')).not.toThrow();
+    expect(one('int8', '0x7f')).not.toThrow();
+    expectInvalid(one('int8', 128n));
+    expectInvalid(one('int8', -1n));
+    expectInvalid(one('int256', -1n));
+  });
+
+  it('treats bare uint/int as 256-bit', () => {
+    expect(one('uint', 1n)).not.toThrow();
+    expect(one('int', 1n)).not.toThrow();
+  });
+
+  it('requires a real boolean for bool', () => {
+    expect(one('bool', false)).not.toThrow();
+    expectInvalid(one('bool', 'false'));
+    expectInvalid(one('bool', 0));
+  });
+
+  it('requires a string for string', () => {
+    expect(one('string', 'hi')).not.toThrow();
+    expectInvalid(one('string', 1));
+  });
+
+  it('validates address as 20 or 33 strict-hex bytes', () => {
+    expect(one('address', '0x00' + 'aa'.repeat(32))).not.toThrow();
+    expect(one('address', 'aa'.repeat(20))).not.toThrow();
+    expectInvalid(one('address', '0x' + 'aa'.repeat(32)));
+    expectInvalid(one('address', '0x00' + 'zz'.repeat(32)));
+  });
+
+  it('validates bytes32 as exactly 32 strict-hex bytes', () => {
+    expect(one('bytes32', '0x' + '01'.repeat(32))).not.toThrow();
+    expect(one('bytes32', '01'.repeat(32))).not.toThrow();
+    expectInvalid(one('bytes32', '0x' + '01'.repeat(31)));
+  });
+
+  it('accepts hex or Uint8Array for bytes', () => {
+    expect(one('bytes', '0x')).not.toThrow();
+    expect(one('bytes', new Uint8Array([1]))).not.toThrow();
+    expectInvalid(one('bytes', 'xyz'));
+  });
+
+  it('names the field in the error', () => {
+    expect(() =>
+      validateTypedDataEIP712Values('Permit', [{ name: 'value', type: 'uint256' }], {}),
+    ).toThrow(/Permit\.value/);
+  });
+});
+
+describe('validateTypedDataEIP712FieldTypes — whitelist', () => {
+  it.each(['uintFoo', 'uint7', 'uint264', 'int0', 'bytes33', 'Foo'])(
+    'rejects %s with UNSUPPORTED_TYPE',
+    type =>
+      expectInvalid(
+        () => validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type }] }),
+        SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+      ),
+  );
+});
+
+describe('validateTypedDataEIP712 — unknown fields', () => {
+  const typedData = {
+    domain: DOMAIN,
+    types: { T: [{ name: 'a', type: 'uint256' }] },
+    primaryType: 'T',
+    message: { a: 1n, extra: 1n },
+  };
+
+  it('rejects an extra message key with rejectUnknownFields', () => {
+    expectInvalid(() => validateTypedDataEIP712(typedData, { rejectUnknownFields: true }));
+  });
+
+  it('allows an extra message key by default', () => {
+    expect(() => validateTypedDataEIP712(typedData)).not.toThrow();
   });
 });
