@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   hashing, and display rows carry that integer in decimal, matching the library's Go reference.
   Accepted forms: `bigint`, safe integer, digit-only decimal string, and an even-length `0x`
   hex string. Negative values are rejected for every integer type.
+- EIP-712: a struct declaring the same field name twice (e.g. `uint256 v` and `bytes v`) let the
+  screen show one value while another was hashed. It is now rejected with `INVALID_PARAMS`.
+- EIP-712: a `chain_name` such as `'evil:casper'` or `'mainnet'` was accepted and labelled with
+  the network its suffix named. Only an exact Casper chain name (`casper`, `casper-test`,
+  `dev-net`, `integration-test`) or `casper:<chain name>` is accepted now; anything else fails
+  with `INVALID_PARAMS`.
 
 ### Changed
 
@@ -25,15 +31,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - EIP-712: message and domain values are validated against what the encoder hashes. `bool`
   must be a boolean, `string` a string, `address` 20 or 33 hex bytes, `bytes32` 32 hex bytes;
   numbers are range-checked for their bit width; a declared field missing from the message is
-  rejected. All with `INVALID_PARAMS`. Field types outside `address`, `bool`, `bytes`,
+  rejected; `bytes` must be a hex string (a `Uint8Array` is rejected). All with
+  `INVALID_PARAMS`. A missing or non-object `domain`, `types` or `message` is rejected with
+  `INVALID_PARAMS` too. Field types outside `address`, `bool`, `bytes`,
   `bytes32`, `string`, `uintN`, `intN` are rejected with `UNSUPPORTED_TYPE`.
 - EIP-712: the domain must carry all four Casper fields (`name`, `version`, `chain_name`,
   `contract_package_hash`), the shape reference verifiers hash with `CasperDomainTypes`, and
   `chain_name` must name a known Casper network; a `null` domain value is rejected. All fail
-  with `INVALID_PARAMS`. `enrichment.contractPackage` can no longer be `'absent'` for a request
-  built by `prepareSignatureRequest`.
+  with `INVALID_PARAMS`. For a request built by `prepareSignatureRequest`, `network` is never
+  `null`, `enrichment.accounts` and `enrichment.contractPackage` are never `'skipped'`, and
+  `enrichment.contractPackage` is never `'absent'`.
 - EIP-712: `IEIP712Repository.buildDisplayModel` validates the typed data first and throws
   `EIP712Error` on anything `computeDigest` would reject.
+- EIP-712: `recoverTypedDataEIP712SignerAddress` and `IEIP712Repository.recoverSigner` accept only
+  typed data `computeDigest` accepts and throw the same `EIP712Error`. Typed data with
+  unvalidated values, a domain without `chain_name`, or an unknown `primaryType` no longer
+  recovers an address.
+- EIP-712: `resolveTypedDataEIP712Network(domain)` returns the network `domain.chain_name` names,
+  or throws `INVALID_PARAMS`.
 
 ### Deprecated
 
