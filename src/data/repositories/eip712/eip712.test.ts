@@ -358,24 +358,33 @@ describe('EIP712Repository', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('maps a testnet chain_name to the testnet network', async () => {
-    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
-    const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
-    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
-    const testnet = { ...TYPED_DATA, domain: { ...TYPED_DATA.domain, chain_name: 'casper-test' } };
+  it.each(['casper-test', 'casper:casper-test'])(
+    'maps chain_name %p to the testnet network for the request and both lookups',
+    async chainName => {
+      const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+      const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+      const pkgSpy = jest
+        .spyOn(contractPackageRepository, 'getContractPackage')
+        .mockResolvedValue(null);
+      const testnet = { ...TYPED_DATA, domain: { ...TYPED_DATA.domain, chain_name: chainName } };
 
-    const req = await r.prepareSignatureRequest({
-      typedData: testnet,
-      signingPublicKeyHex: SIGNING_PK,
-    });
-    expect(req.network).toBe('testnet');
-    expect(spy.mock.calls[0][0].network).toBe('testnet');
-  });
+      const req = await r.prepareSignatureRequest({
+        typedData: testnet,
+        signingPublicKeyHex: SIGNING_PK,
+      });
+      expect(req.network).toBe('testnet');
+      expect(spy.mock.calls[0][0].network).toBe('testnet');
+      expect(pkgSpy).toHaveBeenCalledTimes(2);
+      pkgSpy.mock.calls.forEach(([arg]) => expect(arg.network).toBe('testnet'));
+    },
+  );
 
   it('prefers a mappable chain_name over the network param', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
-    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
+    const pkgSpy = jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockResolvedValue(null);
 
     const req = await r.prepareSignatureRequest({
       typedData: TYPED_DATA, // chain_name 'casper' → mainnet
@@ -385,6 +394,8 @@ describe('EIP712Repository', () => {
 
     expect(req.network).toBe('mainnet');
     expect(spy.mock.calls[0][0].network).toBe('mainnet');
+    expect(pkgSpy).toHaveBeenCalledTimes(2);
+    pkgSpy.mock.calls.forEach(([arg]) => expect(arg.network).toBe('mainnet'));
   });
 
   it('rejects with EIP712Error for invalid typed data', async () => {

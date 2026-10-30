@@ -135,7 +135,10 @@ export function validateTypedDataEIP712Domain(domain: Record<string, unknown>): 
 }
 
 export function validatePrimaryType(types: IEIP712Types, primaryType: string): void {
-  if (!types[primaryType]) {
+  if (
+    !Object.prototype.hasOwnProperty.call(types, primaryType) ||
+    !Array.isArray(types[primaryType])
+  ) {
     throw new EIP712Error(
       new Error(`Primary type "${primaryType}" not found in type definitions`),
       'validateTypedDataEIP712',

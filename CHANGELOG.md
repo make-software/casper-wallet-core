@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   the network its suffix named. Only an exact Casper chain name (`casper`, `casper-test`,
   `dev-net`, `integration-test`) or `casper:<chain name>` is accepted now; anything else fails
   with `INVALID_PARAMS`.
+- EIP-712: a `primaryType` such as `'constructor'` or `'toString'` failed with a raw `TypeError`
+  or an `EIP712Error` without `errorCode`. It is now rejected with `INVALID_PARAMS`.
 
 ### Changed
 

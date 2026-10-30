@@ -3,6 +3,7 @@ import { CASPER_DOMAIN_TYPES, PermitTypes, buildDomain } from '@casper-ecosystem
 import { EIP712Error, IEIP712Types, SignTypedDataErrorCodes } from '../../domain';
 import {
   resolveDomainTypes,
+  resolveTypedDataEIP712Network,
   validateNoUnknownMessageFields,
   validatePrimaryType,
   validateTypedDataEIP712,
@@ -28,6 +29,14 @@ describe('validatePrimaryType', () => {
   it('passes when primaryType exists', () => {
     expect(() => validatePrimaryType(PermitTypes, 'Permit')).not.toThrow();
   });
+
+  it.each(['constructor', 'toString', '__proto__'])(
+    'throws INVALID_PARAMS for the inherited key %p',
+    primaryType => expectInvalid(() => validatePrimaryType({}, primaryType)),
+  );
+
+  it('throws INVALID_PARAMS when the primary type is not a field list', () =>
+    expectInvalid(() => validatePrimaryType({ T: 'x' } as never, 'T')));
 });
 
 describe('resolveDomainTypes', () => {
@@ -281,6 +290,10 @@ describe('validateTypedDataEIP712Domain', () => {
     'mainnet',
     'testnet',
     'Casper',
+    'constructor',
+    'toString',
+    '__proto__',
+    'casper:constructor',
   ])('rejects chain_name %p with INVALID_PARAMS', chainName =>
     expectInvalid(() => validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: chainName })),
   );
@@ -296,6 +309,17 @@ describe('validateTypedDataEIP712Domain', () => {
     ['undefined value', { ...DOMAIN, version: undefined }],
   ])('rejects %s with INVALID_PARAMS', (_, domain) =>
     expectInvalid(() => validateTypedDataEIP712Domain(domain)),
+  );
+
+  it.each([
+    ['casper', 'mainnet'],
+    ['casper-test', 'testnet'],
+    ['dev-net', 'devnet'],
+    ['integration-test', 'integration'],
+    ['casper:casper', 'mainnet'],
+    ['casper:casper-test', 'testnet'],
+  ])('resolves chain_name %p to %p', (chainName, network) =>
+    expect(resolveTypedDataEIP712Network({ ...DOMAIN, chain_name: chainName })).toBe(network),
   );
 
   it('names the missing field', () => {
@@ -358,4 +382,7 @@ describe('validateTypedDataEIP712 — malformed typed data', () => {
   ])('rejects a missing or non-object %s with INVALID_PARAMS', (_, typedData) =>
     expectInvalid(() => validateTypedDataEIP712(typedData as never)),
   );
+
+  it('rejects a primaryType naming an inherited key with INVALID_PARAMS', () =>
+    expectInvalid(() => validateTypedDataEIP712({ ...valid, primaryType: 'constructor' })));
 });
