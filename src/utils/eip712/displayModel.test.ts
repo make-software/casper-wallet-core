@@ -365,6 +365,18 @@ describe('buildTypedDataEIP712DisplayModel — dates', () => {
     expect(row.displayValue).toBe('1000');
   });
 
+  it.each([
+    ['0x0de0b6b3a7640001', '1000000000000000001'],
+    ['0x' + 'ff'.repeat(32), ((1n << 256n) - 1n).toString()],
+  ])('decodes %s to its exact decimal', (hex, decimal) => {
+    const row = buildTypedDataEIP712DisplayModel({
+      ...base,
+      message: { ...base.message, value: hex },
+    }).messageRows.find(r => r.label === 'Value')!;
+    expect(row.value).toBe(decimal);
+    expect(row.displayValue).toBe(decimal);
+  });
+
   it('decodes a 0x hex timestamp before formatting it', () => {
     const hex = '0x' + (1782680400).toString(16);
     const row = buildTypedDataEIP712DisplayModel({

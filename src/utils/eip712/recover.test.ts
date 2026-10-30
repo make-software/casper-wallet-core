@@ -1,5 +1,6 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { PermitTypes, buildDomain, fromHex } from '@casper-ecosystem/casper-eip-712';
+import { SignTypedDataErrorCodes } from '../../domain';
 import { computeTypedDataEIP712Digest } from './digest';
 import {
   CASPER_DOMAIN_TYPES,
@@ -52,6 +53,23 @@ describe('recover/verify', () => {
       recoverTypedDataEIP712SignerAddress({ typedData: TYPED_DATA, signature: sig }),
     );
   });
+
+  it.each([
+    ['a value the digest rejects', { ...TYPED_DATA, message: { ...MESSAGE, value: '01e3' } }],
+    ['a negative decimal string', { ...TYPED_DATA, message: { ...MESSAGE, value: '-1' } }],
+    [
+      'a domain without chain_name',
+      {
+        ...TYPED_DATA,
+        domain: Object.fromEntries(Object.entries(DOMAIN).filter(([k]) => k !== 'chain_name')),
+      },
+    ],
+    ['an unknown primaryType', { ...TYPED_DATA, primaryType: 'Missing' }],
+  ])('rejects %s with INVALID_PARAMS instead of recovering', (_, typedData) =>
+    expect(() =>
+      recoverTypedDataEIP712SignerAddress({ typedData, signature: recoverableSig() }),
+    ).toThrow(expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS })),
+  );
 
   it('re-exports lib helpers for consumers', () => {
     expect(ReexportedPermitTypes).toBeDefined();

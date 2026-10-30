@@ -93,6 +93,20 @@ describe('validateTypedDataEIP712FieldTypes', () => {
     ).not.toThrow();
   });
 
+  it.each([
+    ['uint256 and bytes', 'bytes'],
+    ['uint256 and address', 'address'],
+  ])('rejects a field name declared twice (%s) with INVALID_PARAMS', (_, second) =>
+    expectInvalid(() =>
+      validateTypedDataEIP712FieldTypes({
+        T: [
+          { name: 'v', type: 'uint256' },
+          { name: 'v', type: second },
+        ],
+      }),
+    ),
+  );
+
   it('rejects every bytes1..bytes31 (property)', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 31 }), n => {
@@ -195,11 +209,18 @@ describe('validateTypedDataEIP712Values', () => {
     expectInvalid(one('bytes32', '0x' + '01'.repeat(31)));
   });
 
-  it('accepts hex or Uint8Array for bytes', () => {
+  it('accepts only a hex string for bytes', () => {
     expect(one('bytes', '0x')).not.toThrow();
-    expect(one('bytes', new Uint8Array([1]))).not.toThrow();
+    expect(one('bytes', '0x0102')).not.toThrow();
+    expectInvalid(one('bytes', new Uint8Array([1])));
     expectInvalid(one('bytes', 'xyz'));
   });
+
+  it.each([
+    ['bytes', '0X01'],
+    ['bytes32', '0X' + '01'.repeat(31)],
+    ['address', '0X' + 'aa'.repeat(19)],
+  ])('rejects an uppercase 0X prefix for %s', (type, value) => expectInvalid(one(type, value)));
 
   it('names the field in the error', () => {
     expect(() =>
@@ -243,15 +264,26 @@ describe('validateTypedDataEIP712Domain', () => {
   const WITHOUT_CHAIN = domainWithout('chain_name');
   const WITHOUT_PACKAGE = domainWithout('contract_package_hash');
 
-  it('accepts the full Casper domain with mainnet, testnet and CAIP-2 chain names', () => {
-    expect(() => validateTypedDataEIP712Domain(DOMAIN)).not.toThrow();
-    expect(() =>
-      validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: 'casper-test' }),
-    ).not.toThrow();
-    expect(() =>
-      validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: 'casper:casper-test' }),
-    ).not.toThrow();
-  });
+  it.each(['casper', 'casper-test', 'dev-net', 'integration-test', 'casper:casper-test'])(
+    'accepts the full Casper domain with chain_name %p',
+    chainName =>
+      expect(() =>
+        validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: chainName }),
+      ).not.toThrow(),
+  );
+
+  it.each([
+    'evil:casper',
+    'casper-test:casper',
+    'x:y:casper-test',
+    'casper:casper:casper',
+    'casper:',
+    'mainnet',
+    'testnet',
+    'Casper',
+  ])('rejects chain_name %p with INVALID_PARAMS', chainName =>
+    expectInvalid(() => validateTypedDataEIP712Domain({ ...DOMAIN, chain_name: chainName })),
+  );
 
   it.each([
     ['missing chain_name', WITHOUT_CHAIN],
@@ -308,4 +340,22 @@ describe('validateTypedDataEIP712 — domain values', () => {
       SignTypedDataErrorCodes.DOMAIN_TYPES_REQUIRED,
     );
   });
+});
+
+describe('validateTypedDataEIP712 — malformed typed data', () => {
+  const valid = {
+    domain: DOMAIN,
+    types: { T: [{ name: 'a', type: 'uint256' }] },
+    primaryType: 'T',
+    message: { a: 1n },
+  };
+
+  it.each([
+    ['domain', { ...valid, domain: undefined }],
+    ['types', { ...valid, types: null }],
+    ['message', { ...valid, message: undefined }],
+    ['message as a string', { ...valid, message: 'a' }],
+  ])('rejects a missing or non-object %s with INVALID_PARAMS', (_, typedData) =>
+    expectInvalid(() => validateTypedDataEIP712(typedData as never)),
+  );
 });

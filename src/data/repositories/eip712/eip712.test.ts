@@ -13,6 +13,7 @@ import {
 } from '../../../domain';
 import { getAccountHashFromPublicKey } from '../../../utils';
 import * as digestModule from '../../../utils/eip712/digest';
+import * as validationModule from '../../../utils/eip712/validation';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
 const MESSAGE = {
@@ -60,6 +61,22 @@ describe('EIP712Repository', () => {
     expect(() => repo.buildDisplayModel(bad)).toThrow(
       expect.objectContaining({ errorCode: 'INVALID_PARAMS' }),
     );
+  });
+
+  it('wraps a non-EIP712 validation failure in buildDisplayModel as EIP712Error', () => {
+    const spy = jest.spyOn(validationModule, 'validateTypedDataEIP712').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    let caught: unknown;
+    try {
+      repo.buildDisplayModel(TYPED_DATA);
+    } catch (e) {
+      caught = e;
+    } finally {
+      spy.mockRestore();
+    }
+    expect(isEIP712Error(caught)).toBe(true);
+    expect((caught as EIP712Error).type).toBe('validateTypedDataEIP712');
   });
 
   it('signDigest produces a 02-prefixed secp256k1 signature', () => {
@@ -326,6 +343,19 @@ describe('EIP712Repository', () => {
     ).rejects.toMatchObject({ errorCode: 'INVALID_PARAMS' });
     expect(spy).not.toHaveBeenCalled();
     expect(pkgSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a chain_name that only ends in a known one before any lookup', async () => {
+    const { repo: r, accountInfoRepository } = buildRepo();
+    const spy = jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+
+    await expect(
+      r.prepareSignatureRequest({
+        typedData: { ...TYPED_DATA, domain: { ...TYPED_DATA.domain, chain_name: 'evil:casper' } },
+        signingPublicKeyHex: SIGNING_PK,
+      }),
+    ).rejects.toMatchObject({ errorCode: 'INVALID_PARAMS' });
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('maps a testnet chain_name to the testnet network', async () => {

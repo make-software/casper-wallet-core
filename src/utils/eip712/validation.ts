@@ -1,5 +1,7 @@
 import { CASPER_DOMAIN_TYPES } from '@casper-ecosystem/casper-eip-712';
 import {
+  CasperNetwork,
+  casperChainNameToCasperNetwork,
   EIP712Error,
   IEIP712Field,
   IEIP712SignTypedDataOptions,
@@ -7,13 +9,13 @@ import {
   IEIP712Types,
   SignTypedDataErrorCodes,
 } from '../../domain';
-import { getCasperNetworkByChainName } from '../casperSdk/network';
 import { IEIP712NumberType, parseEip712Number, parseNumberType } from './numbers';
 
 const ARRAY_PATTERN = /\[/; // matches any array syntax: [], [N]
 const BYTES_1_TO_31_PATTERN = /^bytes([1-9]|[12][0-9]|3[01])$/;
 const STRICT_HEX_PATTERN = /^(?:0x)?(?:[0-9a-fA-F]{2})*$/;
 const PRIMITIVE_TYPES = new Set(['address', 'bool', 'bytes', 'bytes32', 'string']);
+const CAIP_2_CASPER_PREFIX = 'casper:';
 
 function isSupportedFieldType(type: string): boolean {
   return PRIMITIVE_TYPES.has(type) || parseNumberType(type) !== null;
@@ -84,7 +86,7 @@ export function validateTypedDataEIP712Values(
     } else if (type === 'bytes32') {
       validateHex(owner, name, value, [32]);
     } else if (type === 'bytes') {
-      if (!(value instanceof Uint8Array)) validateHex(owner, name, value);
+      validateHex(owner, name, value);
     } else if (type === 'bool') {
       if (typeof value !== 'boolean') throw invalidValue(owner, name, 'expected a boolean');
     } else if (type === 'string') {
@@ -94,9 +96,33 @@ export function validateTypedDataEIP712Values(
 }
 
 /**
+ * Returns the network `domain.chain_name` names. Accepts exactly a Casper chain name (`casper`,
+ * `casper-test`, `dev-net`, `integration-test`) or its CAIP-2 form `casper:<chain name>`.
+ * @throws EIP712Error `INVALID_PARAMS` on anything else.
+ */
+export function resolveTypedDataEIP712Network(domain: Record<string, unknown>): CasperNetwork {
+  const chainName = domain.chain_name;
+  const reference =
+    typeof chainName === 'string' && chainName.startsWith(CAIP_2_CASPER_PREFIX)
+      ? chainName.slice(CAIP_2_CASPER_PREFIX.length)
+      : chainName;
+  if (
+    typeof reference !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(casperChainNameToCasperNetwork, reference)
+  ) {
+    throw invalidValue(
+      'EIP712Domain',
+      'chain_name',
+      'expected the chain name of a known Casper network',
+    );
+  }
+  return (casperChainNameToCasperNetwork as Record<string, CasperNetwork>)[reference];
+}
+
+/**
  * Requires the full Casper domain, the shape reference verifiers hash with `CasperDomainTypes`:
- * every field of `CASPER_DOMAIN_TYPES` present and non-null, and `chain_name` mappable by
- * `getCasperNetworkByChainName`.
+ * every field of `CASPER_DOMAIN_TYPES` present and non-null, and a `chain_name` that
+ * `resolveTypedDataEIP712Network` accepts.
  * @throws EIP712Error `INVALID_PARAMS`.
  */
 export function validateTypedDataEIP712Domain(domain: Record<string, unknown>): void {
@@ -105,14 +131,7 @@ export function validateTypedDataEIP712Domain(domain: Record<string, unknown>): 
       throw invalidValue('EIP712Domain', name, 'missing');
     }
   }
-  const chainName = domain.chain_name;
-  if (typeof chainName !== 'string' || getCasperNetworkByChainName(chainName) === null) {
-    throw invalidValue(
-      'EIP712Domain',
-      'chain_name',
-      'expected a chain name of a known Casper network',
-    );
-  }
+  resolveTypedDataEIP712Network(domain);
 }
 
 export function validatePrimaryType(types: IEIP712Types, primaryType: string): void {
@@ -170,11 +189,20 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
 /**
  * Rejects arrays, `bytes1`..`bytes31`, struct references and any type outside `address`, `bool`,
  * `bytes`, `bytes32`, `string`, `uintN`, `intN`.
- * @throws EIP712Error `UNSUPPORTED_TYPE`.
+ * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice.
  */
 export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
   for (const [typeName, fields] of Object.entries(types)) {
+    const seen = new Set<string>();
     for (const field of fields) {
+      if (seen.has(field.name)) {
+        throw new EIP712Error(
+          new Error(`Field "${field.name}" is declared more than once in ${typeName}`),
+          'validateTypedDataEIP712',
+          SignTypedDataErrorCodes.INVALID_PARAMS,
+        );
+      }
+      seen.add(field.name);
       if (Object.prototype.hasOwnProperty.call(types, field.type)) {
         throw new EIP712Error(
           new Error(`Struct types are not supported: "${field.type}" in ${typeName}.${field.name}`),
@@ -236,6 +264,15 @@ export function validateTypedDataEIP712(
   options: Pick<IEIP712SignTypedDataOptions, 'domainTypes' | 'rejectUnknownFields'> = {},
 ): IEIP712Field[] {
   const { domain, types, primaryType, message } = typedData;
+  for (const [name, part] of Object.entries({ domain, types, message })) {
+    if (typeof part !== 'object' || part === null) {
+      throw new EIP712Error(
+        new Error(`typedData.${name} must be an object`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.INVALID_PARAMS,
+      );
+    }
+  }
   validatePrimaryType(types, primaryType);
   validateTypedDataEIP712Domain(domain);
   const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);

@@ -58,20 +58,23 @@ export interface IEIP712DisplayModel {
   primaryType: string;
 }
 
-/** Outcome of a best-effort enrichment lookup, so consumers can tell a failed lookup from absent data. */
+/**
+ * Outcome of a best-effort enrichment lookup, so consumers can tell a failed lookup from absent data.
+ * `skipped` is no longer produced: a valid domain always names a network.
+ */
 export type EIP712EnrichmentStatus = 'ok' | 'failed' | 'skipped';
 /**
- * Contract-package enrichment adds `absent` ("no `contract_package_hash` in the domain") and
- * `partial` (some package lookups succeeded while others threw — degraded, not fully failed).
+ * Contract-package enrichment adds `partial` (some package lookups succeeded while others threw).
+ * `absent` is no longer produced: a valid domain always carries `contract_package_hash`.
  */
 export type EIP712ContractEnrichmentStatus = EIP712EnrichmentStatus | 'absent' | 'partial';
 
 export interface IEIP712Enrichment {
-  /** Account-info batch: `skipped` (no network), `ok` (batch succeeded), `failed` (batch threw). */
+  /** Account-info batch: `ok` (batch succeeded) or `failed` (batch threw). */
   accounts: EIP712EnrichmentStatus;
   /**
-   * Contract package: `skipped`, `absent`, `ok` (all lookups completed), `partial` (some succeeded,
-   * some threw), `failed` (every lookup threw).
+   * Contract package: `ok` (all lookups completed), `partial` (some succeeded, some threw),
+   * `failed` (every lookup threw).
    */
   contractPackage: EIP712ContractEnrichmentStatus;
 }

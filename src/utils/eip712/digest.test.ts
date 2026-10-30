@@ -131,6 +131,31 @@ describe('computeTypedDataEIP712Digest — numeric forms', () => {
     expect(digestOf('1000')).not.toBe(digestOf(4096n));
   });
 
+  it('computes the struct hash artifact over the normalised value', () => {
+    const { hashArtifacts } = computeTypedDataEIP712Digest(withValue('1000'), {
+      returnHashArtifacts: true,
+    });
+    expect(hashArtifacts?.structHash).toBe(
+      '0xbd663ef94cb1c6c341a21af953bdf2ce0d48ddde160c42bebe1e08bc36cd0674',
+    );
+  });
+
+  it('rejects a field name declared as both a number and bytes', () => {
+    expect(() =>
+      computeTypedDataEIP712Digest({
+        domain: DOMAIN,
+        types: {
+          T: [
+            { name: 'v', type: 'uint256' },
+            { name: 'v', type: 'bytes' },
+          ],
+        },
+        primaryType: 'T',
+        message: { v: '0x03e8' },
+      }),
+    ).toThrow(expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }));
+  });
+
   it('hashes 0x hex and safe numbers like the bigint', () => {
     expect(digestOf('0x03e8')).toBe(digestOf(1000n));
     expect(digestOf(1000)).toBe(digestOf(1000n));

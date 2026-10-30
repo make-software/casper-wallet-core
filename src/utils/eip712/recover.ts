@@ -12,13 +12,15 @@ import {
 } from '@casper-ecosystem/casper-eip-712';
 import { IEIP712RecoverSignerParams, IEIP712VerifySignatureParams } from '../../domain';
 import { normalizeEip712Numbers } from './numbers';
-import { resolveDomainTypes } from './validation';
+import { validateTypedDataEIP712 } from './validation';
 
 /**
  * NOTE: these wrappers are secp256k1 / Ethereum-style. `signature` must be the raw 65-byte
  * recoverable signature (r‖s‖v) and `recoverTypedDataEIP712SignerAddress` returns a 0x-prefixed 20-byte
  * Ethereum address. They do NOT accept the wallet's `02`-prefixed 64-byte wire format and do NOT
  * apply to ed25519 (use the native key's verifySignature for ed25519).
+ * `recoverTypedDataEIP712SignerAddress` accepts only typed data the digest accepts and throws the
+ * same `EIP712Error`; library failures surface raw.
  */
 export function recoverTypedDataEIP712SignerAddress({
   typedData,
@@ -26,7 +28,9 @@ export function recoverTypedDataEIP712SignerAddress({
   options,
 }: IEIP712RecoverSignerParams): string {
   const { domain, types, primaryType, message } = typedData;
-  const resolvedDomainTypes = resolveDomainTypes(domain, types, options?.domainTypes);
+  const resolvedDomainTypes = validateTypedDataEIP712(typedData, {
+    domainTypes: options?.domainTypes,
+  });
   const addressBytes = recoverTypedDataSigner(
     domain as EIP712Domain,
     types,
