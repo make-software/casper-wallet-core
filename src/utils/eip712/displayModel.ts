@@ -66,10 +66,9 @@ export function formatEip712TokenAmount(raw: bigint, decimals: number, symbol: s
 }
 
 /**
- * Friendly text for EIP-712 timestamp sentinels, else null. The label depends on the field's role:
- * the same 0 / u64::MAX value means the opposite for a lower bound (valid-from) vs an upper bound
- * (valid-until), so a shared mapping would mislabel one of them in a signing UI. A type maximum
- * counts as a sentinel only for `uintN` with N >= 48; narrower maxima are ordinary timestamps.
+ * Friendly text for EIP-712 timestamp sentinels, else null. 0 / u64::MAX mean opposite things for a
+ * lower vs upper bound; `expiration` at 0 is "Current block only" (Permit2), other upper bounds
+ * "Expired". A type maximum is a sentinel only for `uintN` with N >= 48.
  */
 function dateSentinelLabel(name: string, type: string, value: string): Maybe<string> {
   if (value.trim() === '') {
@@ -82,7 +81,10 @@ function dateSentinelLabel(name: string, type: string, value: string): Maybe<str
     return null;
   }
   const isLowerBound = LOWER_BOUND_DATE_FIELDS.has(name.toLowerCase());
-  if (n === BigInt(0)) return isLowerBound ? 'Always' : 'Expired';
+  if (n === BigInt(0)) {
+    if (isLowerBound) return 'Always';
+    return name.toLowerCase() === 'expiration' ? 'Current block only' : 'Expired';
+  }
   const numberType = parseNumberType(type);
   const isWideTypeMax =
     !!numberType && numberType.unsigned && numberType.bits >= 48 && n === unsignedTypeMax(type);

@@ -599,7 +599,7 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     expect(sig.displayValue).toContain('2026');
   });
 
-  it('shows No expiry at the uint48 maximum and Expired at zero', () => {
+  it('shows No expiry at the uint48 maximum and Current block only at zero', () => {
     const details = (expiration: string) => ({
       details: { ...(sample('PermitSingle').details as object), expiration },
       spender: sample('PermitSingle').spender,
@@ -608,7 +608,23 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     const max = build('PermitSingle', details('281474976710655')).messageRows;
     expect(max.find(r => r.label === 'Details › Expiration')!.displayValue).toBe('No expiry');
     const zero = build('PermitSingle', details('0')).messageRows;
-    expect(zero.find(r => r.label === 'Details › Expiration')!.displayValue).toBe('Expired');
+    expect(zero.find(r => r.label === 'Details › Expiration')!.displayValue).toBe(
+      'Current block only',
+    );
+  });
+
+  it('keeps Expired for deadline and sigDeadline at zero', () => {
+    const rows = build('PermitSingle', {
+      details: sample('PermitSingle').details,
+      spender: sample('PermitSingle').spender,
+      sigDeadline: '0',
+    }).messageRows;
+    expect(rows.find(r => r.label === 'Sig Deadline')!.displayValue).toBe('Expired');
+    const transfer = build('PermitTransferFrom', {
+      ...sample('PermitTransferFrom'),
+      deadline: '0',
+    }).messageRows;
+    expect(transfer.find(r => r.label === 'Deadline')!.displayValue).toBe('Expired');
   });
 
   it('shows Unlimited for an amount at its declared type maximum', () => {

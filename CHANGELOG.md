@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- EIP-712: an `expiration` field equal to 0 shows `Current block only` (valid in the current
+  block only, as Permit2 defines it) instead of `Expired`.
 - EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
   including existing x402 and permit flows. Amounts at their type's maximum show `Unlimited`.
   `sigDeadline` and `expiration` render as dates.
