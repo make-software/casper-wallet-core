@@ -10,8 +10,8 @@ import {
   SignTypedDataErrorCodes,
 } from '../../domain';
 import { IEIP712NumberType, parseEip712Number, parseNumberType } from './numbers';
+import { MAX_EIP712_STRUCT_DEPTH, isEip712StructType, parseEip712FieldType } from './types';
 
-const ARRAY_PATTERN = /\[/; // matches any array syntax: [], [N]
 const BYTES_1_TO_31_PATTERN = /^bytes([1-9]|[12][0-9]|3[01])$/;
 const STRICT_HEX_PATTERN = /^(?:0x)?(?:[0-9a-fA-F]{2})*$/;
 const PRIMITIVE_TYPES = new Set(['address', 'bool', 'bytes', 'bytes32', 'string']);
@@ -190,11 +190,23 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
 }
 
 /**
- * Rejects arrays, `bytes1`..`bytes31`, struct references and any type outside `address`, `bool`,
- * `bytes`, `bytes32`, `string`, `uintN`, `intN`.
- * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice.
+ * Accepts struct references and one-dimensional arrays (`T[]`, `T[N]`, N in 1..64) of
+ * `address`, `bool`, `bytes`, `bytes32`, `string`, `uintN`, `intN` or a struct. Rejects
+ * multi-dimensional arrays, `bytes1`..`bytes31`, undefined structs, cycles and, when `primaryType`
+ * is given, struct nesting deeper than 4 levels below it.
+ * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice or a
+ * struct named like a primitive.
  */
-export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
+export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryType?: string): void {
+  for (const typeName of Object.keys(types)) {
+    if (isSupportedFieldType(typeName) || BYTES_1_TO_31_PATTERN.test(typeName)) {
+      throw new EIP712Error(
+        new Error(`Type name "${typeName}" shadows a primitive type`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.INVALID_PARAMS,
+      );
+    }
+  }
   for (const [typeName, fields] of Object.entries(types)) {
     const seen = new Set<string>();
     for (const field of fields) {
@@ -206,37 +218,62 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types): void {
         );
       }
       seen.add(field.name);
-      if (Object.prototype.hasOwnProperty.call(types, field.type)) {
-        throw new EIP712Error(
-          new Error(`Struct types are not supported: "${field.type}" in ${typeName}.${field.name}`),
+      const unsupported = (reason: string) =>
+        new EIP712Error(
+          new Error(`${reason}: "${field.type}" in ${typeName}.${field.name}`),
           'validateTypedDataEIP712',
           SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
         );
+      const parsed = parseEip712FieldType(field.type);
+      if (!parsed) {
+        throw unsupported('Unsupported type');
       }
-      if (ARRAY_PATTERN.test(field.type)) {
-        throw new EIP712Error(
-          new Error(`Array types are not supported: "${field.type}" in ${typeName}.${field.name}`),
-          'validateTypedDataEIP712',
-          SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
-        );
+      if (parsed.base === 'EIP712Domain') {
+        throw unsupported('EIP712Domain cannot be used as a field type');
       }
-      if (BYTES_1_TO_31_PATTERN.test(field.type)) {
-        throw new EIP712Error(
-          new Error(
-            `bytes1..bytes31 types are not supported: "${field.type}" in ${typeName}.${field.name}`,
-          ),
-          'validateTypedDataEIP712',
-          SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
-        );
+      if (isEip712StructType(types, parsed.base)) {
+        continue;
       }
-      if (!isSupportedFieldType(field.type)) {
-        throw new EIP712Error(
-          new Error(`Unsupported type: "${field.type}" in ${typeName}.${field.name}`),
-          'validateTypedDataEIP712',
-          SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
-        );
+      if (BYTES_1_TO_31_PATTERN.test(parsed.base)) {
+        throw unsupported('bytes1..bytes31 types are not supported');
+      }
+      if (!isSupportedFieldType(parsed.base)) {
+        throw unsupported('Unsupported type');
       }
     }
+  }
+  if (primaryType !== undefined) {
+    validateStructGraph(types, primaryType);
+  }
+}
+
+function validateStructGraph(types: IEIP712Types, primaryType: string): void {
+  const visiting = new Set<string>();
+  const visit = (typeName: string, depth: number): void => {
+    visiting.add(typeName);
+    for (const field of types[typeName]) {
+      const base = parseEip712FieldType(field.type)?.base;
+      if (base === undefined || !isEip712StructType(types, base)) {
+        continue;
+      }
+      const fail = (reason: string) =>
+        new EIP712Error(
+          new Error(`${reason}: "${field.type}" in ${typeName}.${field.name}`),
+          'validateTypedDataEIP712',
+          SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+        );
+      if (visiting.has(base)) {
+        throw fail('Recursive type');
+      }
+      if (depth + 1 > MAX_EIP712_STRUCT_DEPTH) {
+        throw fail(`Struct nesting deeper than ${MAX_EIP712_STRUCT_DEPTH} levels`);
+      }
+      visit(base, depth + 1);
+    }
+    visiting.delete(typeName);
+  };
+  if (isEip712StructType(types, primaryType)) {
+    visit(primaryType, 0);
   }
 }
 
@@ -279,7 +316,7 @@ export function validateTypedDataEIP712(
   validatePrimaryType(types, primaryType);
   validateTypedDataEIP712Domain(domain);
   const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);
-  validateTypedDataEIP712FieldTypes(types);
+  validateTypedDataEIP712FieldTypes(types, primaryType);
   validateTypedDataEIP712Values('EIP712Domain', resolvedDomainTypes, domain);
   validateTypedDataEIP712Values(primaryType, types[primaryType], message);
   if (options.rejectUnknownFields) {

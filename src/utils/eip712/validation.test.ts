@@ -81,20 +81,81 @@ describe('resolveDomainTypes', () => {
 });
 
 describe('validateTypedDataEIP712FieldTypes', () => {
-  it('rejects array types', () => {
-    expect(() =>
-      validateTypedDataEIP712FieldTypes({ T: [{ name: 'a', type: 'uint256[]' }] }),
-    ).toThrow(EIP712Error);
+  const field = (name: string, type: string) => ({ name, type });
+  const code = (errorCode: string) => expect.objectContaining({ errorCode });
+  const chain = (length: number): IEIP712Types => {
+    const types: IEIP712Types = {};
+    for (let i = 0; i <= length; i++) {
+      types[i === 0 ? 'P' : `S${i}`] = [
+        i === length ? field('v', 'uint256') : field('n', `S${i + 1}`),
+      ];
+    }
+    return types;
+  };
+
+  it.each([
+    [
+      'struct ref',
+      { Order: [field('details', 'Details')], Details: [field('value', 'uint256')] },
+      'Order',
+    ],
+    [
+      'struct array',
+      {
+        PermitBatch: [field('details', 'PermitDetails[]')],
+        PermitDetails: [field('v', 'uint256')],
+      },
+      'PermitBatch',
+    ],
+    ['fixed array', { T: [field('owners', 'address[3]')] }, 'T'],
+    ['uint array', { T: [field('amounts', 'uint256[]')] }, 'T'],
+    ['string array', { T: [field('notes', 'string[]')] }, 'T'],
+    ['depth 4', chain(4), 'P'],
+  ])('accepts %s', (_, types, primaryType) => {
+    expect(() => validateTypedDataEIP712FieldTypes(types, primaryType)).not.toThrow();
   });
 
-  it('rejects a struct-typed field', () => {
-    expect(() =>
-      validateTypedDataEIP712FieldTypes({
-        Order: [{ name: 'details', type: 'Details' }],
-        Details: [{ name: 'value', type: 'uint256' }],
-      }),
-    ).toThrow(expect.objectContaining({ errorCode: SignTypedDataErrorCodes.UNSUPPORTED_TYPE }));
+  it.each([
+    ['uint256[][]', 'uint256[][]'],
+    ['uint256[2][3]', 'uint256[2][3]'],
+    ['size 0', 'uint256[0]'],
+    ['size 65', 'uint256[65]'],
+    ['leading zero', 'uint256[01]'],
+    ['bytes4 element', 'bytes4[]'],
+    ['undefined struct', 'Missing'],
+    ['EIP712Domain', 'EIP712Domain'],
+  ])('rejects %s with UNSUPPORTED_TYPE', (_, type) => {
+    expect(() => validateTypedDataEIP712FieldTypes({ T: [field('m', type)] }, 'T')).toThrow(
+      code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE),
+    );
   });
+
+  it('rejects a direct cycle with UNSUPPORTED_TYPE', () => {
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({ Node: [field('next', 'Node')] }, 'Node'),
+    ).toThrow(code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE));
+  });
+
+  it('rejects a cycle through an array with UNSUPPORTED_TYPE', () => {
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({ A: [field('bs', 'B[]')], B: [field('a', 'A')] }, 'A'),
+    ).toThrow(code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE));
+  });
+
+  it('rejects depth 5 with UNSUPPORTED_TYPE', () => {
+    expect(() => validateTypedDataEIP712FieldTypes(chain(5), 'P')).toThrow(
+      code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE),
+    );
+  });
+
+  it.each(['address', 'uint256', 'bytes32', 'uint48'])(
+    'rejects a type named %s with INVALID_PARAMS',
+    name => {
+      expect(() => validateTypedDataEIP712FieldTypes({ [name]: [field('v', 'uint256')] })).toThrow(
+        code(SignTypedDataErrorCodes.INVALID_PARAMS),
+      );
+    },
+  );
 
   it('allows bytes32', () => {
     expect(() =>
