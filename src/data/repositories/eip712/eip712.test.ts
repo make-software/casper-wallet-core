@@ -1,4 +1,5 @@
 import { PrivateKey, KeyAlgorithm } from 'casper-js-sdk';
+import { fromHex } from '@casper-ecosystem/casper-eip-712';
 import { PermitTypes, buildDomain } from '@casper-ecosystem/casper-eip-712';
 import { EIP712Repository } from './index';
 import { AccountInfoRepository } from '../accountInfo';
@@ -14,6 +15,12 @@ import {
 import { getAccountHashFromPublicKey } from '../../../utils';
 import * as digestModule from '../../../utils/eip712/digest';
 import * as validationModule from '../../../utils/eip712/validation';
+import { getTypedDataEIP712Leaves } from '../../../utils/eip712/walk';
+import {
+  PERMIT2_PRIMARY_TYPES,
+  buildPermit2TypedData,
+  Permit2PrimaryType,
+} from '../../../__test-utils__/permit2';
 
 const DOMAIN = buildDomain('CasperSwap', '1', 'casper', '0x' + '01'.repeat(32));
 const MESSAGE = {
@@ -410,5 +417,91 @@ describe('EIP712Repository', () => {
       caught = e;
     }
     expect(isEIP712Error(caught)).toBe(true);
+  });
+
+  describe('Permit2 typed data', () => {
+    const cep18Package = {
+      ...pkg,
+      latestVersionContractTypeId: 2,
+      name: 'Wrapped CSPR',
+      symbol: 'WCSPR',
+      decimals: 9,
+    };
+
+    const prepare = (
+      primaryType: Permit2PrimaryType,
+      getContractPackage: (hash: string) => Promise<typeof cep18Package | null> = async () =>
+        cep18Package,
+    ) => {
+      const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+      jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+      jest
+        .spyOn(contractPackageRepository, 'getContractPackage')
+        .mockImplementation(({ contractPackageHash }) => getContractPackage(contractPackageHash));
+      const typedData = buildPermit2TypedData(primaryType, undefined, 33);
+      return {
+        typedData,
+        request: r.prepareSignatureRequest({ typedData, signingPublicKeyHex: SIGNING_PK }),
+      };
+    };
+
+    it.each(PERMIT2_PRIMARY_TYPES)(
+      'prepares %s with one row per leaf and a digest equal to computeDigest',
+      async primaryType => {
+        const { typedData, request } = prepare(primaryType);
+        const req = await request;
+
+        const leafCount = getTypedDataEIP712Leaves(
+          primaryType,
+          typedData.types,
+          typedData.message,
+        ).length;
+        expect(req.digest).toBe(repo.computeDigest(typedData).digest);
+        expect(req.primaryType).toBe(primaryType);
+        expect(req.messageRows).toHaveLength(leafCount);
+        req.messageRows.forEach(row => {
+          expect(row.value).not.toContain('[object Object]');
+          expect(row.displayValue).not.toContain('[object Object]');
+        });
+      },
+    );
+
+    it('shows a CEP-18 amount in token units with the symbol', async () => {
+      const req = await prepare('PermitTransferFrom').request;
+
+      const row = req.messageRows.find(r => r.label === 'Permitted › Amount')!;
+      expect(row.value).toBe('1000');
+      expect(row.displayValue).toBe('0.000001 WCSPR');
+      expect(row.token).toEqual({
+        contractPackageHash: '01'.repeat(32),
+        symbol: 'WCSPR',
+        decimals: 9,
+      });
+    });
+
+    it('reports contractPackage as partial and keeps the raw amount when a token lookup throws', async () => {
+      const req = await prepare('PermitTransferFrom', async hash => {
+        if (hash === '01'.repeat(32)) {
+          throw new Error('pkg');
+        }
+        return cep18Package;
+      }).request;
+
+      expect(req.enrichment.contractPackage).toBe('partial');
+      const row = req.messageRows.find(r => r.label === 'Permitted › Amount')!;
+      expect(row.displayValue).toBe('1000');
+      expect(row.token).toBeNull();
+    });
+
+    it('signs PermitBatch and the signature verifies against the digest', () => {
+      const typedData = buildPermit2TypedData('PermitBatch', undefined, 33);
+      const key = PrivateKey.fromHex('11'.repeat(32), KeyAlgorithm.SECP256K1);
+
+      const result = repo.signTypedData({ typedData, privateKey: key });
+
+      expect(result.digest).toBe(repo.computeDigest(typedData).digest);
+      const signature = Uint8Array.from(Buffer.from(result.signature, 'hex'));
+      expect(key.publicKey.verifySignature(fromHex(result.digest), signature)).toBe(true);
+    });
   });
 });
