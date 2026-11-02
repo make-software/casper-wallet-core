@@ -613,6 +613,35 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     );
   });
 
+  it('reads expiration and sigDeadline as seconds even when they are >= 1e12', () => {
+    const seconds = '1793612672000';
+    const year = String(new Date(Number(seconds) * 1000).getUTCFullYear());
+    const rows = build('PermitSingle', {
+      details: { ...(sample('PermitSingle').details as object), expiration: seconds },
+      spender: sample('PermitSingle').spender,
+      sigDeadline: seconds,
+    }).messageRows;
+    for (const label of ['Details › Expiration', 'Sig Deadline']) {
+      const r = rows.find(row => row.label === label)!;
+      expect(r.presentation).toBe('date');
+      expect(r.displayValue).toContain(year);
+      expect(r.displayValue).not.toContain('2026');
+    }
+  });
+
+  it('shows the raw number for an expiration too large to be a date in seconds', () => {
+    const huge = '9000000000000';
+    const rows = build('PermitSingle', {
+      details: { ...(sample('PermitSingle').details as object), expiration: huge },
+      spender: sample('PermitSingle').spender,
+      sigDeadline: '1793613657',
+    }).messageRows;
+    expect(rows.find(r => r.label === 'Details › Expiration')).toMatchObject({
+      presentation: 'number',
+      displayValue: huge,
+    });
+  });
+
   it('keeps Expired for deadline and sigDeadline at zero', () => {
     const rows = build('PermitSingle', {
       details: sample('PermitSingle').details,
@@ -656,6 +685,43 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
       permitted: { token: '0x01' + '01'.repeat(32), amount: u160 },
     }).messageRows.find(r => r.label === 'Permitted › Amount')!;
     expect(row.displayValue).toBe(u160);
+  });
+
+  it.each([
+    ['uint8', 'value', (2n ** 8n - 1n).toString()],
+    ['uint32', 'amount', (2n ** 32n - 1n).toString()],
+    ['uint128', 'amount', (2n ** 128n - 1n).toString()],
+  ])('shows the exact number for a %s %s at its type maximum', (type, name, max) => {
+    const model = buildTypedDataEIP712DisplayModel({
+      domain: { chain_name: 'casper' },
+      types: { T: [{ name, type }] },
+      primaryType: 'T',
+      message: { [name]: max },
+    });
+    expect(model.messageRows[0]).toMatchObject({ value: max, displayValue: max });
+  });
+
+  it('does not throw on unvalidated values and shows wrong shapes as their string', () => {
+    const typedData = {
+      domain: { chain_name: 'casper' },
+      types: {
+        Outer: [
+          { name: 'inner', type: 'Inner' },
+          { name: 'list', type: 'Inner[]' },
+          { name: 'amount', type: 'uint256' },
+        ],
+        Inner: [{ name: 'v', type: 'uint256' }],
+        Node: [{ name: 'next', type: 'Node' }],
+      },
+    };
+    const rowsOf = (primaryType: string, message: Record<string, unknown>) =>
+      buildTypedDataEIP712DisplayModel({ ...typedData, primaryType, message }).messageRows;
+
+    expect(
+      rowsOf('Outer', { inner: 'x', list: 'y', amount: '1' }).map(r => r.displayValue),
+    ).toEqual(['x', 'y', '1']);
+    expect(rowsOf('Outer', { amount: '1' }).map(r => r.label)).toEqual(['Inner', 'List', 'Amount']);
+    expect(() => rowsOf('Node', { next: { next: {} } })).not.toThrow();
   });
 
   it.each(PERMIT2_PRIMARY_TYPES)('emits one row per validated leaf for %s', primaryType => {
@@ -808,6 +874,40 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
       { resolveToken },
     );
     expect(model.messageRows[1]).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('does not fall back to the domain package when the top-level token field is not an address', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: {
+          T: [
+            { name: 'token', type: 'bytes32' },
+            { name: 'amount', type: 'uint256' },
+          ],
+        },
+        primaryType: 'T',
+        message: { token: '0x' + '09'.repeat(32), amount: '1000' },
+      },
+      { resolveToken },
+    );
+    expect(model.messageRows[1]).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('shows the exact token amount for a narrow amount type at its maximum', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: { T: [{ name: 'amount', type: 'uint64' }] },
+        primaryType: 'T',
+        message: { amount: (2n ** 64n - 1n).toString() },
+      },
+      { resolveToken },
+    );
+    expect(model.messageRows[0]).toMatchObject({
+      displayValue: '18,446,744,073.709551615 WCSPR',
+      token: WCSPR,
+    });
   });
 
   it('does not pair a nested amount with the domain package when the token sibling is missing', () => {

@@ -180,7 +180,7 @@ export class EIP712Repository implements IEIP712Repository {
       });
     } catch (e) {
       // DTO construction can throw outside the digest path (e.g. JSON.stringify on a circular ref in
-      // a payload region hashTypedData never visits). Keep the documented `EIP712Error` contract.
+      // a payload region the digest encoder never visits). Keep the documented `EIP712Error` contract.
       throw isEIP712Error(e) ? e : new EIP712Error(e, 'prepareSignatureRequest');
     }
   }

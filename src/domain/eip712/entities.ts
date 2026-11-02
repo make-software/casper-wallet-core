@@ -64,7 +64,10 @@ export interface IEIP712DisplayRow {
   path: EIP712PathSegment[];
   /** Struct nesting of the value: 0 for a top-level field; array indexes do not count. */
   depth: number;
-  /** Token `value` is denominated in, when paired (see `buildTypedDataEIP712DisplayModel`); else null. */
+  /**
+   * CEP-18 token of an `amount`/`value` row: its sibling `token` address, or for a top-level amount
+   * with no `token` field the domain package. Null when unpaired or not CEP-18 with metadata.
+   */
   token: Maybe<IEIP712RowToken>;
 }
 

@@ -132,6 +132,14 @@ describe('validateTypedDataEIP712FieldTypes', () => {
     ['uint array', { T: [field('amounts', 'uint256[]')] }, 'T'],
     ['string array', { T: [field('notes', 'string[]')] }, 'T'],
     ['depth 4', chain(4), 'P'],
+    [
+      'struct referenced twice',
+      {
+        Mail: [field('from', 'Person'), field('to', 'Person')],
+        Person: [field('wallet', 'address')],
+      },
+      'Mail',
+    ],
   ])('accepts %s', (_, types, primaryType) => {
     expect(() => validateTypedDataEIP712FieldTypes(types, primaryType)).not.toThrow();
   });
@@ -148,6 +156,27 @@ describe('validateTypedDataEIP712FieldTypes', () => {
   ])('rejects %s with UNSUPPORTED_TYPE', (_, type) => {
     expect(() => validateTypedDataEIP712FieldTypes({ T: [field('m', type)] }, 'T')).toThrow(
       code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE),
+    );
+  });
+
+  it.each([
+    ['struct field', 'E'],
+    ['struct array', 'E[]'],
+  ])('rejects a %s of a struct with no fields with UNSUPPORTED_TYPE', (_, type) => {
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({ T: [field('items', type)], E: [] }, 'T'),
+    ).toThrow(code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE));
+  });
+
+  it.each([
+    'PermitTransferFrom(TokenPermissions permitted)TokenPermissions(address token,uint256 amount)W',
+    'T,',
+    'a b',
+    '1T',
+    '',
+  ])('rejects the type name %j with INVALID_PARAMS', name => {
+    expect(() => validateTypedDataEIP712FieldTypes({ [name]: [field('v', 'uint256')] })).toThrow(
+      code(SignTypedDataErrorCodes.INVALID_PARAMS),
     );
   });
 
@@ -583,6 +612,52 @@ describe('validateTypedDataEIP712 — nested values', () => {
     const items = Array.from({ length: 64 }, () => ({ a: 1, b: 1, c: 1, d: 1, e: 1 }));
     expectInvalid(run('Wide', { items }));
     expect(run('Wide', { items: items.slice(0, 51) })).not.toThrow();
+  });
+
+  it('rejects more than 256 leaf rows reached only through non-array struct fields', () => {
+    const halfTypes: IEIP712Types = {
+      P: [
+        { name: 'a', type: 'S' },
+        { name: 'b', type: 'S' },
+      ],
+      S: [
+        { name: 'x', type: 'uint8[64]' },
+        { name: 'y', type: 'uint8[64]' },
+        { name: 'z', type: 'uint8[16]' },
+      ],
+    };
+    const half = { x: Array(64).fill(1), y: Array(64).fill(1), z: Array(16).fill(1) };
+    expect(() =>
+      validateTypedDataEIP712({
+        domain: DOMAIN,
+        types: halfTypes,
+        primaryType: 'P',
+        message: { a: half, b: half },
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        errorCode: SignTypedDataErrorCodes.INVALID_PARAMS,
+        message: expect.stringContaining('Message displays 288 rows'),
+      }),
+    );
+  });
+
+  it('rejects a primary type name forging a nested canonical type string', () => {
+    const forged =
+      'PermitTransferFrom(TokenPermissions permitted,address spender)TokenPermissions(address token,uint256 amount)W';
+    expectInvalid(() =>
+      validateTypedDataEIP712({
+        domain: DOMAIN,
+        types: {
+          [forged]: [
+            { name: 'a', type: 'bytes32' },
+            { name: 'b', type: 'address' },
+          ],
+        },
+        primaryType: forged,
+        message: { a: '0x' + '11'.repeat(32), b: ADDR },
+      }),
+    );
   });
 
   it('rejects an unknown nested key only with rejectUnknownFields', () => {

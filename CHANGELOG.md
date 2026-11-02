@@ -12,16 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and displayed, so all Permit2 types sign. Limits: nesting 4 levels, array length 64, 256
   message rows.
 - EIP-712: `IEIP712DisplayRow` gains `path`, `depth` and `token`. Nested rows are labelled
-  `Permitted #1 › Token`. Wallets may group rows by `path`; no change is required to keep
-  rendering.
+  `Permitted #1 › Token`. Wallets may group rows by `path`. **Breaking for code that builds rows
+  itself** (e.g. a synthetic network row or a test fixture): the fields are required, so add
+  `path: [key]`, `depth: 0`, `token: null`.
 
 ### Changed
 
 - EIP-712: an `expiration` field equal to 0 shows `Current block only` (valid in the current
   block only, as Permit2 defines it) instead of `Expired`.
 - EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
-  including existing x402 and permit flows. Amounts at their type's maximum show `Unlimited`.
-  `sigDeadline` and `expiration` render as dates.
+  including existing x402 and permit flows. Amounts at the maximum of a `uint` type of 160 bits
+  or wider show `Unlimited`; narrower types show the exact number. `sigDeadline` and
+  `expiration` render as dates and are always read as seconds, never milliseconds.
 - EIP-712: `T[][]`, recursive types and type names that shadow primitives are rejected.
 - EIP-712: `0x` hex numbers with an odd number of digits (`0x1f4` = 500) are accepted; only
   the uppercase `0X` prefix is still rejected.
@@ -29,8 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   word (`'00…03e8'` = 1000). A zero-padded 64-digit string now reads as hex, and a 64-digit
   string not starting with `0` is rejected as ambiguous; send decimal without padding or `0x`
   hex. Shorter strings are unchanged (`'1000'` = 1000).
-- EIP-712: field names that are not identifiers (`[A-Za-z_$][A-Za-z0-9_$]*`) are rejected with
-  `INVALID_PARAMS`.
+- EIP-712: type names and field names that are not identifiers (`[A-Za-z_$][A-Za-z0-9_$]*`) are
+  rejected with `INVALID_PARAMS`, and struct types with no fields with `UNSUPPORTED_TYPE`.
+- EIP-712: `buildTypedDataEIP712DisplayModel` does not throw on unvalidated values; a struct or
+  array value of the wrong shape shows as one row with its string.
 - EIP-712: a date field at the maximum of a `uint` type narrower than 48 bits shows a date, not
   `No expiry`.
 

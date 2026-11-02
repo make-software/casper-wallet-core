@@ -51,7 +51,10 @@ export function parseEip712Number(value: unknown): bigint | null {
   return null;
 }
 
-/** Copy of `values` with every parseable number-typed field of `fields` replaced by its bigint. */
+/**
+ * Copy of `values` with every parseable number-typed field of `fields` replaced by its bigint.
+ * Top-level fields only; `normalizeEip712Struct` also normalises nested structs and arrays.
+ */
 export function normalizeEip712Numbers(
   fields: IEIP712Field[],
   values: Record<string, unknown>,

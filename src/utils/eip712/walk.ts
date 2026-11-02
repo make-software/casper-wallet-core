@@ -1,9 +1,9 @@
 import { EIP712PathSegment, IEIP712Field, IEIP712Types } from '../../domain';
-import { isEip712StructType, parseEip712FieldType } from './types';
+import { MAX_EIP712_STRUCT_DEPTH, isEip712StructType, parseEip712FieldType } from './types';
 
 export interface IEIP712Leaf {
   path: EIP712PathSegment[];
-  /** Leaf type: a primitive, or the array type itself for an empty array. */
+  /** Leaf type: a primitive, or the declared type of an empty array or a wrong-shaped value. */
   type: string;
   value: unknown;
   /** Field list of the struct directly holding this leaf, and its value, for sibling lookups. */
@@ -11,7 +11,15 @@ export interface IEIP712Leaf {
   parentValue: Record<string, unknown>;
 }
 
-/** Leaves of `value` (struct `typeName`) in declaration order, depth-first. `value` must be validated. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Leaves of `value` (struct `typeName`) in declaration order, depth-first. Never throws: on
+ * unvalidated input a struct or array value of the wrong shape, or one nested deeper than
+ * `MAX_EIP712_STRUCT_DEPTH`, is itself a leaf of its declared type.
+ */
 export function getTypedDataEIP712Leaves(
   typeName: string,
   types: IEIP712Types,
@@ -23,8 +31,9 @@ export function getTypedDataEIP712Leaves(
     structName: string,
     struct: Record<string, unknown>,
     prefix: EIP712PathSegment[],
+    depth: number,
   ) => {
-    const parentFields = types[structName];
+    const parentFields = Array.isArray(types[structName]) ? types[structName] : [];
     for (const { name, type } of parentFields) {
       const fieldValue = struct[name];
       const parsed = parseEip712FieldType(type);
@@ -32,8 +41,12 @@ export function getTypedDataEIP712Leaves(
       const path = [...prefix, name];
 
       const visitElement = (element: unknown, elementPath: EIP712PathSegment[]) => {
-        if (isEip712StructType(types, base)) {
-          visitStruct(base, element as Record<string, unknown>, elementPath);
+        if (
+          isEip712StructType(types, base) &&
+          isPlainObject(element) &&
+          depth < MAX_EIP712_STRUCT_DEPTH
+        ) {
+          visitStruct(base, element, elementPath, depth + 1);
         } else {
           leaves.push({
             path: elementPath,
@@ -49,16 +62,17 @@ export function getTypedDataEIP712Leaves(
         visitElement(fieldValue, path);
         continue;
       }
-      const elements = fieldValue as unknown[];
-      if (elements.length === 0) {
-        leaves.push({ path, type, value: elements, parentFields, parentValue: struct });
+      if (!Array.isArray(fieldValue) || fieldValue.length === 0) {
+        leaves.push({ path, type, value: fieldValue, parentFields, parentValue: struct });
         continue;
       }
-      elements.forEach((element, i) => visitElement(element, [...path, i]));
+      fieldValue.forEach((element, i) => visitElement(element, [...path, i]));
     }
   };
 
-  visitStruct(typeName, value, []);
+  if (isPlainObject(value)) {
+    visitStruct(typeName, value, [], 0);
+  }
   return leaves;
 }
 

@@ -23,19 +23,25 @@ const NUMBER_TYPE_REGEX = /^u?int\d*$/;
 
 // Lower-bound (valid-from) fields: 0 = valid since the epoch, u64::MAX = never reaches validity.
 const LOWER_BOUND_DATE_FIELDS = new Set(['validafter']);
-// Upper-bound (valid-until) fields: 0 = already expired, u64::MAX = no expiry.
+// Upper-bound (valid-until) fields: see `dateSentinelLabel` for the 0 and maximum labels.
 const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline', 'sigdeadline', 'expiration']);
 
 /** Unix values at/above this are already milliseconds; below are seconds. */
 const MS_THRESHOLD = 1e12;
 
-/** Format an EIP-712 unix timestamp (seconds, or ms when >= 1e12). Null on non-positive/unparseable. */
-export function formatEip712Date(value: string): Maybe<string> {
+// Permit2 reads these as seconds, so the millisecond heuristic must not apply to them.
+const SECONDS_ONLY_DATE_FIELDS = new Set(['sigdeadline', 'expiration']);
+
+/**
+ * Format an EIP-712 unix timestamp: seconds, or ms when >= 1e12 unless `unit` is `'seconds'`.
+ * Null on non-positive, unparseable or out-of-range input.
+ */
+export function formatEip712Date(value: string, unit: 'auto' | 'seconds' = 'auto'): Maybe<string> {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) {
     return null;
   }
-  const ms = num >= MS_THRESHOLD ? num : num * 1000;
+  const ms = unit === 'auto' && num >= MS_THRESHOLD ? num : num * 1000;
   const date = new Date(ms);
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -47,14 +53,17 @@ export function formatEip712Date(value: string): Maybe<string> {
 // (e.g. casper-wallet), where BigInt literals are a TS2737 error.
 const U64_MAX = BigInt('18446744073709551615');
 
-/** `2^bits - 1` for a `uintN` type, else null. */
-function unsignedTypeMax(type: string): Maybe<bigint> {
+/** `2^bits - 1` for a `uintN` type of at least `minBits`, else null. */
+function unsignedTypeMax(type: string, minBits = 8): Maybe<bigint> {
   const numberType = parseNumberType(type);
-  if (!numberType || !numberType.unsigned) {
+  if (!numberType || !numberType.unsigned || numberType.bits < minBits) {
     return null;
   }
   return (BigInt(1) << BigInt(numberType.bits)) - BigInt(1);
 }
+
+/** Narrower amount types at their maximum are real quantities, shown exactly. */
+const UNLIMITED_MIN_BITS = 160;
 
 const AMOUNT_FIELDS = new Set(['amount', 'value']);
 
@@ -85,9 +94,7 @@ function dateSentinelLabel(name: string, type: string, value: string): Maybe<str
     if (isLowerBound) return 'Always';
     return name.toLowerCase() === 'expiration' ? 'Current block only' : 'Expired';
   }
-  const numberType = parseNumberType(type);
-  const isWideTypeMax =
-    !!numberType && numberType.unsigned && numberType.bits >= 48 && n === unsignedTypeMax(type);
+  const isWideTypeMax = n === unsignedTypeMax(type, 48);
   if (n >= U64_MAX || isWideTypeMax) return isLowerBound ? 'Never' : 'No expiry';
   return null;
 }
@@ -242,7 +249,8 @@ function toRow(
 
   // Known timestamp fields -> date (with sentinels), else fall through.
   if (isDateField(key, type)) {
-    const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value);
+    const unit = SECONDS_ONLY_DATE_FIELDS.has(key.toLowerCase()) ? 'seconds' : 'auto';
+    const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value, unit);
     if (formatted) {
       return {
         label,
@@ -262,7 +270,7 @@ function toRow(
 
   if (AMOUNT_FIELDS.has(key) && parsed !== null) {
     const token = amountContext ? findAmountToken(amountContext, depth, enrichment) : null;
-    const isMax = parsed === unsignedTypeMax(type);
+    const isMax = parsed === unsignedTypeMax(type, UNLIMITED_MIN_BITS);
     if (token || isMax) {
       let displayValue = 'Unlimited';
       if (token) {

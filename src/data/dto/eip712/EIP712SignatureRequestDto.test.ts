@@ -215,5 +215,25 @@ describe('EIP712SignatureRequestDto', () => {
     it('leaves the amount raw when the package is not in the map', () => {
       expect(amountRow(build(2, false))).toMatchObject({ displayValue: '1000', token: null });
     });
+
+    it('leaves the amount raw for a CEP-18 package without token metadata', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd5',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: {
+            ...contractPackage,
+            latestVersionContractTypeId: 2,
+            symbol: '',
+            decimals: 0,
+          },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+    });
   });
 });

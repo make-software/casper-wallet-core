@@ -286,18 +286,23 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
   return a.length === b.length && a.every((f, i) => f.name === b[i].name && f.type === b[i].type);
 }
 
-const FIELD_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /**
- * Accepts struct references and one-dimensional arrays (`T[]`, `T[N]`, N in 1..64) of
- * `address`, `bool`, `bytes`, `bytes32`, `string`, `uintN`, `intN` or a struct. Rejects
- * multi-dimensional arrays, `bytes1`..`bytes31`, undefined structs, cycles and, when `primaryType`
- * is given, struct nesting deeper than 4 levels below it.
- * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice or
- * not an identifier, or a struct named like a primitive.
+ * Accepts primitives, structs with fields, and one-dimensional arrays (`T[]`, `T[N]`, N 1..64) of
+ * them; cycles and nesting deeper than 4 are rejected only when `primaryType` is given.
+ * @throws EIP712Error `UNSUPPORTED_TYPE`; `INVALID_PARAMS` for a non-identifier or primitive-named
+ * type, or a field name that is not an identifier or is declared twice.
  */
 export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryType?: string): void {
   for (const typeName of Object.keys(types)) {
+    if (!IDENTIFIER_PATTERN.test(typeName)) {
+      throw new EIP712Error(
+        new Error(`Invalid type name ${JSON.stringify(typeName)}: must be an identifier`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.INVALID_PARAMS,
+      );
+    }
     if (isSupportedFieldType(typeName) || BYTES_1_TO_31_PATTERN.test(typeName)) {
       throw new EIP712Error(
         new Error(`Type name "${typeName}" shadows a primitive type`),
@@ -316,7 +321,7 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryTy
           SignTypedDataErrorCodes.INVALID_PARAMS,
         );
       }
-      if (!FIELD_NAME_PATTERN.test(field.name)) {
+      if (!IDENTIFIER_PATTERN.test(field.name)) {
         throw new EIP712Error(
           new Error(`Invalid field name ${typeName}.${field.name}: must be an identifier`),
           'validateTypedDataEIP712',
@@ -338,6 +343,9 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryTy
         throw unsupported('EIP712Domain cannot be used as a field type');
       }
       if (isEip712StructType(types, parsed.base)) {
+        if (types[parsed.base].length === 0) {
+          throw unsupported('Struct with no fields');
+        }
         continue;
       }
       if (BYTES_1_TO_31_PATTERN.test(parsed.base)) {
@@ -383,6 +391,10 @@ function validateStructGraph(types: IEIP712Types, primaryType: string): void {
   }
 }
 
+/**
+ * Top-level message keys only; `validateTypedDataEIP712Struct` with `rejectUnknownFields` checks
+ * nested structs too. @throws EIP712Error `INVALID_PARAMS` on a key `primaryType` does not declare.
+ */
 export function validateNoUnknownMessageFields(
   types: IEIP712Types,
   primaryType: string,
