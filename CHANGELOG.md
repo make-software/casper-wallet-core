@@ -4,122 +4,67 @@ All notable changes to **CasperWalletCore** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-11-02 — EIP-712: Permit2 and a stricter signing screen
+
+The approval screen now shows exactly what is hashed, and typed data it cannot show faithfully
+is rejected with `EIP712Error` before a digest exists.
 
 ### Added
 
-- EIP-712: nested struct and one-dimensional array types (`T[]`, `T[N]`) are accepted, hashed
-  and displayed, so all Permit2 types sign. Limits: nesting 4 levels, array length 64, 256
-  message rows.
-- EIP-712: `IEIP712DisplayRow` gains optional `path`, `depth`, `token` and `isAmount`, set on
-  every row the library builds. Nested rows are labelled `Permitted #1 › Token`. Wallets may group rows by
-  `path`. Rows built by hand (e.g. a synthetic network row) need no change.
-- EIP-712: `IEIP712DisplayRow.isAmount` is `true` for an amount shown in token units or as
-  `Unlimited`. Its `presentation` stays `'number'` but its `displayValue` differs from `value`:
-  a renderer that formats `value` for `'number'` rows should show `displayValue` when `isAmount`
-  is `true`.
-- `IContractPackage.hasDecimals` (optional): `false` when the API sent no valid
-  `metadata.decimals` and `decimals` is a `0` placeholder.
+- EIP-712: nested structs and one-dimensional arrays (`T[]`, `T[N]`), so all six Permit2 types
+  sign. Limits: nesting 4 levels, arrays 64 entries, 256 message rows.
+- `IEIP712DisplayRow` gains optional `path`, `depth`, `token` and `isAmount`, set on every row the
+  library builds. Nested rows are labelled `Permitted #1 › Token`. When `isAmount` is `true`,
+  render `displayValue` (`7.5 WCSPR`, `Unlimited`), not `value`.
+- `IContractPackage.hasDecimals`: `false` when the API sent no valid decimals and `decimals` is a
+  placeholder `0`.
+- Exports: `validateTypedDataEIP712` (the check every digest path runs),
+  `resolveTypedDataEIP712Network`, `parseEip712Number`, `formatEip712TokenAmount`.
 
 ### Changed
 
-- EIP-712: a `deadline` or `validBefore` of 1e12 or more shows the raw number instead of a date
-  guessed as milliseconds, since a contract reading seconds treats it as tens of thousands of
-  years away. `validAfter` keeps the millisecond reading.
-- EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
-  with `isAmount: true`. A nested amount pairs with its sibling `token`; a top-level `amount` or
-  `value` pairs with the domain contract's token only in `Permit`, `TransferWithAuthorization`
-  and `ReceiveWithAuthorization`, and shows the raw integer in any other primary type. A token whose
-  metadata has no decimals is not paired, so its amount shows the raw integer. Amounts at the
-  maximum of a `uint` type of 160 bits or wider show `Unlimited`; narrower types show the exact
-  number. `sigDeadline` and `expiration` render as dates and are always read as seconds, never
-  milliseconds. An `expiration` of 0 shows `0`, with no sentinel label.
-- EIP-712: `enrichment.contractPackage` is `ok` only when every package lookup returned data. A
-  lookup that returned no data now counts like one that threw: `partial` when others returned
-  data, `failed` when none did. A CEP-18 token with no symbol or no valid decimals also makes it
-  `partial`, since its amount shows unscaled.
-- EIP-712: integer types with a leading-zero width (`uint08`, `int0256`) are rejected with
-  `UNSUPPORTED_TYPE`, and struct types with such names with `INVALID_PARAMS`.
-- EIP-712: a malformed `types` entry (not an array, a non-object field, a non-string `name` or
-  `type`) is rejected with `INVALID_PARAMS` instead of a raw `TypeError`.
-- EIP-712: `validateTypedDataEIP712Values` rejects struct, array and unknown field types with
-  `UNSUPPORTED_TYPE`; it validates primitive values only.
-- EIP-712: `T[][]`, recursive types and type names that shadow primitives are rejected.
-- EIP-712: `0x` hex numbers with an odd number of digits (`0x1f4` = 500) are accepted; only
-  the uppercase `0X` prefix is still rejected.
-- EIP-712: a number given as exactly 64 hex characters without `0x` is read as a 32-byte hex
-  word (`'00…03e8'` = 1000). A zero-padded 64-digit string now reads as hex, and a 64-digit
-  string not starting with `0` is rejected as ambiguous; send decimal without padding or `0x`
-  hex. Shorter strings are unchanged (`'1000'` = 1000).
-- EIP-712: type names and field names that are not identifiers (`[A-Za-z_$][A-Za-z0-9_$]*`) are
-  rejected with `INVALID_PARAMS`, and struct types with no fields with `UNSUPPORTED_TYPE`.
-- EIP-712: `buildTypedDataEIP712DisplayModel` does not throw on unvalidated values; a struct or
-  array value of the wrong shape shows as one row with its string.
-- EIP-712: a date field at the maximum of a `uint` type narrower than 48 bits shows a date, not
-  `No expiry`.
+What a dApp must now send; everything else fails with `INVALID_PARAMS` unless noted.
+
+- Numbers: `bigint`, safe integer, decimal string (`'1000'`), `0x` hex, or a 64-character hex
+  word without `0x`. A 64-digit string not starting with `0` is ambiguous and rejected; negative
+  and out-of-range values are rejected.
+- Values must match their type: `bool` a boolean, `string` a string, `address` 20 or 33 bytes,
+  `bytes32` 32 bytes, `bytes` a hex string. Missing and `null` fields are rejected.
+- Types: struct references and `T[]`/`T[N]` of supported types only. `T[][]`, recursive types,
+  `bytes1`–`bytes31` and other unknown types fail with `UNSUPPORTED_TYPE`; duplicate fields,
+  non-identifier names, names shadowing a primitive and malformed `types` entries with
+  `INVALID_PARAMS`.
+- Domain: all four Casper fields, with `chain_name` one of `casper`, `casper-test`, `dev-net`,
+  `integration-test`, optionally prefixed `casper:`. `types.EIP712Domain` and
+  `options.domainTypes` must be omitted or equal `CASPER_DOMAIN_TYPES` (`DOMAIN_TYPES_REQUIRED`).
+- `buildDisplayModel` and `recoverSigner` validate first and throw what `computeDigest` throws.
+- Display:
+  - A CEP-18 amount shows token units and symbol: a nested amount with its sibling `token`; a
+    top-level `amount`/`value` with the domain token in `Permit`, `TransferWithAuthorization` and
+    `ReceiveWithAuthorization` only.
+  - `Unlimited` at the maximum of a `uint` of 160 bits or wider.
+  - `sigDeadline` and `expiration` are dates read as seconds; `expiration` 0 shows `0`.
+  - `deadline` or `validBefore` of 1e12 or more shows the raw number, not a guessed date.
+  - `No expiry` at the maximum of a `uint` of 48 bits or wider.
+- `enrichment.contractPackage` is `ok` only when every lookup returned data and every paired
+  token has a symbol and decimals; otherwise `partial` or `failed`. A request from
+  `prepareSignatureRequest` always has a `network`.
 
 ### Fixed
 
-- CEP-18 transaction signing: for a token whose metadata has no valid decimals, the action's
-  `symbol` is empty, so the raw amount is no longer shown as whole tokens of that symbol.
+- EIP-712: a decimal string was hashed as hex (`'1000'` as 4096) while the screen showed 1000.
+- EIP-712: a duplicate field name let the screen show one value while another was hashed.
+- EIP-712: a `chain_name` such as `'evil:casper'` was accepted and labelled as mainnet.
+- EIP-712: a `primaryType` such as `'constructor'` threw a raw `TypeError`.
+- CEP-18 transaction signing: a token with no valid decimals no longer shows the raw amount as
+  whole tokens of its symbol.
 
 ### Deprecated
 
-- EIP-712: `validateNoUnknownMessageFields` checks top-level keys only. Use
-  `validateTypedDataEIP712` with `rejectUnknownFields`, which also checks nested structs.
-
-## [2.0.1] - 2026-10-30
-
-### Fixed
-
-- EIP-712: a `uint*`/`int*` value given as a decimal string (`value: '1000'`, the form the
-  Casper Wallet SDK documents) was hashed as hex bytes (`0x1000` = 4096) while the approval
-  screen showed `1000`. Numeric values are now normalised to the integer they read as before
-  hashing, and display rows carry that integer in decimal, matching the library's Go reference.
-  Accepted forms: `bigint`, safe integer, digit-only decimal string, and an even-length `0x`
-  hex string. Negative values are rejected for every integer type.
-- EIP-712: a struct declaring the same field name twice (e.g. `uint256 v` and `bytes v`) let the
-  screen show one value while another was hashed. It is now rejected with `INVALID_PARAMS`.
-- EIP-712: a `chain_name` such as `'evil:casper'` or `'mainnet'` was accepted and labelled with
-  the network its suffix named. Only an exact Casper chain name (`casper`, `casper-test`,
-  `dev-net`, `integration-test`) or `casper:<chain name>` is accepted now; anything else fails
-  with `INVALID_PARAMS`.
-- EIP-712: a `primaryType` such as `'constructor'` or `'toString'` failed with a raw `TypeError`
-  or an `EIP712Error` without `errorCode`. It is now rejected with `INVALID_PARAMS`.
-
-### Changed
-
-- EIP-712: `computeDigest`, `prepareSignatureRequest` and `signTypedData` reject a struct-typed
-  field with `UNSUPPORTED_TYPE`. Request a flat primary type.
-- EIP-712: `types.EIP712Domain` and `options.domainTypes` are accepted only when they equal the
-  `CASPER_DOMAIN_TYPES` fields present in the domain, in that order; anything else is rejected
-  with `DOMAIN_TYPES_REQUIRED`. Omitting both keeps working as before.
-- EIP-712: message and domain values are validated against what the encoder hashes. `bool`
-  must be a boolean, `string` a string, `address` 20 or 33 hex bytes, `bytes32` 32 hex bytes;
-  numbers are range-checked for their bit width; a declared field missing from the message is
-  rejected; `bytes` must be a hex string (a `Uint8Array` is rejected). All with
-  `INVALID_PARAMS`. A missing or non-object `domain`, `types` or `message` is rejected with
-  `INVALID_PARAMS` too. Field types outside `address`, `bool`, `bytes`,
-  `bytes32`, `string`, `uintN`, `intN` are rejected with `UNSUPPORTED_TYPE`.
-- EIP-712: the domain must carry all four Casper fields (`name`, `version`, `chain_name`,
-  `contract_package_hash`), the shape reference verifiers hash with `CasperDomainTypes`, and
-  `chain_name` must name a known Casper network; a `null` domain value is rejected. All fail
-  with `INVALID_PARAMS`. For a request built by `prepareSignatureRequest`, `network` is never
-  `null`, `enrichment.accounts` and `enrichment.contractPackage` are never `'skipped'`, and
-  `enrichment.contractPackage` is never `'absent'`.
-- EIP-712: `IEIP712Repository.buildDisplayModel` validates the typed data first and throws
-  `EIP712Error` on anything `computeDigest` would reject.
-- EIP-712: `recoverTypedDataEIP712SignerAddress` and `IEIP712Repository.recoverSigner` accept only
-  typed data `computeDigest` accepts and throw the same `EIP712Error`. Typed data with
-  unvalidated values, a domain without `chain_name`, or an unknown `primaryType` no longer
-  recovers an address.
-- EIP-712: `resolveTypedDataEIP712Network(domain)` returns the network `domain.chain_name` names,
-  or throws `INVALID_PARAMS`.
-
-### Deprecated
-
-- `IPrepareEIP712SignatureRequestParams.network` is ignored; the network always comes from
+- `IPrepareEIP712SignatureRequestParams.network` is ignored; the network comes from
   `domain.chain_name`.
+- `validateNoUnknownMessageFields`: use `validateTypedDataEIP712` with `rejectUnknownFields`,
+  which also checks nested structs.
 
 ## [2.0.0] - 2026-09-21 — Swap / DEX, shared transactions and Ledger
 
@@ -476,6 +421,7 @@ Tag exists; no GitHub release notes were published. See the
 Tagged but not published as GitHub Releases. See the
 [tag list](https://github.com/make-software/casper-wallet-core/tags) for history.
 
+[2.1.0]: https://github.com/make-software/casper-wallet-core/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/make-software/casper-wallet-core/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.3.0
