@@ -4,6 +4,32 @@ All notable changes to **CasperWalletCore** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- EIP-712: nested struct and one-dimensional array types (`T[]`, `T[N]`) are accepted, hashed
+  and displayed, so all Permit2 types sign. Limits: nesting 4 levels, array length 64, 256
+  message rows.
+- EIP-712: `IEIP712DisplayRow` gains `path`, `depth` and `token`. Nested rows are labelled
+  `Permitted #1 › Token`. Wallets may group rows by `path`; no change is required to keep
+  rendering.
+
+### Changed
+
+- EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
+  including existing x402 and permit flows. Amounts at their type's maximum show `Unlimited`.
+  `sigDeadline` and `expiration` render as dates.
+- EIP-712: `T[][]`, recursive types and type names that shadow primitives are rejected.
+- EIP-712: a number given as exactly 64 hex characters without `0x` is read as a 32-byte hex
+  word (`'00…03e8'` = 1000). A zero-padded 64-digit string now reads as hex, and a 64-digit
+  string not starting with `0` is rejected as ambiguous; send decimal without padding or `0x`
+  hex. Shorter strings are unchanged (`'1000'` = 1000).
+- EIP-712: field names that are not identifiers (`[A-Za-z_$][A-Za-z0-9_$]*`) are rejected with
+  `INVALID_PARAMS`.
+- EIP-712: a date field at the maximum of a `uint` type narrower than 48 bits shows a date, not
+  `No expiry`.
+
 ## [2.0.1] - 2026-10-30
 
 ### Fixed
