@@ -5,6 +5,7 @@
 export * from './address';
 export * from './numbers';
 export * from './validation';
+export * from './encode';
 export * from './digest';
 export * from './displayModel';
 export * from './recover';

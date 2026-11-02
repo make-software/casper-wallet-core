@@ -1,4 +1,12 @@
-import { CASPER_DOMAIN_TYPES, PermitTypes, buildDomain } from '@casper-ecosystem/casper-eip-712';
+import { TypedDataEncoder } from 'ethers';
+import {
+  CASPER_DOMAIN_TYPES,
+  PermitTypes,
+  buildDomain,
+  fromHex,
+  keccak256,
+  toHex,
+} from '@casper-ecosystem/casper-eip-712';
 import { SignTypedDataErrorCodes } from '../../domain';
 import { computeTypedDataEIP712Digest } from './digest';
 
@@ -71,15 +79,25 @@ describe('computeTypedDataEIP712Digest — strict type validation', () => {
     ],
   };
 
-  it('rejects a struct-typed field with UNSUPPORTED_TYPE', () => {
-    const order = {
-      domain: DOMAIN,
-      types: ORDER_TYPES,
-      primaryType: 'Order',
-      message: { nonce: 1n, details: { to: '0x00' + '02'.repeat(32), value: 999999999n } },
-    };
-    expect(() => computeTypedDataEIP712Digest(order)).toThrow(
-      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.UNSUPPORTED_TYPE }),
+  it('hashes a struct-typed field to the ethers struct hash under the library domain separator', () => {
+    const message = { nonce: 1n, details: { to: '0x' + '02'.repeat(20), value: 999999999n } };
+    const order = { domain: DOMAIN, types: ORDER_TYPES, primaryType: 'Order', message };
+    const { digest, hashArtifacts } = computeTypedDataEIP712Digest(order, {
+      returnHashArtifacts: true,
+    });
+    const ethersStructHash = TypedDataEncoder.from(ORDER_TYPES).hash(message);
+    expect(hashArtifacts!.structHash).toBe(ethersStructHash);
+    expect(digest).toBe(
+      toHex(
+        keccak256(
+          new Uint8Array([
+            0x19,
+            0x01,
+            ...fromHex(hashArtifacts!.domainSeparator),
+            ...fromHex(ethersStructHash),
+          ]),
+        ),
+      ),
     );
   });
 

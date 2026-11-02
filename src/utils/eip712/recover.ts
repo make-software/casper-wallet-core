@@ -2,17 +2,15 @@ import {
   ApprovalTypes,
   buildDomain,
   CASPER_DOMAIN_TYPES,
-  EIP712Domain,
   fromHex,
   PermitTypes,
-  recoverTypedDataSigner,
+  recoverAddress,
   toHex,
   TransferTypes,
   verifySignature as libVerifySignature,
 } from '@casper-ecosystem/casper-eip-712';
 import { IEIP712RecoverSignerParams, IEIP712VerifySignatureParams } from '../../domain';
-import { normalizeEip712Numbers } from './numbers';
-import { validateTypedDataEIP712 } from './validation';
+import { computeTypedDataEIP712Digest } from './digest';
 
 /**
  * NOTE: these wrappers are secp256k1 / Ethereum-style. `signature` must be the raw 65-byte
@@ -27,18 +25,8 @@ export function recoverTypedDataEIP712SignerAddress({
   signature,
   options,
 }: IEIP712RecoverSignerParams): string {
-  const { domain, types, primaryType, message } = typedData;
-  const resolvedDomainTypes = validateTypedDataEIP712(typedData, {
-    domainTypes: options?.domainTypes,
-  });
-  const addressBytes = recoverTypedDataSigner(
-    domain as EIP712Domain,
-    types,
-    primaryType,
-    normalizeEip712Numbers(types[primaryType], message),
-    signature,
-    { domainTypes: resolvedDomainTypes },
-  );
+  const { digest } = computeTypedDataEIP712Digest(typedData, { domainTypes: options?.domainTypes });
+  const addressBytes = recoverAddress(fromHex(digest), signature);
   return toHex(addressBytes);
 }
 

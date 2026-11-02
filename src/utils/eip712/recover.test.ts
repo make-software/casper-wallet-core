@@ -1,6 +1,13 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
-import { PermitTypes, buildDomain, fromHex } from '@casper-ecosystem/casper-eip-712';
+import {
+  PermitTypes,
+  buildDomain,
+  fromHex,
+  keccak256,
+  toHex,
+} from '@casper-ecosystem/casper-eip-712';
 import { SignTypedDataErrorCodes } from '../../domain';
+import { buildPermit2TypedData } from '../../__test-utils__/permit2';
 import { computeTypedDataEIP712Digest } from './digest';
 import {
   CASPER_DOMAIN_TYPES,
@@ -74,5 +81,30 @@ describe('recover/verify', () => {
   it('re-exports lib helpers for consumers', () => {
     expect(ReexportedPermitTypes).toBeDefined();
     expect(CASPER_DOMAIN_TYPES.map(f => f.name)).toContain('contract_package_hash');
+  });
+
+  describe('nested typed data', () => {
+    it('recovers the signer of a PermitBatch signature', () => {
+      const typedData = buildPermit2TypedData('PermitBatch');
+      const { digest } = computeTypedDataEIP712Digest(typedData);
+      const key = fromHex('11'.repeat(32));
+      const sig = secp256k1.sign(fromHex(digest), key);
+      const signature = new Uint8Array(65);
+      signature.set(sig.toCompactRawBytes(), 0);
+      signature[64] = sig.recovery;
+      const expected = toHex(keccak256(secp256k1.getPublicKey(key, false).slice(1)).slice(12));
+      expect(recoverTypedDataEIP712SignerAddress({ typedData, signature })).toBe(expected);
+    });
+
+    it('rejects a nested missing field with INVALID_PARAMS', () => {
+      const base = buildPermit2TypedData('PermitBatch');
+      const [first, ...rest] = (base.message as { details: Record<string, unknown>[] }).details;
+      const broken = { ...first };
+      delete broken.amount;
+      const typedData = { ...base, message: { ...base.message, details: [broken, ...rest] } };
+      expect(() =>
+        recoverTypedDataEIP712SignerAddress({ typedData, signature: new Uint8Array(65) }),
+      ).toThrow(expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }));
+    });
   });
 });
