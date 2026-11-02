@@ -33,6 +33,84 @@ const MESSAGE = {
 const TYPED_DATA = { domain: DOMAIN, types: PermitTypes, primaryType: 'Permit', message: MESSAGE };
 const EXPECTED_DIGEST = '0x545a8088d6365ada6ef282f4d5979c655cd428b4115cbf65f561bcd65767a98c';
 
+// Source: csprclick-x402-permite2 demo, src/Permit2.tsx (inner `typedData` of each export).
+const DEMO_PERMIT_TRANSFER_FROM = {
+  types: {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chain_name', type: 'string' },
+      { name: 'contract_package_hash', type: 'bytes32' },
+    ],
+    PermitTransferFrom: [
+      { name: 'permitted', type: 'TokenPermissions' },
+      { name: 'spender', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+    TokenPermissions: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+  },
+  primaryType: 'PermitTransferFrom',
+  domain: {
+    name: 'Permit2',
+    version: '1',
+    chain_name: 'casper:casper-test',
+    contract_package_hash: '8058e3c16943bd9eadefbd2b4d4fb1e32ce118e492e179c42e14ed3f71d5601d',
+  },
+  message: {
+    permitted: {
+      token: '013d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e',
+      amount: '00000000000000000000000000000000000000000000000000000000000003e8',
+    },
+    spender: '0081d557c9dcaadea97c34d79bf7b6af07aa9d760e5dd1aabf78a45fb39e072c3a',
+    nonce: '5e38ac48c5f84e841a8b87d06afc49adb9aa117f1eb4dd4c797bf1c0d3a032be',
+    deadline: '000000000000000000000000000000000000000000000000000000006ae85b80',
+  },
+};
+
+// Source: csprclick-x402-permite2 demo, src/Permit2.tsx (inner `typedData` of each export).
+const DEMO_PERMIT_SINGLE = {
+  types: {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chain_name', type: 'string' },
+      { name: 'contract_package_hash', type: 'bytes32' },
+    ],
+    PermitSingle: [
+      { name: 'details', type: 'PermitDetails' },
+      { name: 'spender', type: 'address' },
+      { name: 'sigDeadline', type: 'uint256' },
+    ],
+    PermitDetails: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'expiration', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+    ],
+  },
+  primaryType: 'PermitSingle',
+  domain: {
+    name: 'Permit2',
+    version: '1',
+    chain_name: 'casper:casper-test',
+    contract_package_hash: '8058e3c16943bd9eadefbd2b4d4fb1e32ce118e492e179c42e14ed3f71d5601d',
+  },
+  message: {
+    details: {
+      token: '013d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e',
+      amount: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      expiration: '000000000000000000000000000000000000000000000000000000006ae9a49a',
+      nonce: '0000000000000000000000000000000000000000000000000000000000000001',
+    },
+    spender: '0081d557c9dcaadea97c34d79bf7b6af07aa9d760e5dd1aabf78a45fb39e072c3a',
+    sigDeadline: '000000000000000000000000000000000000000000000000000000006ae8612a',
+  },
+};
+
 describe('EIP712Repository', () => {
   const buildRepo = () => {
     const http = createMockHttpProvider();
@@ -445,6 +523,15 @@ describe('EIP712Repository', () => {
       };
     };
 
+    const prepareDemo = (
+      typedData: typeof DEMO_PERMIT_TRANSFER_FROM | typeof DEMO_PERMIT_SINGLE,
+    ) => {
+      const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+      jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+      jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(cep18Package);
+      return r.prepareSignatureRequest({ typedData, signingPublicKeyHex: SIGNING_PK });
+    };
+
     it.each(PERMIT2_PRIMARY_TYPES)(
       'prepares %s with one row per leaf and a digest equal to computeDigest',
       async primaryType => {
@@ -491,6 +578,47 @@ describe('EIP712Repository', () => {
       const row = req.messageRows.find(r => r.label === 'Permitted › Amount')!;
       expect(row.displayValue).toBe('1000');
       expect(row.token).toBeNull();
+    });
+
+    it('prepares the demo PermitTransferFrom as sent', async () => {
+      const req = await prepareDemo(DEMO_PERMIT_TRANSFER_FROM);
+
+      const row = (label: string) => req.messageRows.find(r => r.label === label)!;
+      expect(row('Permitted › Amount').value).toBe('1000');
+      expect(row('Nonce').value).toBe(
+        BigInt('0x5e38ac48c5f84e841a8b87d06afc49adb9aa117f1eb4dd4c797bf1c0d3a032be').toString(),
+      );
+      expect(row('Deadline').presentation).toBe('date');
+    });
+
+    it('prepares the demo PermitSingle as sent', async () => {
+      const req = await prepareDemo(DEMO_PERMIT_SINGLE);
+
+      const row = (label: string) => req.messageRows.find(r => r.label === label)!;
+      expect(row('Details › Amount').displayValue).toBe('Unlimited WCSPR');
+      expect(row('Details › Expiration').presentation).toBe('date');
+      expect(row('Sig Deadline').presentation).toBe('date');
+      expect(row('Details › Nonce').value).toBe('1');
+    });
+
+    it('gives the demo PermitTransferFrom the same digest with 0x-prefixed numbers', async () => {
+      const { message } = DEMO_PERMIT_TRANSFER_FROM;
+      const prefixed = {
+        ...DEMO_PERMIT_TRANSFER_FROM,
+        message: {
+          ...message,
+          permitted: { ...message.permitted, amount: '0x' + message.permitted.amount },
+          nonce: '0x' + message.nonce,
+          deadline: '0x' + message.deadline,
+        },
+      };
+
+      const [verbatim, withPrefix] = await Promise.all([
+        prepareDemo(DEMO_PERMIT_TRANSFER_FROM),
+        prepareDemo(prefixed),
+      ]);
+
+      expect(withPrefix.digest).toBe(verbatim.digest);
     });
 
     it('signs PermitBatch and the signature verifies against the digest', () => {
