@@ -1,11 +1,8 @@
 import { IEIP712TypedData } from '../../../domain';
 import { Maybe } from '../../../typings';
 import { getHashByType } from '../common';
-import {
-  decodeEip712Address,
-  getTypedDataEIP712Leaves,
-  stripHexPrefix,
-} from '../../../utils/eip712';
+import { decodeEip712Address, stripHexPrefix } from '../../../utils/eip712';
+import { getTypedDataEIP712Leaves } from '../../../utils/eip712/walk';
 
 /**
  * The EIP-712 domain key carrying the chain name. It is promoted to the dedicated

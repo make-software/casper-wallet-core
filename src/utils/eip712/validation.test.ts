@@ -672,6 +672,56 @@ describe('validateTypedDataEIP712 — nested values', () => {
     );
   });
 
+  it('accepts exactly 256 leaf rows and rejects 257', () => {
+    const wide = (extra: boolean): IEIP712Types => ({
+      T: [
+        { name: 'a', type: 'uint8[64]' },
+        { name: 'b', type: 'uint8[64]' },
+        { name: 'c', type: 'uint8[64]' },
+        { name: 'd', type: 'uint8[64]' },
+        ...(extra ? [{ name: 'e', type: 'uint8' }] : []),
+      ],
+    });
+    const full = Array(64).fill(1);
+    const message = { a: full, b: full, c: full, d: full };
+    const validate = (extra: boolean) => () =>
+      validateTypedDataEIP712({
+        domain: DOMAIN,
+        types: wide(extra),
+        primaryType: 'T',
+        message: extra ? { ...message, e: 1 } : message,
+      });
+    expect(validate(false)).not.toThrow();
+    expect(validate(true)).toThrow(
+      expect.objectContaining({
+        errorCode: SignTypedDataErrorCodes.INVALID_PARAMS,
+        message: expect.stringContaining('Message displays 257 rows'),
+      }),
+    );
+  });
+
+  it.each([
+    ['uint256[]', [1n, -1n]],
+    ['bool[]', [true, 'false']],
+    ['address[2]', [ADDR, '0x' + 'aa'.repeat(32)]],
+    ['uint8[]', ['1', '256']],
+    ['string[]', ['ok', 1]],
+  ] as const)('rejects an invalid element of a %s field', (type, elements) => {
+    expect(() =>
+      validateTypedDataEIP712({
+        domain: DOMAIN,
+        types: { T: [{ name: 'a', type }] },
+        primaryType: 'T',
+        message: { a: [...elements] },
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        errorCode: SignTypedDataErrorCodes.INVALID_PARAMS,
+        message: expect.stringContaining('T.a[1]'),
+      }),
+    );
+  });
+
   it('rejects a primary type name forging a nested canonical type string', () => {
     const forged =
       'PermitTransferFrom(TokenPermissions permitted,address spender)TokenPermissions(address token,uint256 amount)W';
@@ -735,6 +785,12 @@ describe('validateTypedDataEIP712Struct — unsupported types', () => {
       SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
     ),
   );
+
+  it('rejects an undeclared struct type name with UNSUPPORTED_TYPE', () =>
+    expectInvalid(
+      () => validateTypedDataEIP712Struct('Missing', { T: [] }, {}, 'Missing'),
+      SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+    ));
 });
 
 describe('validateTypedDataEIP712 — malformed type definitions', () => {

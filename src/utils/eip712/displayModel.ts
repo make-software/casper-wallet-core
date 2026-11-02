@@ -32,6 +32,13 @@ const MS_THRESHOLD = 1e12;
 // Permit2 reads these as seconds, so the millisecond heuristic must not apply to them.
 const SECONDS_ONLY_DATE_FIELDS = new Set(['sigdeadline', 'expiration']);
 
+// The flat types whose top-level amount is denominated in the domain contract's own token.
+const DOMAIN_TOKEN_PRIMARY_TYPES = new Set([
+  'Permit',
+  'TransferWithAuthorization',
+  'ReceiveWithAuthorization',
+]);
+
 /**
  * Format an EIP-712 unix timestamp: seconds, or ms when >= 1e12 unless `unit` is `'seconds'`.
  * Null on non-positive, unparseable or out-of-range input.
@@ -76,8 +83,8 @@ export function formatEip712TokenAmount(raw: bigint, decimals: number, symbol: s
 
 /**
  * Friendly text for EIP-712 timestamp sentinels, else null. 0 / u64::MAX mean opposite things for a
- * lower vs upper bound; `expiration` at 0 is "Current block only" (Permit2), other upper bounds
- * "Expired". A type maximum is a sentinel only for `uintN` with N >= 48.
+ * lower vs upper bound; `expiration` at 0 has no sentinel, since contracts disagree on its meaning.
+ * A type maximum is a sentinel only for `uintN` with N >= 48.
  */
 function dateSentinelLabel(name: string, type: string, value: string): Maybe<string> {
   if (value.trim() === '') {
@@ -92,7 +99,7 @@ function dateSentinelLabel(name: string, type: string, value: string): Maybe<str
   const isLowerBound = LOWER_BOUND_DATE_FIELDS.has(name.toLowerCase());
   if (n === BigInt(0)) {
     if (isLowerBound) return 'Always';
-    return name.toLowerCase() === 'expiration' ? 'Current block only' : 'Expired';
+    return name.toLowerCase() === 'expiration' ? null : 'Expired';
   }
   const isWideTypeMax = n === unsignedTypeMax(type, 48);
   if (n >= U64_MAX || isWideTypeMax) return isLowerBound ? 'Never' : 'No expiry';
@@ -143,6 +150,7 @@ type BuiltDisplayRow = IEIP712DisplayRow &
   Required<Pick<IEIP712DisplayRow, 'path' | 'depth' | 'token' | 'isAmount'>>;
 
 interface IMessageRowContext {
+  primaryType: string;
   parentFields: IEIP712Field[];
   parentValue: Record<string, unknown>;
   primaryFields: IEIP712Field[];
@@ -162,7 +170,12 @@ function findAmountToken(
     const { kind, hash } = decodeEip712Address(String(ctx.parentValue.token));
     return kind === 'package' && hash ? enrichment.resolveToken(hash) : null;
   }
-  if (depth === 0 && !ctx.primaryFields.some(f => f.name === 'token') && ctx.domainPackageHash) {
+  if (
+    depth === 0 &&
+    DOMAIN_TOKEN_PRIMARY_TYPES.has(ctx.primaryType) &&
+    !ctx.primaryFields.some(f => f.name === 'token') &&
+    ctx.domainPackageHash
+  ) {
     return enrichment.resolveToken(ctx.domainPackageHash);
   }
   return null;
@@ -254,10 +267,16 @@ function toRow(
     };
   }
 
-  // Known timestamp fields -> date (with sentinels), else fall through.
+  // Known timestamp fields -> date (with sentinels), else fall through. An upper bound that would
+  // need the millisecond guess is shown raw: misread seconds would show a far-off expiry as near.
   if (isDateField(key, type)) {
-    const unit = SECONDS_ONLY_DATE_FIELDS.has(key.toLowerCase()) ? 'seconds' : 'auto';
-    const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value, unit);
+    const lower = key.toLowerCase();
+    const unit = SECONDS_ONLY_DATE_FIELDS.has(lower) ? 'seconds' : 'auto';
+    const isGuessedUpperBound =
+      unit === 'auto' && UPPER_BOUND_DATE_FIELDS.has(lower) && Number(value) >= MS_THRESHOLD;
+    const formatted =
+      dateSentinelLabel(key, type, value) ??
+      (isGuessedUpperBound ? null : formatEip712Date(value, unit));
     if (formatted) {
       return {
         label,
@@ -361,6 +380,7 @@ export function buildTypedDataEIP712DisplayModel(
     Array.isArray(leaf.value) && leaf.value.length === 0
       ? emptyArrayRow(leaf.path, leaf.type)
       : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message', {
+          primaryType,
           parentFields: leaf.parentFields,
           parentValue: leaf.parentValue,
           primaryFields,

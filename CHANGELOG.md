@@ -23,14 +23,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- EIP-712: an `expiration` field equal to 0 shows `Current block only` (valid in the current
-  block only, as Permit2 defines it) instead of `Expired`.
+- EIP-712: a `deadline` or `validBefore` of 1e12 or more shows the raw number instead of a date
+  guessed as milliseconds, since a contract reading seconds treats it as tens of thousands of
+  years away. `validAfter` keeps the millisecond reading.
 - EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
-  including existing x402 and permit flows, with `isAmount: true`. A token whose
+  with `isAmount: true`. A nested amount pairs with its sibling `token`; a top-level `amount` or
+  `value` pairs with the domain contract's token only in `Permit`, `TransferWithAuthorization`
+  and `ReceiveWithAuthorization`, and shows the raw integer in any other primary type. A token whose
   metadata has no decimals is not paired, so its amount shows the raw integer. Amounts at the
   maximum of a `uint` type of 160 bits or wider show `Unlimited`; narrower types show the exact
   number. `sigDeadline` and `expiration` render as dates and are always read as seconds, never
-  milliseconds.
+  milliseconds. An `expiration` of 0 shows `0`, with no sentinel label.
 - EIP-712: `enrichment.contractPackage` is `ok` only when every package lookup returned data. A
   lookup that returned no data now counts like one that threw: `partial` when others returned
   data, `failed` when none did. A CEP-18 token with no symbol or no valid decimals also makes it

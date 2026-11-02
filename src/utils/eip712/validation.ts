@@ -116,8 +116,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Validates `value` as struct `typeName` at every depth; `path` prefixes error messages.
  * Returns the number of leaf rows the value displays as (an empty array counts as one).
- * @throws EIP712Error `INVALID_PARAMS`; `UNSUPPORTED_TYPE` on a field type that is not a primitive
- * or a declared struct.
+ * @throws EIP712Error `INVALID_PARAMS`; `UNSUPPORTED_TYPE` when `typeName`, or a field type, is not
+ * a primitive or a declared struct.
  */
 export function validateTypedDataEIP712Struct(
   typeName: string,
@@ -126,6 +126,13 @@ export function validateTypedDataEIP712Struct(
   path: string,
   rejectUnknownFields = false,
 ): number {
+  if (!isEip712StructType(types, typeName)) {
+    throw new EIP712Error(
+      new Error(`Unsupported type "${typeName}" in ${path}`),
+      'validateTypedDataEIP712',
+      SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+    );
+  }
   if (!isPlainObject(value)) {
     throw new EIP712Error(
       new Error(`Invalid value for ${path}: expected an object`),

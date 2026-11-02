@@ -605,7 +605,7 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     expect(sig.displayValue).toContain('2026');
   });
 
-  it('shows No expiry at the uint48 maximum and Current block only at zero', () => {
+  it('shows No expiry at the uint48 maximum and the raw number at zero', () => {
     const details = (expiration: string) => ({
       details: { ...(sample('PermitSingle').details as object), expiration },
       spender: sample('PermitSingle').spender,
@@ -614,9 +614,10 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     const max = build('PermitSingle', details('281474976710655')).messageRows;
     expect(max.find(r => r.label === 'Details › Expiration')!.displayValue).toBe('No expiry');
     const zero = build('PermitSingle', details('0')).messageRows;
-    expect(zero.find(r => r.label === 'Details › Expiration')!.displayValue).toBe(
-      'Current block only',
-    );
+    expect(zero.find(r => r.label === 'Details › Expiration')).toMatchObject({
+      presentation: 'number',
+      displayValue: '0',
+    });
   });
 
   it('reads expiration and sigDeadline as seconds even when they are >= 1e12', () => {
@@ -640,14 +641,13 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     'PermitBatchTransferFrom',
     'PermitWitnessTransferFrom',
     'PermitBatchWitnessTransferFrom',
-  ] as const)('reads a %s deadline >= 1e12 as milliseconds', primaryType => {
+  ] as const)('shows a %s deadline >= 1e12 as the raw number', primaryType => {
     const ms = '1793612672000';
     const row = build(primaryType, {
       ...sample(primaryType),
       deadline: ms,
     }).messageRows.find(r => r.label === 'Deadline')!;
-    expect(row.presentation).toBe('date');
-    expect(row.displayValue).toBe(formatEip712Date(ms));
+    expect(row).toMatchObject({ presentation: 'number', displayValue: ms });
   });
 
   it('reads a nested deadline the same way whatever the primary type is named', () => {
@@ -879,6 +879,42 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
     expect(model.messageRows[2]).toMatchObject({ displayValue: '7500000000', token: null });
   });
 
+  it.each(['Permit', 'TransferWithAuthorization', 'ReceiveWithAuthorization'])(
+    'pairs a top-level %s value with the domain package',
+    primaryType => {
+      const model = buildTypedDataEIP712DisplayModel(
+        {
+          domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+          types: { [primaryType]: [{ name: 'value', type: 'uint256' }] },
+          primaryType,
+          message: { value: '1000' },
+        },
+        { resolveToken },
+      );
+      expect(model.messageRows[0]).toMatchObject({ displayValue: '0.000001 WCSPR', token: WCSPR });
+    },
+  );
+
+  it('leaves a top-level amount raw for any other primary type', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: {
+          Deposit: [
+            { name: 'amount', type: 'uint256' },
+            { name: 'value', type: 'uint256' },
+          ],
+        },
+        primaryType: 'Deposit',
+        message: { amount: '1000', value: '1000' },
+      },
+      { resolveToken },
+    );
+    for (const r of model.messageRows) {
+      expect(r).toMatchObject({ displayValue: '1000', token: null, isAmount: false });
+    }
+  });
+
   it('leaves the amount raw when the token does not resolve', () => {
     const r = row(
       build('PermitTransferFrom', undefined, { resolveToken: () => null }).messageRows,
@@ -940,9 +976,9 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
     const model = buildTypedDataEIP712DisplayModel(
       {
         domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
-        types: { T: [{ name: 'amount', type: 'uint64' }] },
-        primaryType: 'T',
-        message: { amount: (2n ** 64n - 1n).toString() },
+        types: { Permit: [{ name: 'value', type: 'uint64' }] },
+        primaryType: 'Permit',
+        message: { value: (2n ** 64n - 1n).toString() },
       },
       { resolveToken },
     );
@@ -984,20 +1020,30 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
   });
 });
 
-describe('buildTypedDataEIP712DisplayModel — CEP-2612 deadline', () => {
-  it('keeps the millisecond guess for a flat Permit deadline', () => {
+describe('buildTypedDataEIP712DisplayModel — flat upper-bound dates', () => {
+  it.each(['deadline', 'validBefore'])('shows a flat %s >= 1e12 as the raw number', name => {
     const ms = '1793612672000';
     const row = buildTypedDataEIP712DisplayModel({
       domain: { chain_name: 'casper' },
       types: {
         EIP712Domain: [{ name: 'chain_name', type: 'string' }],
-        Permit: [{ name: 'deadline', type: 'uint256' }],
+        Permit: [{ name, type: 'uint256' }],
       },
       primaryType: 'Permit',
-      message: { deadline: ms },
+      message: { [name]: ms },
+    }).messageRows[0];
+    expect(row).toMatchObject({ presentation: 'number', displayValue: ms });
+  });
+
+  it('keeps the millisecond guess for a lower bound', () => {
+    const ms = '1793612672000';
+    const row = buildTypedDataEIP712DisplayModel({
+      domain: { chain_name: 'casper' },
+      types: { T: [{ name: 'validAfter', type: 'uint256' }] },
+      primaryType: 'T',
+      message: { validAfter: ms },
     }).messageRows[0];
     expect(row.displayValue).toBe(formatEip712Date(ms));
-    expect(row.displayValue).toContain('2026');
   });
 });
 
