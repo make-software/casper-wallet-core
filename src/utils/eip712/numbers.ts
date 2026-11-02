@@ -1,4 +1,5 @@
-import { IEIP712Field } from '../../domain';
+import { IEIP712Field, IEIP712Types } from '../../domain';
+import { isEip712StructType, parseEip712FieldType } from './types';
 
 const NUMBER_TYPE_PATTERN = /^(u?)int(\d*)$/;
 const DECIMAL_PATTERN = /^\d+$/;
@@ -66,4 +67,38 @@ export function normalizeEip712Numbers(
     }
   }
   return normalized;
+}
+
+/** Copy of `value` (an instance of struct `typeName`) with every parseable number at any depth replaced by its bigint. */
+export function normalizeEip712Struct(
+  typeName: string,
+  types: IEIP712Types,
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...value };
+  for (const { name, type } of types[typeName]) {
+    normalized[name] = normalizeEip712Value(type, types, value[name]);
+  }
+  return normalized;
+}
+
+function normalizeEip712Value(type: string, types: IEIP712Types, value: unknown): unknown {
+  const parsed = parseEip712FieldType(type);
+  if (!parsed) {
+    return value;
+  }
+  if (parsed.isArray) {
+    return Array.isArray(value)
+      ? value.map(v => normalizeEip712Value(parsed.base, types, v))
+      : value;
+  }
+  if (isEip712StructType(types, parsed.base)) {
+    return typeof value === 'object' && value !== null
+      ? normalizeEip712Struct(parsed.base, types, value as Record<string, unknown>)
+      : value;
+  }
+  if (parseNumberType(parsed.base)) {
+    return parseEip712Number(value) ?? value;
+  }
+  return value;
 }

@@ -10,7 +10,13 @@ import {
   SignTypedDataErrorCodes,
 } from '../../domain';
 import { IEIP712NumberType, parseEip712Number, parseNumberType } from './numbers';
-import { MAX_EIP712_STRUCT_DEPTH, isEip712StructType, parseEip712FieldType } from './types';
+import {
+  MAX_EIP712_ARRAY_LENGTH,
+  MAX_EIP712_MESSAGE_ROWS,
+  MAX_EIP712_STRUCT_DEPTH,
+  isEip712StructType,
+  parseEip712FieldType,
+} from './types';
 
 const BYTES_1_TO_31_PATTERN = /^bytes([1-9]|[12][0-9]|3[01])$/;
 const STRICT_HEX_PATTERN = /^(?:0x)?(?:[0-9a-fA-F]{2})*$/;
@@ -93,6 +99,97 @@ export function validateTypedDataEIP712Values(
       if (typeof value !== 'string') throw invalidValue(owner, name, 'expected a string');
     }
   }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validates `value` as struct `typeName` at every depth; `path` prefixes error messages.
+ * Returns the number of leaf rows the value displays as (an empty array counts as one).
+ * @throws EIP712Error `INVALID_PARAMS`.
+ */
+export function validateTypedDataEIP712Struct(
+  typeName: string,
+  types: IEIP712Types,
+  value: unknown,
+  path: string,
+  rejectUnknownFields = false,
+): number {
+  if (!isPlainObject(value)) {
+    throw new EIP712Error(
+      new Error(`Invalid value for ${path}: expected an object`),
+      'validateTypedDataEIP712',
+      SignTypedDataErrorCodes.INVALID_PARAMS,
+    );
+  }
+  const fields = types[typeName];
+  if (rejectUnknownFields) {
+    const known = new Set(fields.map(f => f.name));
+    for (const key of Object.keys(value)) {
+      if (!known.has(key)) {
+        const where = path === typeName ? 'message' : path;
+        throw new EIP712Error(
+          new Error(`Unknown field "${key}" in ${where} not defined in type "${typeName}"`),
+          'validateTypedDataEIP712',
+          SignTypedDataErrorCodes.INVALID_PARAMS,
+        );
+      }
+    }
+  }
+  let rows = 0;
+  for (const field of fields) {
+    const { name, type } = field;
+    const fieldValue = value[name];
+    if (fieldValue === undefined || fieldValue === null) {
+      throw invalidValue(path, name, 'missing');
+    }
+    const parsed = parseEip712FieldType(type);
+    if (!parsed) {
+      throw invalidValue(path, name, `unsupported type "${type}"`);
+    }
+    const walk = (element: unknown, elementPath: string): number => {
+      if (isEip712StructType(types, parsed.base)) {
+        return validateTypedDataEIP712Struct(
+          parsed.base,
+          types,
+          element,
+          elementPath,
+          rejectUnknownFields,
+        );
+      }
+      validateTypedDataEIP712Values(
+        path,
+        [{ name: elementPath.slice(path.length + 1), type: parsed.base }],
+        { [elementPath.slice(path.length + 1)]: element },
+      );
+      return 1;
+    };
+    if (!parsed.isArray) {
+      rows += walk(fieldValue, `${path}.${name}`);
+      continue;
+    }
+    if (!Array.isArray(fieldValue)) {
+      throw invalidValue(path, name, 'expected an array');
+    }
+    if (fieldValue.length > MAX_EIP712_ARRAY_LENGTH) {
+      throw invalidValue(path, name, `array longer than ${MAX_EIP712_ARRAY_LENGTH} entries`);
+    }
+    if (parsed.arrayLength !== null && fieldValue.length !== parsed.arrayLength) {
+      throw invalidValue(path, name, `expected exactly ${parsed.arrayLength} entries`);
+    }
+    if (fieldValue.length === 0) {
+      rows += 1;
+    }
+    fieldValue.forEach((element, i) => {
+      rows += walk(element, `${path}.${name}[${i}]`);
+    });
+    if (rows > MAX_EIP712_MESSAGE_ROWS) {
+      throw invalidValue(path, name, `more than ${MAX_EIP712_MESSAGE_ROWS} displayed rows`);
+    }
+  }
+  return rows;
 }
 
 /**
@@ -318,9 +415,19 @@ export function validateTypedDataEIP712(
   const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);
   validateTypedDataEIP712FieldTypes(types, primaryType);
   validateTypedDataEIP712Values('EIP712Domain', resolvedDomainTypes, domain);
-  validateTypedDataEIP712Values(primaryType, types[primaryType], message);
-  if (options.rejectUnknownFields) {
-    validateNoUnknownMessageFields(types, primaryType, message);
+  const rows = validateTypedDataEIP712Struct(
+    primaryType,
+    types,
+    message,
+    primaryType,
+    options.rejectUnknownFields,
+  );
+  if (rows > MAX_EIP712_MESSAGE_ROWS) {
+    throw new EIP712Error(
+      new Error(`Message displays ${rows} rows, more than ${MAX_EIP712_MESSAGE_ROWS}`),
+      'validateTypedDataEIP712',
+      SignTypedDataErrorCodes.INVALID_PARAMS,
+    );
   }
   return resolvedDomainTypes;
 }

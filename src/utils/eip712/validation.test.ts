@@ -447,3 +447,125 @@ describe('validateTypedDataEIP712 — malformed typed data', () => {
   it('rejects a primaryType naming an inherited key with INVALID_PARAMS', () =>
     expectInvalid(() => validateTypedDataEIP712({ ...valid, primaryType: 'constructor' })));
 });
+
+describe('validateTypedDataEIP712 — nested values', () => {
+  const ADDR = '0x01' + '00'.repeat(32);
+  const types: IEIP712Types = {
+    TokenPermissions: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint160' },
+    ],
+    PermitTransferFrom: [
+      { name: 'permitted', type: 'TokenPermissions' },
+      { name: 'nonce', type: 'uint256' },
+    ],
+    PermitDetails: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint160' },
+      { name: 'nonce', type: 'uint48' },
+    ],
+    PermitBatch: [{ name: 'details', type: 'PermitDetails[]' }],
+    Lists: [{ name: 'addrs', type: 'address[3]' }],
+    Perms: [{ name: 'permitted', type: 'TokenPermissions[]' }],
+    Wide: [{ name: 'items', type: 'Five[]' }],
+    Five: [
+      { name: 'a', type: 'uint8' },
+      { name: 'b', type: 'uint8' },
+      { name: 'c', type: 'uint8' },
+      { name: 'd', type: 'uint8' },
+      { name: 'e', type: 'uint8' },
+    ],
+  };
+  const run =
+    (
+      primaryType: string,
+      message: Record<string, unknown>,
+      options: { rejectUnknownFields?: boolean } = {},
+    ) =>
+    () =>
+      validateTypedDataEIP712({ domain: DOMAIN, types, primaryType, message }, options);
+  const detail = (over: Record<string, unknown> = {}) => ({
+    token: ADDR,
+    amount: '5',
+    nonce: '1',
+    ...over,
+  });
+
+  it('accepts a nested struct with hex amount', () => {
+    expect(
+      run('PermitTransferFrom', { permitted: { token: ADDR, amount: '0x03e8' }, nonce: 1n }),
+    ).not.toThrow();
+  });
+
+  it('accepts an array of structs with decimal strings', () => {
+    expect(run('PermitBatch', { details: [detail(), detail()] })).not.toThrow();
+  });
+
+  it('accepts a 64-character hex word nested', () => {
+    expect(
+      run('PermitTransferFrom', {
+        permitted: { token: ADDR, amount: '0'.repeat(61) + '3e8' },
+        nonce: 1n,
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects a missing nested field naming its path', () => {
+    expect(() => run('PermitTransferFrom', { permitted: { token: ADDR }, nonce: 1n })()).toThrow(
+      /PermitTransferFrom\.permitted\.amount/,
+    );
+    expectInvalid(run('PermitTransferFrom', { permitted: { token: ADDR }, nonce: 1n }));
+  });
+
+  it('rejects a bad element value naming its path', () => {
+    const fn = run('PermitBatch', { details: [detail(), detail({ nonce: '0x0g' })] });
+    expect(fn).toThrow(/PermitBatch\.details\[1\]\.nonce/);
+    expectInvalid(fn);
+  });
+
+  it('rejects an out-of-range nested number', () => {
+    expectInvalid(run('PermitBatch', { details: [detail({ amount: (1n << 160n).toString() })] }));
+  });
+
+  it('rejects an ambiguous 64-digit decimal nested', () => {
+    const fn = run('PermitBatch', { details: [detail({ nonce: '1' + '0'.repeat(63) })] });
+    expect(fn).toThrow(/PermitBatch\.details\[0\]\.nonce/);
+    expectInvalid(fn);
+  });
+
+  it.each([['x'], [null], [[]]])('rejects a struct value %p that is not an object', bad => {
+    expectInvalid(run('PermitTransferFrom', { permitted: bad, nonce: 1n }));
+  });
+
+  it('rejects a non-array for an array field', () => {
+    expectInvalid(run('PermitBatch', { details: {} }));
+  });
+
+  it('rejects a fixed array of the wrong length', () => {
+    expectInvalid(run('Lists', { addrs: [ADDR, ADDR] }));
+    expect(run('Lists', { addrs: [ADDR, ADDR, ADDR] })).not.toThrow();
+  });
+
+  it('rejects an array longer than 64', () => {
+    expectInvalid(run('PermitBatch', { details: Array.from({ length: 65 }, () => detail()) }));
+    expect(
+      run('PermitBatch', { details: Array.from({ length: 64 }, () => detail()) }),
+    ).not.toThrow();
+  });
+
+  it('accepts an empty array of structs', () => {
+    expect(run('Perms', { permitted: [] })).not.toThrow();
+  });
+
+  it('rejects more than 256 leaf rows', () => {
+    const items = Array.from({ length: 64 }, () => ({ a: 1, b: 1, c: 1, d: 1, e: 1 }));
+    expectInvalid(run('Wide', { items }));
+    expect(run('Wide', { items: items.slice(0, 51) })).not.toThrow();
+  });
+
+  it('rejects an unknown nested key only with rejectUnknownFields', () => {
+    const message = { permitted: { token: ADDR, amount: '1', extra: 1 }, nonce: 1n };
+    expectInvalid(run('PermitTransferFrom', message, { rejectUnknownFields: true }));
+    expect(run('PermitTransferFrom', message)).not.toThrow();
+  });
+});

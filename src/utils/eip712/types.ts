@@ -2,6 +2,7 @@ import { IEIP712Types } from '../../domain';
 
 export const MAX_EIP712_STRUCT_DEPTH = 4;
 export const MAX_EIP712_ARRAY_LENGTH = 64;
+export const MAX_EIP712_MESSAGE_ROWS = 256;
 
 const FIELD_TYPE_PATTERN = /^([A-Za-z_$][\w$]*)(?:\[([1-9]\d*)?\])?$/;
 

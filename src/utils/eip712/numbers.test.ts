@@ -1,4 +1,9 @@
-import { normalizeEip712Numbers, parseEip712Number, parseNumberType } from './numbers';
+import {
+  normalizeEip712Numbers,
+  normalizeEip712Struct,
+  parseEip712Number,
+  parseNumberType,
+} from './numbers';
 
 describe('parseNumberType', () => {
   it.each([
@@ -83,5 +88,76 @@ describe('normalizeEip712Numbers', () => {
 
   it('leaves an unparseable number untouched', () => {
     expect(normalizeEip712Numbers(fields, { a: 'abc', s: 'x' })).toEqual({ a: 'abc', s: 'x' });
+  });
+});
+
+describe('normalizeEip712Struct', () => {
+  const types = {
+    Inner: [
+      { name: 'amount', type: 'uint160' },
+      { name: 'label', type: 'string' },
+    ],
+    Outer: [
+      { name: 'permitted', type: 'Inner' },
+      { name: 'list', type: 'Inner[]' },
+      { name: 'nums', type: 'uint8[2]' },
+      { name: 'nonce', type: 'uint256' },
+    ],
+  };
+
+  it('converts numbers at every depth and leaves other fields', () => {
+    const input = {
+      permitted: { amount: '0x03e8', label: '7' },
+      list: [
+        { amount: '1', label: '2' },
+        { amount: 3, label: '4' },
+      ],
+      nums: ['5', 6],
+      nonce: '9',
+    };
+    expect(normalizeEip712Struct('Outer', types, input)).toEqual({
+      permitted: { amount: 1000n, label: '7' },
+      list: [
+        { amount: 1n, label: '2' },
+        { amount: 3n, label: '4' },
+      ],
+      nums: [5n, 6n],
+      nonce: 9n,
+    });
+  });
+
+  it('does not mutate the input', () => {
+    const input = {
+      permitted: { amount: '1', label: 'a' },
+      list: [],
+      nums: ['1', '2'],
+      nonce: '2',
+    };
+    const snapshot = JSON.parse(JSON.stringify(input));
+    normalizeEip712Struct('Outer', types, input);
+    expect(input).toEqual(snapshot);
+  });
+  it('matches the flat-field normalisation for a flat Permit', () => {
+    const permitTypes = {
+      Permit: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' },
+        { name: 'salt', type: 'uint256' },
+      ],
+    };
+    const message = {
+      owner: '0x' + '11'.repeat(20),
+      spender: '0x' + '22'.repeat(20),
+      value: '1000',
+      nonce: '0x03e8',
+      deadline: 1700000000,
+      salt: 12345678901234567890n,
+    };
+    const flat = normalizeEip712Numbers(permitTypes.Permit, message);
+    expect(normalizeEip712Struct('Permit', permitTypes, message)).toEqual(flat);
+    expect(flat).toMatchObject({ value: 1000n, nonce: 1000n, deadline: 1700000000n });
   });
 });
