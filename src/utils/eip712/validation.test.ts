@@ -243,6 +243,7 @@ describe('validateTypedDataEIP712Values', () => {
     expect(one('uint256', 1000)).not.toThrow();
     expect(one('uint256', '1000')).not.toThrow();
     expect(one('uint256', '0x03e8')).not.toThrow();
+    expect(one('uint256', '0x3e8')).not.toThrow();
     expect(one('uint256', (1n << 256n) - 1n)).not.toThrow();
   });
 
@@ -250,7 +251,7 @@ describe('validateTypedDataEIP712Values', () => {
     ['garbage', 'abc'],
     ['exponent', '1e3'],
     ['empty', ''],
-    ['odd-length hex', '0x3e8'],
+    ['uppercase 0X prefix', '0X3e8'],
     ['unsafe number', 2 ** 53],
     ['negative bigint', -1n],
     ['negative string', '-1'],

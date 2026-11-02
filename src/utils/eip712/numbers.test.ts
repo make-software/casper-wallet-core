@@ -44,6 +44,10 @@ describe('parseEip712Number', () => {
     ['1000', 1000n],
     [((1n << 256n) - 1n).toString(), (1n << 256n) - 1n],
     ['0x03e8', 1000n],
+    ['0x3e8', 1000n],
+    ['0x1f4', 500n],
+    ['0x1', 1n],
+    ['0x' + 'f'.repeat(63), (1n << 252n) - 1n],
   ])('reads %p as %p', (value, expected) => expect(parseEip712Number(value)).toBe(expected));
 
   it.each([
@@ -56,9 +60,10 @@ describe('parseEip712Number', () => {
 
   it.each([
     ['-1'],
-    ['0x3e8'],
     ['0X03e8'],
+    ['0X3e8'],
     ['0x'],
+    ['0x' + 'f'.repeat(65)],
     ['0x' + '00'.repeat(33)],
     [''],
     [' 1'],

@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   including existing x402 and permit flows. Amounts at their type's maximum show `Unlimited`.
   `sigDeadline` and `expiration` render as dates.
 - EIP-712: `T[][]`, recursive types and type names that shadow primitives are rejected.
+- EIP-712: `0x` hex numbers with an odd number of digits (`0x1f4` = 500) are accepted; only
+  the uppercase `0X` prefix is still rejected.
 - EIP-712: a number given as exactly 64 hex characters without `0x` is read as a 32-byte hex
   word (`'00…03e8'` = 1000). A zero-padded 64-digit string now reads as hex, and a 64-digit
   string not starting with `0` is rejected as ambiguous; send decimal without padding or `0x`

@@ -191,6 +191,11 @@ describe('computeTypedDataEIP712Digest — numeric forms', () => {
     expect(digestOf(1000)).toBe(digestOf(1000n));
   });
 
+  it('hashes an odd-length 0x hex number like the same bigint', () => {
+    expect(digestOf('0x3e8')).toBe(digestOf(1000n));
+    expect(digestOf('0x3e8')).toBe(digestOf('0x03e8'));
+  });
+
   it('hashes a 64-character hex word like the same bigint', () => {
     expect(digestOf('0'.repeat(61) + '3e8')).toBe(digestOf(1000n));
     expect(digestOf('0'.repeat(61) + '3e8')).toBe(digestOf('0x03e8'));
@@ -212,11 +217,11 @@ describe('computeTypedDataEIP712Digest — numeric forms', () => {
       expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }),
     );
 
-  it.each([['abc'], ['1e3'], [''], ['-1'], ['0x3e8'], [2 ** 53]])('rejects %p for uint256', value =>
+  it.each([['abc'], ['1e3'], [''], ['-1'], ['0X3e8'], [2 ** 53]])('rejects %p for uint256', value =>
     expectInvalidParams(withValue(value)),
   );
 
-  it.each([['abc'], ['1e3'], [''], ['0x3e8']])('names Permit.value when rejecting %p', value =>
+  it.each([['abc'], ['1e3'], [''], ['0X3e8']])('names Permit.value when rejecting %p', value =>
     expect(() => computeTypedDataEIP712Digest(withValue(value))).toThrow(/Permit\.value/),
   );
 

@@ -4,7 +4,7 @@ import { isEip712StructType, parseEip712FieldType } from './types';
 const NUMBER_TYPE_PATTERN = /^(u?)int(\d*)$/;
 const DECIMAL_PATTERN = /^\d+$/;
 const HEX_WORD_PATTERN = /^[0-9a-fA-F]{64}$/;
-const HEX_PATTERN = /^0x(?:[0-9a-fA-F]{2}){1,32}$/;
+const HEX_PATTERN = /^0x[0-9a-fA-F]{1,64}$/;
 
 export interface IEIP712NumberType {
   unsigned: boolean;
@@ -27,7 +27,7 @@ export function parseNumberType(type: string): IEIP712NumberType | null {
 /**
  * Returns the bigint a numeric value denotes, or null when the value has no single meaning
  * across the reference implementations. Accepts bigint, a safe integer, a digit-only decimal
- * string, a `0x` hex string of 2..64 digits in pairs and a 64-character hex word without `0x`
+ * string, a `0x` hex string of 1..64 digits and a 64-character hex word without `0x`
  * (a 64-digit word not starting with `0` is ambiguous with decimal and rejected). No range check.
  */
 export function parseEip712Number(value: unknown): bigint | null {
