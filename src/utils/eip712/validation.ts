@@ -286,13 +286,15 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
   return a.length === b.length && a.every((f, i) => f.name === b[i].name && f.type === b[i].type);
 }
 
+const FIELD_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
 /**
  * Accepts struct references and one-dimensional arrays (`T[]`, `T[N]`, N in 1..64) of
  * `address`, `bool`, `bytes`, `bytes32`, `string`, `uintN`, `intN` or a struct. Rejects
  * multi-dimensional arrays, `bytes1`..`bytes31`, undefined structs, cycles and, when `primaryType`
  * is given, struct nesting deeper than 4 levels below it.
- * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice or a
- * struct named like a primitive.
+ * @throws EIP712Error `UNSUPPORTED_TYPE`, or `INVALID_PARAMS` for a field name declared twice or
+ * not an identifier, or a struct named like a primitive.
  */
 export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryType?: string): void {
   for (const typeName of Object.keys(types)) {
@@ -310,6 +312,13 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryTy
       if (seen.has(field.name)) {
         throw new EIP712Error(
           new Error(`Field "${field.name}" is declared more than once in ${typeName}`),
+          'validateTypedDataEIP712',
+          SignTypedDataErrorCodes.INVALID_PARAMS,
+        );
+      }
+      if (!FIELD_NAME_PATTERN.test(field.name)) {
+        throw new EIP712Error(
+          new Error(`Invalid field name ${typeName}.${field.name}: must be an identifier`),
           'validateTypedDataEIP712',
           SignTypedDataErrorCodes.INVALID_PARAMS,
         );

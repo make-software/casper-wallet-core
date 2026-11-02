@@ -93,6 +93,27 @@ describe('validateTypedDataEIP712FieldTypes', () => {
     return types;
   };
 
+  it.each(['permitted › amount', 'a #1', '', '1abc'])('rejects field name %j', name => {
+    expect(() => validateTypedDataEIP712FieldTypes({ T: [field(name, 'uint256')] })).toThrow(
+      code(SignTypedDataErrorCodes.INVALID_PARAMS),
+    );
+  });
+
+  it('rejects an invalid field name in EIP712Domain and names Type.field', () => {
+    expect(() =>
+      validateTypedDataEIP712FieldTypes({
+        EIP712Domain: [field('bad name', 'string')],
+        T: [field('v', 'uint256')],
+      }),
+    ).toThrow(
+      expect.objectContaining({ message: expect.stringContaining('EIP712Domain.bad name') }),
+    );
+  });
+
+  it.each(['chain_name', '$x', '_y'])('accepts field name %j', name => {
+    expect(() => validateTypedDataEIP712FieldTypes({ T: [field(name, 'uint256')] })).not.toThrow();
+  });
+
   it.each([
     [
       'struct ref',

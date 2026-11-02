@@ -54,6 +54,18 @@ describe('computeTypedDataEIP712Digest', () => {
     expect(() => computeTypedDataEIP712Digest(withExtra, { rejectUnknownFields: true })).toThrow();
   });
 
+  it('rejects a message type with a non-identifier field name', () => {
+    const typedData = {
+      domain: DOMAIN,
+      types: { Permit: [{ name: 'permitted › amount', type: 'uint256' }] },
+      primaryType: 'Permit',
+      message: { 'permitted › amount': 1n },
+    };
+    expect(() => computeTypedDataEIP712Digest(typedData)).toThrow(
+      expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }),
+    );
+  });
+
   it('rejects a domain without a mappable chain_name', () => {
     const unbound = Object.fromEntries(Object.entries(DOMAIN).filter(([k]) => k !== 'chain_name'));
     expect(() => computeTypedDataEIP712Digest({ ...TYPED_DATA, domain: unbound })).toThrow(

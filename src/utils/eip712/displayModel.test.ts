@@ -273,6 +273,21 @@ describe('buildTypedDataEIP712DisplayModel — date sentinels & trim', () => {
     expect(model.messageRows.find(r => r.label === 'Valid Before')!.displayValue).toBe('No expiry');
   });
 
+  it('formats a date for narrow types at their maximum instead of a sentinel', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      td({ validAfter: '255', deadline: '4294967295' }, [
+        { name: 'validAfter', type: 'uint8' },
+        { name: 'deadline', type: 'uint32' },
+      ]),
+    );
+    const after = model.messageRows.find(r => r.label === 'Valid After')!;
+    const deadline = model.messageRows.find(r => r.label === 'Deadline')!;
+    expect(after.displayValue).not.toMatch(/Never|Always|No expiry|Expired/);
+    expect(after.displayValue).toContain('1970');
+    expect(deadline.displayValue).not.toMatch(/Never|Always|No expiry|Expired/);
+    expect(deadline.displayValue).toContain('2106');
+  });
+
   it('keys the sentinel label on field role, not just the value', () => {
     const model = buildTypedDataEIP712DisplayModel(
       td(
