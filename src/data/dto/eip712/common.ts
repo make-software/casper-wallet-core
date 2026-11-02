@@ -1,7 +1,7 @@
-import { IEIP712Field, IEIP712TypedData } from '../../../domain';
+import { IEIP712TypedData } from '../../../domain';
 import { Maybe } from '../../../typings';
 import { getHashByType } from '../common';
-import { decodeEip712Address } from '../../../utils/eip712';
+import { decodeEip712Address, getTypedDataEIP712Leaves } from '../../../utils/eip712';
 
 /**
  * The EIP-712 domain key carrying the chain name. It is promoted to the dedicated
@@ -17,7 +17,7 @@ export const stripHexPrefix = (value: string): string =>
 
 /**
  * Account hashes to resolve for a typed-data request: every account-tagged (`0x00`) `address`-typed
- * field value across the domain and the primary-type message, plus the signing key's account hash.
+ * value across the domain and the message, including nested structs and arrays, plus the signing key's account hash.
  * Package-tagged (`0x01`) and unknown-tagged addresses are excluded — those are collected separately
  * by `getPackageHashesFromTypedDataEIP712`. Deduplicated; null/empty results dropped.
  */
@@ -27,20 +27,23 @@ export const getAccountHashesFromTypedDataEIP712 = (
 ): string[] => {
   const hashes: Array<Maybe<string>> = [];
 
-  const collect = (fields: IEIP712Field[] | undefined, source: Record<string, unknown>) => {
-    (fields ?? []).forEach(({ name, type }) => {
-      const value = source[name];
-      if (type === 'address' && typeof value === 'string' && value) {
-        const decoded = decodeEip712Address(value);
-        if (decoded.kind === 'account') {
-          hashes.push(decoded.hash);
-        }
+  const collect = (value: unknown) => {
+    if (typeof value === 'string' && value) {
+      const decoded = decodeEip712Address(value);
+      if (decoded.kind === 'account') {
+        hashes.push(decoded.hash);
       }
-    });
+    }
   };
 
-  collect(typedData.types.EIP712Domain, typedData.domain);
-  collect(typedData.types[typedData.primaryType], typedData.message);
+  (typedData.types.EIP712Domain ?? []).forEach(({ name, type }) => {
+    if (type === 'address') {
+      collect(typedData.domain[name]);
+    }
+  });
+  getTypedDataEIP712Leaves(typedData.primaryType, typedData.types, typedData.message)
+    .filter(leaf => leaf.type === 'address')
+    .forEach(leaf => collect(leaf.value));
   hashes.push(getHashByType(signingPublicKeyHex, 'publicKey'));
 
   return Array.from(new Set(hashes.filter((h): h is string => Boolean(h))));
@@ -48,7 +51,7 @@ export const getAccountHashesFromTypedDataEIP712 = (
 
 /**
  * Package hashes to resolve for a typed-data request: the domain `contract_package_hash` (stripped
- * of `0x`) plus every package-tagged (`0x01`) `address`-typed field value in the primary-type message.
+ * of `0x`) plus every package-tagged (`0x01`) `address`-typed value in the message, including nested structs and arrays.
  * Deduplicated; null/empty results dropped.
  */
 export const getPackageHashesFromTypedDataEIP712 = (typedData: IEIP712TypedData): string[] => {
@@ -59,15 +62,16 @@ export const getPackageHashesFromTypedDataEIP712 = (typedData: IEIP712TypedData)
     hashes.push(stripHexPrefix(domainPackage));
   }
 
-  (typedData.types[typedData.primaryType] ?? []).forEach(({ name, type }) => {
-    const value = typedData.message[name];
-    if (type === 'address' && typeof value === 'string' && value) {
-      const decoded = decodeEip712Address(value);
-      if (decoded.kind === 'package') {
-        hashes.push(decoded.hash);
+  getTypedDataEIP712Leaves(typedData.primaryType, typedData.types, typedData.message)
+    .filter(leaf => leaf.type === 'address')
+    .forEach(({ value }) => {
+      if (typeof value === 'string' && value) {
+        const decoded = decodeEip712Address(value);
+        if (decoded.kind === 'package') {
+          hashes.push(decoded.hash);
+        }
       }
-    }
-  });
+    });
 
   return Array.from(new Set(hashes.filter((h): h is string => Boolean(h))));
 };

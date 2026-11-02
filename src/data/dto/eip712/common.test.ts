@@ -4,6 +4,7 @@ import {
   stripHexPrefix,
 } from './common';
 import { getAccountHashFromPublicKey } from '../../../utils';
+import { buildPermit2TypedData, PERMIT2_MESSAGES } from '../../../__test-utils__/permit2';
 
 const OWNER = 'a'.repeat(64);
 const SPENDER = 'b'.repeat(64);
@@ -120,5 +121,54 @@ describe('getPackageHashesFromTypedDataEIP712', () => {
     expect(hashes).toContain(PKG); // domain (0x stripped)
     expect(hashes).toContain('c'.repeat(64)); // package-tagged `to`
     expect(hashes).not.toContain(ACC); // account `from` excluded
+  });
+});
+
+describe('nested and array address collection', () => {
+  const T = 'd'.repeat(64);
+  const T1 = '11'.repeat(32);
+  const T2 = '22'.repeat(32);
+  const DOMAIN_PKG = '01'.repeat(32);
+
+  it('collects a package hash from a nested struct field', () => {
+    const typed = buildPermit2TypedData(
+      'PermitTransferFrom',
+      {
+        ...PERMIT2_MESSAGES.PermitTransferFrom[33],
+        permitted: { token: '0x01' + T, amount: '1' },
+      },
+      33,
+    );
+    const hashes = getPackageHashesFromTypedDataEIP712(typed);
+    expect(hashes).toContain(DOMAIN_PKG);
+    expect(hashes).toContain(T);
+  });
+
+  it('collects array packages deduplicated in first-seen order', () => {
+    const entry = (t: string) => ({ token: '0x01' + t, amount: '1', expiration: '1', nonce: '0' });
+    const typed = buildPermit2TypedData(
+      'PermitBatch',
+      {
+        ...PERMIT2_MESSAGES.PermitBatch[33],
+        details: [entry(T1), entry(T2), entry(T1)],
+        spender: '0x00' + 'a'.repeat(64),
+      },
+      33,
+    );
+    expect(getPackageHashesFromTypedDataEIP712(typed)).toEqual([DOMAIN_PKG, T1, T2]);
+  });
+
+  it('collects a nested account hash plus the signer', () => {
+    const typed = buildPermit2TypedData(
+      'PermitWitnessTransferFrom',
+      {
+        ...PERMIT2_MESSAGES.PermitWitnessTransferFrom[33],
+        witness: { recipient: '0x00' + ACC, orderId: '0x' + 'ab'.repeat(32) },
+      },
+      33,
+    );
+    const hashes = getAccountHashesFromTypedDataEIP712(typed, SIGNING_PK);
+    expect(hashes).toContain(ACC);
+    expect(hashes).toContain(getAccountHashFromPublicKey(SIGNING_PK));
   });
 });
