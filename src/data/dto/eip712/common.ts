@@ -1,7 +1,11 @@
 import { IEIP712TypedData } from '../../../domain';
 import { Maybe } from '../../../typings';
 import { getHashByType } from '../common';
-import { decodeEip712Address, getTypedDataEIP712Leaves } from '../../../utils/eip712';
+import {
+  decodeEip712Address,
+  getTypedDataEIP712Leaves,
+  stripHexPrefix,
+} from '../../../utils/eip712';
 
 /**
  * The EIP-712 domain key carrying the chain name. It is promoted to the dedicated
@@ -11,9 +15,7 @@ import { decodeEip712Address, getTypedDataEIP712Leaves } from '../../../utils/ei
  */
 export const EIP712_CHAIN_NAME_KEY = 'chain_name';
 
-/** Strip an optional `0x` prefix. */
-export const stripHexPrefix = (value: string): string =>
-  value.startsWith('0x') ? value.slice(2) : value;
+export { stripHexPrefix };
 
 /**
  * Account hashes to resolve for a typed-data request: every account-tagged (`0x00`) `address`-typed

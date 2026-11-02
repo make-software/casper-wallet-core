@@ -9,6 +9,7 @@ import { validateTypedDataEIP712Struct } from './validation';
 import {
   buildTypedDataEIP712DisplayModel,
   formatEip712Date,
+  formatEip712TokenAmount,
   getPresentationForType,
 } from './displayModel';
 import { keyToLabel } from './walk';
@@ -650,5 +651,177 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
       primaryType,
     );
     expect(buildTypedDataEIP712DisplayModel(data).messageRows).toHaveLength(leaves);
+  });
+});
+
+describe('formatEip712TokenAmount', () => {
+  it('groups the integer part', () => {
+    expect(formatEip712TokenAmount(BigInt('1234567891000000000'), 9, 'WCSPR')).toBe(
+      '1,234,567,891 WCSPR',
+    );
+  });
+  it('keeps the full fraction without rounding', () => {
+    expect(formatEip712TokenAmount(BigInt('1234567891234567891'), 9, 'WCSPR')).toBe(
+      '1,234,567,891.234567891 WCSPR',
+    );
+  });
+  it('formats zero', () => {
+    expect(formatEip712TokenAmount(BigInt(0), 9, 'WCSPR')).toBe('0 WCSPR');
+  });
+  it('formats decimals 0', () => {
+    expect(formatEip712TokenAmount(BigInt(42), 0, 'TKN')).toBe('42 TKN');
+  });
+  it('formats a small amount and a 256-bit amount exactly', () => {
+    expect(formatEip712TokenAmount(BigInt(1000), 9, 'WCSPR')).toBe('0.000001 WCSPR');
+    expect(formatEip712TokenAmount((BigInt(1) << BigInt(255)) + BigInt(1), 18, 'X')).toBe(
+      '57,896,044,618,658,097,711,785,492,504,343,953,926,634,992,332,820,282,019,728.792003956564819969 X',
+    );
+  });
+});
+
+describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
+  const WCSPR = { contractPackageHash: '01'.repeat(32), symbol: 'WCSPR', decimals: 9 };
+  const USDC = { contractPackageHash: '03'.repeat(32), symbol: 'USDC', decimals: 6 };
+  const tokens: Record<string, typeof WCSPR> = {
+    [WCSPR.contractPackageHash]: WCSPR,
+    [USDC.contractPackageHash]: USDC,
+  };
+  const resolveToken = (hash: string) => tokens[hash] ?? null;
+  const build = (
+    primaryType: Permit2PrimaryType,
+    message?: Record<string, unknown>,
+    enrichment: Record<string, unknown> = { resolveToken },
+  ) =>
+    buildTypedDataEIP712DisplayModel(buildPermit2TypedData(primaryType, message, 33), enrichment);
+  const row = (rows: { label: string }[], label: string) =>
+    rows.find(r => r.label === label) as ReturnType<typeof build>['messageRows'][number];
+
+  it('pairs an amount with its sibling token', () => {
+    const r = row(build('PermitTransferFrom').messageRows, 'Permitted › Amount');
+    expect(r.displayValue).toBe('0.000001 WCSPR');
+    expect(r.value).toBe('1000');
+    expect(r.token).toEqual(WCSPR);
+  });
+
+  it('formats each batch entry with its own token', () => {
+    const rows = build('PermitBatch').messageRows;
+    expect(row(rows, 'Details #1 › Amount')).toMatchObject({
+      displayValue: '0.000001 WCSPR',
+      token: WCSPR,
+    });
+    expect(row(rows, 'Details #2 › Amount')).toMatchObject({
+      displayValue: '0.001001 USDC',
+      value: '1001',
+      token: USDC,
+    });
+  });
+
+  it('shows Unlimited with the symbol at the type maximum', () => {
+    const max = '0x' + 'ff'.repeat(20);
+    const message = {
+      ...PERMIT2_MESSAGES.PermitSingle[33],
+      details: { ...(PERMIT2_MESSAGES.PermitSingle[33].details as object), amount: max },
+    };
+    const r = row(build('PermitSingle', message).messageRows, 'Details › Amount');
+    expect(r.displayValue).toBe('Unlimited WCSPR');
+    expect(r.token).toEqual(WCSPR);
+  });
+
+  it('pairs a flat amount with the domain package', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: {
+          EIP712Domain: [
+            { name: 'chain_name', type: 'string' },
+            { name: 'contract_package_hash', type: 'bytes32' },
+          ],
+          TransferWithAuthorization: [
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+          ],
+        },
+        primaryType: 'TransferWithAuthorization',
+        message: { to: FULL_ADDR, value: '7500000000', nonce: '7500000000' },
+      },
+      { resolveToken },
+    );
+    expect(model.messageRows[1]).toMatchObject({
+      displayValue: '7.5 WCSPR',
+      value: '7500000000',
+      token: WCSPR,
+    });
+    expect(model.messageRows[2]).toMatchObject({ displayValue: '7500000000', token: null });
+  });
+
+  it('leaves the amount raw when the token does not resolve', () => {
+    const r = row(
+      build('PermitTransferFrom', undefined, { resolveToken: () => null }).messageRows,
+      'Permitted › Amount',
+    );
+    expect(r).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('leaves a nested amount raw when the token sibling is not a package', () => {
+    const message = {
+      ...PERMIT2_MESSAGES.PermitTransferFrom[33],
+      permitted: { token: '00' + '01'.repeat(32), amount: '1000' },
+    };
+    const r = row(build('PermitTransferFrom', message).messageRows, 'Permitted › Amount');
+    expect(r).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('does not fall back to the domain package for a top-level amount when a token field exists', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: {
+          EIP712Domain: [
+            { name: 'chain_name', type: 'string' },
+            { name: 'contract_package_hash', type: 'bytes32' },
+          ],
+          T: [
+            { name: 'token', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+        },
+        primaryType: 'T',
+        message: { token: '00' + '09'.repeat(32), amount: '1000' },
+      },
+      { resolveToken },
+    );
+    expect(model.messageRows[1]).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('does not pair a nested amount with the domain package when the token sibling is missing', () => {
+    const model = buildTypedDataEIP712DisplayModel(
+      {
+        domain: { chain_name: 'casper', contract_package_hash: '0x' + WCSPR.contractPackageHash },
+        types: {
+          EIP712Domain: [
+            { name: 'chain_name', type: 'string' },
+            { name: 'contract_package_hash', type: 'bytes32' },
+          ],
+          T: [{ name: 'inner', type: 'U' }],
+          U: [{ name: 'amount', type: 'uint256' }],
+        },
+        primaryType: 'T',
+        message: { inner: { amount: '1000' } },
+      },
+      { resolveToken },
+    );
+    expect(model.messageRows[0]).toMatchObject({ displayValue: '1000', token: null });
+  });
+
+  it('leaves non-amount fields next to a token unchanged', () => {
+    const rows = build('PermitSingle').messageRows;
+    expect(row(rows, 'Details › Nonce')).toMatchObject({ displayValue: '0', token: null });
+    expect(row(rows, 'Sig Deadline').token).toBeNull();
+  });
+
+  it('gives raw decimals and a null token without enrichment', () => {
+    const r = row(build('PermitTransferFrom', undefined, {}).messageRows, 'Permitted › Amount');
+    expect(r).toMatchObject({ displayValue: '1000', token: null });
   });
 });

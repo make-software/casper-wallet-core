@@ -162,4 +162,58 @@ describe('EIP712SignatureRequestDto', () => {
     });
     expect(dto2.domainRows.find(r => r.label === 'Package Hash')!.contractPackage).toBeNull();
   });
+
+  describe('token-aware amounts', () => {
+    const build = (latestVersionContractTypeId: number, map = true) =>
+      new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd3',
+        accountInfoMap: {},
+        contractPackageMap: map
+          ? { [PKG_HASH]: { ...contractPackage, latestVersionContractTypeId } }
+          : {},
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+    const amountRow = (d: EIP712SignatureRequestDto) =>
+      d.messageRows.find(r => r.label === 'Value')!;
+
+    it.each([2, 3])('formats the amount for a CEP-18 package (type id %s)', typeId => {
+      expect(amountRow(build(typeId))).toMatchObject({
+        displayValue: '0.000001 MTK',
+        value: '1000',
+        token: { contractPackageHash: PKG_HASH, symbol: 'MTK', decimals: 9 },
+      });
+    });
+
+    it('pairs the amount for an uppercase-hex domain package keyed as the collector keys it', () => {
+      const upperHash = 'AB'.repeat(32);
+      const upperTypedData = { ...typedData, domain: { contract_package_hash: '0x' + upperHash } };
+      const d = new EIP712SignatureRequestDto({
+        typedData: upperTypedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd4',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [upperHash]: {
+            ...contractPackage,
+            contractPackageHash: upperHash,
+            latestVersionContractTypeId: 2,
+          },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '0.000001 MTK', value: '1000' });
+    });
+
+    it('leaves the amount raw for a package that is not CEP-18', () => {
+      expect(amountRow(build(6))).toMatchObject({ displayValue: '1000', token: null });
+    });
+
+    it('leaves the amount raw when the package is not in the map', () => {
+      expect(amountRow(build(2, false))).toMatchObject({ displayValue: '1000', token: null });
+    });
+  });
 });

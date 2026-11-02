@@ -11,7 +11,7 @@ import {
   IEIP712TypedData,
 } from '../../../domain';
 import { buildTypedDataEIP712DisplayModel } from '../../../utils';
-import { deriveKeyType, getAccountInfoFromMap } from '../common';
+import { ContractTypeId, deriveKeyType, getAccountInfoFromMap } from '../common';
 import { EIP712_CHAIN_NAME_KEY } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
@@ -56,6 +56,15 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
         resolveAccountInfo: accountHash =>
           getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null,
         resolveContractPackage: packageHash => contractPackageMap[packageHash] ?? null,
+        resolveToken: packageHash => {
+          const pkg = contractPackageMap[packageHash];
+          const isCep18 =
+            pkg?.latestVersionContractTypeId === ContractTypeId.Cep18 ||
+            pkg?.latestVersionContractTypeId === ContractTypeId.CustomCep18;
+          return pkg && isCep18
+            ? { contractPackageHash: packageHash, symbol: pkg.symbol, decimals: pkg.decimals }
+            : null;
+        },
       },
       [EIP712_CHAIN_NAME_KEY],
     );

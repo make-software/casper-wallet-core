@@ -6,12 +6,15 @@ import {
   IContractPackage,
   IEIP712DisplayModel,
   IEIP712DisplayRow,
+  IEIP712Field,
+  IEIP712RowToken,
   IEIP712TypedData,
   IEIP712Types,
   EIP712PathSegment,
 } from '../../domain';
 import { Maybe } from '../../typings';
-import { decodeEip712Address } from './address';
+import { shiftDecimal } from '../decimal';
+import { decodeEip712Address, stripHexPrefix } from './address';
 import { parseEip712Number, parseNumberType } from './numbers';
 import { getTypedDataEIP712Leaves, pathToLabel, pathToDepth } from './walk';
 
@@ -54,6 +57,13 @@ function unsignedTypeMax(type: string): Maybe<bigint> {
 }
 
 const AMOUNT_FIELDS = new Set(['amount', 'value']);
+
+/** Exact token amount: integer part grouped with `,`, full fraction without trailing zeros, then the symbol. */
+export function formatEip712TokenAmount(raw: bigint, decimals: number, symbol: string): string {
+  const [int, frac] = shiftDecimal(raw.toString(), -decimals).toFixed().split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${frac ? `${grouped}.${frac}` : grouped} ${symbol}`;
+}
 
 /**
  * Friendly text for EIP-712 timestamp sentinels, else null. The label depends on the field's role:
@@ -117,6 +127,33 @@ function getTypeForField(fieldName: string, types: IEIP712Types, typeName: strin
 export interface IEIP712DisplayEnrichment {
   resolveAccountInfo?: (accountHash: string) => Maybe<IAccountInfo>;
   resolveContractPackage?: (packageHash: string) => Maybe<IContractPackage>;
+  resolveToken?: (packageHash: string) => Maybe<IEIP712RowToken>;
+}
+
+interface IAmountContext {
+  parentFields: IEIP712Field[];
+  parentValue: Record<string, unknown>;
+  primaryFields: IEIP712Field[];
+  domainPackageHash: Maybe<string>;
+}
+
+function findAmountToken(
+  ctx: IAmountContext,
+  depth: number,
+  enrichment: IEIP712DisplayEnrichment,
+): Maybe<IEIP712RowToken> {
+  if (!enrichment.resolveToken) {
+    return null;
+  }
+  const tokenField = ctx.parentFields.find(f => f.name === 'token' && f.type === 'address');
+  if (tokenField) {
+    const { kind, hash } = decodeEip712Address(String(ctx.parentValue.token));
+    return kind === 'package' && hash ? enrichment.resolveToken(hash) : null;
+  }
+  if (depth === 0 && !ctx.primaryFields.some(f => f.name === 'token') && ctx.domainPackageHash) {
+    return enrichment.resolveToken(ctx.domainPackageHash);
+  }
+  return null;
 }
 
 function toRow(
@@ -125,6 +162,7 @@ function toRow(
   rawValue: string,
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
+  amountContext?: IAmountContext,
 ): IEIP712DisplayRow {
   const label = pathToLabel(path);
   const key = [...path]
@@ -220,20 +258,30 @@ function toRow(
     }
   }
 
-  if (AMOUNT_FIELDS.has(key) && parsed !== null && parsed === unsignedTypeMax(type)) {
-    return {
-      label,
-      value,
-      displayValue: 'Unlimited',
-      presentation: 'number',
-      type,
-      copyValue: null,
-      accountInfo: null,
-      contractPackage: null,
-      path,
-      depth,
-      token: null,
-    };
+  if (AMOUNT_FIELDS.has(key) && parsed !== null) {
+    const token = amountContext ? findAmountToken(amountContext, depth, enrichment) : null;
+    const isMax = parsed === unsignedTypeMax(type);
+    if (token || isMax) {
+      let displayValue = 'Unlimited';
+      if (token) {
+        displayValue = isMax
+          ? `Unlimited ${token.symbol}`
+          : formatEip712TokenAmount(parsed, token.decimals, token.symbol);
+      }
+      return {
+        label,
+        value,
+        displayValue,
+        presentation: 'number',
+        type,
+        copyValue: null,
+        accountInfo: null,
+        contractPackage: null,
+        path,
+        depth,
+        token,
+      };
+    }
   }
 
   const presentation = getPresentationForType(type);
@@ -283,10 +331,20 @@ export function buildTypedDataEIP712DisplayModel(
       toRow([key], getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
     );
 
+  const rawDomainPackage = domain.contract_package_hash;
+  const domainPackageHash =
+    rawDomainPackage === undefined ? null : stripHexPrefix(String(rawDomainPackage));
+  const primaryFields = types[primaryType] ?? [];
+
   const messageRows = getTypedDataEIP712Leaves(primaryType, types, message).map(leaf =>
     Array.isArray(leaf.value) && leaf.value.length === 0
       ? emptyArrayRow(leaf.path, leaf.type)
-      : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message'),
+      : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message', {
+          parentFields: leaf.parentFields,
+          parentValue: leaf.parentValue,
+          primaryFields,
+          domainPackageHash,
+        }),
   );
 
   return { domainRows, messageRows, primaryType };
