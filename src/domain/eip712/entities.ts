@@ -41,6 +41,16 @@ export interface IEIP712Digest {
 
 export type EIP712FieldPresentation = 'hash' | 'number' | 'account' | 'string' | 'date';
 
+/** One step from the message or domain root: a field name, or a zero-based array index. */
+export type EIP712PathSegment = string | number;
+
+/** The CEP-18 token an amount row is denominated in. */
+export interface IEIP712RowToken {
+  contractPackageHash: string;
+  symbol: string;
+  decimals: number;
+}
+
 export interface IEIP712DisplayRow {
   label: string;
   value: string;
@@ -50,6 +60,12 @@ export interface IEIP712DisplayRow {
   copyValue: Maybe<string>;
   accountInfo: Maybe<IAccountInfo>;
   contractPackage: Maybe<IContractPackage>;
+  /** Field names and array indexes from the root to this value; `['spender']` for a top-level field. */
+  path: EIP712PathSegment[];
+  /** Struct nesting of the value: 0 for a top-level field; array indexes do not count. */
+  depth: number;
+  /** Token `value` is denominated in, when paired (see `buildTypedDataEIP712DisplayModel`); else null. */
+  token: Maybe<IEIP712RowToken>;
 }
 
 export interface IEIP712DisplayModel {

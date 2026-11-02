@@ -8,10 +8,12 @@ import {
   IEIP712DisplayRow,
   IEIP712TypedData,
   IEIP712Types,
+  EIP712PathSegment,
 } from '../../domain';
 import { Maybe } from '../../typings';
 import { decodeEip712Address } from './address';
 import { parseEip712Number, parseNumberType } from './numbers';
+import { getTypedDataEIP712Leaves, pathToLabel, pathToDepth } from './walk';
 
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
@@ -19,7 +21,7 @@ const NUMBER_TYPE_REGEX = /^u?int\d*$/;
 // Lower-bound (valid-from) fields: 0 = valid since the epoch, u64::MAX = never reaches validity.
 const LOWER_BOUND_DATE_FIELDS = new Set(['validafter']);
 // Upper-bound (valid-until) fields: 0 = already expired, u64::MAX = no expiry.
-const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline']);
+const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline', 'sigdeadline', 'expiration']);
 
 /** Unix values at/above this are already milliseconds; below are seconds. */
 const MS_THRESHOLD = 1e12;
@@ -42,12 +44,23 @@ export function formatEip712Date(value: string): Maybe<string> {
 // (e.g. casper-wallet), where BigInt literals are a TS2737 error.
 const U64_MAX = BigInt('18446744073709551615');
 
+/** `2^bits - 1` for a `uintN` type, else null. */
+function unsignedTypeMax(type: string): Maybe<bigint> {
+  const numberType = parseNumberType(type);
+  if (!numberType || !numberType.unsigned) {
+    return null;
+  }
+  return (BigInt(1) << BigInt(numberType.bits)) - BigInt(1);
+}
+
+const AMOUNT_FIELDS = new Set(['amount', 'value']);
+
 /**
  * Friendly text for EIP-712 timestamp sentinels, else null. The label depends on the field's role:
  * the same 0 / u64::MAX value means the opposite for a lower bound (valid-from) vs an upper bound
  * (valid-until), so a shared mapping would mislabel one of them in a signing UI.
  */
-function dateSentinelLabel(name: string, value: string): Maybe<string> {
+function dateSentinelLabel(name: string, type: string, value: string): Maybe<string> {
   if (value.trim() === '') {
     return null;
   }
@@ -59,7 +72,7 @@ function dateSentinelLabel(name: string, value: string): Maybe<string> {
   }
   const isLowerBound = LOWER_BOUND_DATE_FIELDS.has(name.toLowerCase());
   if (n === BigInt(0)) return isLowerBound ? 'Always' : 'Expired';
-  if (n >= U64_MAX) return isLowerBound ? 'Never' : 'No expiry';
+  if (n >= U64_MAX || n === unsignedTypeMax(type)) return isLowerBound ? 'Never' : 'No expiry';
   return null;
 }
 
@@ -92,18 +105,6 @@ function getTypeForField(fieldName: string, types: IEIP712Types, typeName: strin
   return fields.find(f => f.name === fieldName)?.type ?? '';
 }
 
-export function keyToLabel(key: string): string {
-  switch (key) {
-    case 'contract_package_hash':
-      return 'Package Hash';
-    default:
-      return key
-        .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase: validAfter → valid After
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, match => match.toUpperCase());
-  }
-}
-
 /**
  * @internal
  * Optional enrichment for display rows. `utils` stays free of `data`-layer imports: the data layer
@@ -115,13 +116,17 @@ export interface IEIP712DisplayEnrichment {
 }
 
 function toRow(
-  key: string,
+  path: EIP712PathSegment[],
   type: string,
   rawValue: string,
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
 ): IEIP712DisplayRow {
-  const label = keyToLabel(key);
+  const label = pathToLabel(path);
+  const key = [...path]
+    .reverse()
+    .find((segment): segment is string => typeof segment === 'string')!;
+  const depth = pathToDepth(path);
   const parsed = parseNumberType(type) ? parseEip712Number(rawValue) : null;
   const value = parsed === null ? rawValue : parsed.toString();
 
@@ -137,6 +142,9 @@ function toRow(
       copyValue: packageHash,
       accountInfo: null,
       contractPackage: enrichment.resolveContractPackage?.(packageHash) ?? null,
+      path,
+      depth,
+      token: null,
     };
   }
 
@@ -153,6 +161,9 @@ function toRow(
         copyValue: hash,
         accountInfo: enrichment.resolveAccountInfo?.(hash) ?? null,
         contractPackage: null,
+        path,
+        depth,
+        token: null,
       };
     }
     if (kind === 'package' && hash) {
@@ -165,6 +176,9 @@ function toRow(
         copyValue: hash,
         accountInfo: null,
         contractPackage: enrichment.resolveContractPackage?.(hash) ?? null,
+        path,
+        depth,
+        token: null,
       };
     }
     return {
@@ -176,12 +190,15 @@ function toRow(
       copyValue: value,
       accountInfo: null,
       contractPackage: null,
+      path,
+      depth,
+      token: null,
     };
   }
 
   // Known timestamp fields -> date (with sentinels), else fall through.
   if (isDateField(key, type)) {
-    const formatted = dateSentinelLabel(key, value) ?? formatEip712Date(value);
+    const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value);
     if (formatted) {
       return {
         label,
@@ -192,8 +209,27 @@ function toRow(
         copyValue: null,
         accountInfo: null,
         contractPackage: null,
+        path,
+        depth,
+        token: null,
       };
     }
+  }
+
+  if (AMOUNT_FIELDS.has(key) && parsed !== null && parsed === unsignedTypeMax(type)) {
+    return {
+      label,
+      value,
+      displayValue: 'Unlimited',
+      presentation: 'number',
+      type,
+      copyValue: null,
+      accountInfo: null,
+      contractPackage: null,
+      path,
+      depth,
+      token: null,
+    };
   }
 
   const presentation = getPresentationForType(type);
@@ -207,6 +243,25 @@ function toRow(
     copyValue: isHashLike ? value : null,
     accountInfo: null,
     contractPackage: null,
+    path,
+    depth,
+    token: null,
+  };
+}
+
+function emptyArrayRow(path: EIP712PathSegment[], type: string): IEIP712DisplayRow {
+  return {
+    label: pathToLabel(path),
+    value: '',
+    displayValue: 'None',
+    presentation: 'string',
+    type,
+    copyValue: null,
+    accountInfo: null,
+    contractPackage: null,
+    path,
+    depth: pathToDepth(path),
+    token: null,
   };
 }
 
@@ -221,12 +276,13 @@ export function buildTypedDataEIP712DisplayModel(
   const domainRows = Object.entries(domain)
     .filter(([key]) => !exclude.has(key))
     .map(([key, val]) =>
-      toRow(key, getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
+      toRow([key], getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
     );
 
-  const messageFields = types[primaryType] ?? [];
-  const messageRows = messageFields.map(field =>
-    toRow(field.name, field.type, String(message[field.name]), enrichment, 'message'),
+  const messageRows = getTypedDataEIP712Leaves(primaryType, types, message).map(leaf =>
+    Array.isArray(leaf.value) && leaf.value.length === 0
+      ? emptyArrayRow(leaf.path, leaf.type)
+      : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message'),
   );
 
   return { domainRows, messageRows, primaryType };

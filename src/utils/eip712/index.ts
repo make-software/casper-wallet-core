@@ -8,4 +8,5 @@ export * from './validation';
 export * from './encode';
 export * from './digest';
 export * from './displayModel';
+export * from './walk';
 export * from './recover';
