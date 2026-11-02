@@ -71,8 +71,9 @@ function validateHex(owner: string, name: string, value: unknown, byteLengths?: 
 
 /**
  * Checks each declared field's value against what the encoder will hash, so the display can
- * show the same meaning. `owner` names the struct in error messages.
- * @throws EIP712Error `INVALID_PARAMS` on a missing, mistyped, malformed or out-of-range value.
+ * show the same meaning. `owner` names the struct in error messages. Primitive types only.
+ * @throws EIP712Error `INVALID_PARAMS` on a missing, mistyped, malformed or out-of-range value;
+ * `UNSUPPORTED_TYPE` on a struct, array or unknown type.
  */
 export function validateTypedDataEIP712Values(
   owner: string,
@@ -97,6 +98,12 @@ export function validateTypedDataEIP712Values(
       if (typeof value !== 'boolean') throw invalidValue(owner, name, 'expected a boolean');
     } else if (type === 'string') {
       if (typeof value !== 'string') throw invalidValue(owner, name, 'expected a string');
+    } else {
+      throw new EIP712Error(
+        new Error(`Unsupported type "${type}" in ${owner}.${name}`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+      );
     }
   }
 }
@@ -288,13 +295,31 @@ function isSameFieldList(a: IEIP712Field[], b: IEIP712Field[]): boolean {
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
+function validateTypesShape(types: IEIP712Types): void {
+  for (const [typeName, fields] of Object.entries(types as Record<string, unknown>)) {
+    const isFieldList =
+      Array.isArray(fields) &&
+      fields.every(
+        f => isPlainObject(f) && typeof f.name === 'string' && typeof f.type === 'string',
+      );
+    if (!isFieldList) {
+      throw new EIP712Error(
+        new Error(`types.${typeName} must be an array of { name: string, type: string } fields`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.INVALID_PARAMS,
+      );
+    }
+  }
+}
+
 /**
  * Accepts primitives, structs with fields, and one-dimensional arrays (`T[]`, `T[N]`, N 1..64) of
  * them; cycles and nesting deeper than 4 are rejected only when `primaryType` is given.
- * @throws EIP712Error `UNSUPPORTED_TYPE`; `INVALID_PARAMS` for a non-identifier or primitive-named
- * type, or a field name that is not an identifier or is declared twice.
+ * @throws EIP712Error `UNSUPPORTED_TYPE`; `INVALID_PARAMS` for a malformed field list, a
+ * non-identifier or primitive-named type, or a field name that is not an identifier or is declared twice.
  */
 export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryType?: string): void {
+  validateTypesShape(types);
   for (const typeName of Object.keys(types)) {
     if (!IDENTIFIER_PATTERN.test(typeName)) {
       throw new EIP712Error(
@@ -363,8 +388,14 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryTy
 
 function validateStructGraph(types: IEIP712Types, primaryType: string): void {
   const visiting = new Set<string>();
-  const visit = (typeName: string, depth: number): void => {
+  const heights = new Map<string, number>();
+  const height = (typeName: string): number => {
+    const known = heights.get(typeName);
+    if (known !== undefined) {
+      return known;
+    }
     visiting.add(typeName);
+    let result = 0;
     for (const field of types[typeName]) {
       const base = parseEip712FieldType(field.type)?.base;
       if (base === undefined || !isEip712StructType(types, base)) {
@@ -379,21 +410,24 @@ function validateStructGraph(types: IEIP712Types, primaryType: string): void {
       if (visiting.has(base)) {
         throw fail('Recursive type');
       }
-      if (depth + 1 > MAX_EIP712_STRUCT_DEPTH) {
+      const fieldHeight = height(base) + 1;
+      if (fieldHeight > MAX_EIP712_STRUCT_DEPTH) {
         throw fail(`Struct nesting deeper than ${MAX_EIP712_STRUCT_DEPTH} levels`);
       }
-      visit(base, depth + 1);
+      result = Math.max(result, fieldHeight);
     }
     visiting.delete(typeName);
+    heights.set(typeName, result);
+    return result;
   };
   if (isEip712StructType(types, primaryType)) {
-    visit(primaryType, 0);
+    height(primaryType);
   }
 }
 
 /**
- * Top-level message keys only; `validateTypedDataEIP712Struct` with `rejectUnknownFields` checks
- * nested structs too. @throws EIP712Error `INVALID_PARAMS` on a key `primaryType` does not declare.
+ * Top-level message keys only. @throws EIP712Error `INVALID_PARAMS` on a key `primaryType` does not declare.
+ * @deprecated Use `validateTypedDataEIP712` with `rejectUnknownFields`, which also checks nested structs.
  */
 export function validateNoUnknownMessageFields(
   types: IEIP712Types,
@@ -431,6 +465,7 @@ export function validateTypedDataEIP712(
       );
     }
   }
+  validateTypesShape(types);
   validatePrimaryType(types, primaryType);
   validateTypedDataEIP712Domain(domain);
   const resolvedDomainTypes = resolveDomainTypes(domain, types, options.domainTypes);

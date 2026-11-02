@@ -1,3 +1,4 @@
+import { ContractPackageDto } from '../contractPackage';
 import { EIP712SignatureRequestDto } from './EIP712SignatureRequestDto';
 
 const OWNER = 'a'.repeat(64);
@@ -234,6 +235,29 @@ describe('EIP712SignatureRequestDto', () => {
         enrichment: { accounts: 'ok', contractPackage: 'ok' },
       });
       expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+    });
+
+    it('leaves the amount raw for a CEP-18 package whose API metadata has no decimals', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd6',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: new ContractPackageDto({
+            contract_package_hash: PKG_HASH,
+            latest_version_contract_type_id: 2,
+            metadata: { symbol: 'MTK' } as never,
+          }),
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+    });
+
+    it('marks the amount row as an amount presentation', () => {
+      expect(amountRow(build(2)).presentation).toBe('amount');
     });
   });
 });

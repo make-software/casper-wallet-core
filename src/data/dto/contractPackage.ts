@@ -5,7 +5,9 @@ import { Maybe } from '../../typings';
 export class ContractPackageDto implements IContractPackage {
   constructor(apiContractPackage?: Partial<IContractPackageCloudResponse>) {
     this.contractPackageHash = apiContractPackage?.contract_package_hash ?? '';
-    this.decimals = apiContractPackage?.metadata?.decimals ?? 0;
+    const decimals = apiContractPackage?.metadata?.decimals;
+    this.hasDecimals = Number.isInteger(decimals) && (decimals as number) >= 0;
+    this.decimals = this.hasDecimals ? (decimals as number) : 0;
     this.symbol = apiContractPackage?.metadata?.symbol ?? '';
     this.iconUrl = apiContractPackage?.icon_url ?? null;
     this.id = this.contractPackageHash;
@@ -15,6 +17,7 @@ export class ContractPackageDto implements IContractPackage {
 
   readonly contractPackageHash: string;
   readonly decimals: number;
+  readonly hasDecimals: boolean;
   readonly iconUrl: Maybe<string>;
   readonly id: string;
   readonly latestVersionContractTypeId: number;

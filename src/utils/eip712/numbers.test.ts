@@ -1,9 +1,4 @@
-import {
-  normalizeEip712Numbers,
-  normalizeEip712Struct,
-  parseEip712Number,
-  parseNumberType,
-} from './numbers';
+import { normalizeEip712Struct, parseEip712Number, parseNumberType } from './numbers';
 
 describe('parseNumberType', () => {
   it.each([
@@ -13,7 +8,7 @@ describe('parseNumberType', () => {
     ['int', { unsigned: false, bits: 256 }],
   ])('parses %s', (type, expected) => expect(parseNumberType(type)).toEqual(expected));
 
-  it.each(['uint7', 'uint264', 'int0', 'uintFoo', 'address', 'bytes32'])(
+  it.each(['uint7', 'uint264', 'int0', 'uintFoo', 'address', 'bytes32', 'uint08', 'int0256'])(
     'returns null for %s',
     type => expect(parseNumberType(type)).toBeNull(),
   );
@@ -79,23 +74,6 @@ describe('parseEip712Number', () => {
   ])('returns null for %p', value => expect(parseEip712Number(value)).toBeNull());
 });
 
-describe('normalizeEip712Numbers', () => {
-  const fields = [
-    { name: 'a', type: 'uint256' },
-    { name: 's', type: 'string' },
-  ];
-
-  it('replaces number-typed fields with bigints and leaves the rest', () => {
-    const input = { a: '1000', s: '1000' };
-    expect(normalizeEip712Numbers(fields, input)).toEqual({ a: 1000n, s: '1000' });
-    expect(input.a).toBe('1000');
-  });
-
-  it('leaves an unparseable number untouched', () => {
-    expect(normalizeEip712Numbers(fields, { a: 'abc', s: 'x' })).toEqual({ a: 'abc', s: 'x' });
-  });
-});
-
 describe('normalizeEip712Struct', () => {
   const types = {
     Inner: [
@@ -142,7 +120,7 @@ describe('normalizeEip712Struct', () => {
     normalizeEip712Struct('Outer', types, input);
     expect(input).toEqual(snapshot);
   });
-  it('matches the flat-field normalisation for a flat Permit', () => {
+  it('normalises every number field of a flat Permit', () => {
     const permitTypes = {
       Permit: [
         { name: 'owner', type: 'address' },
@@ -161,8 +139,11 @@ describe('normalizeEip712Struct', () => {
       deadline: 1700000000,
       salt: 12345678901234567890n,
     };
-    const flat = normalizeEip712Numbers(permitTypes.Permit, message);
-    expect(normalizeEip712Struct('Permit', permitTypes, message)).toEqual(flat);
-    expect(flat).toMatchObject({ value: 1000n, nonce: 1000n, deadline: 1700000000n });
+    expect(normalizeEip712Struct('Permit', permitTypes, message)).toEqual({
+      ...message,
+      value: 1000n,
+      nonce: 1000n,
+      deadline: 1700000000n,
+    });
   });
 });

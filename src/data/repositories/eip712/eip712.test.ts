@@ -237,6 +237,7 @@ describe('EIP712Repository', () => {
     iconUrl: null,
     symbol: 'TKN',
     decimals: 9,
+    hasDecimals: true,
   };
 
   it('prepareSignatureRequest builds an enriched request', async () => {
@@ -253,7 +254,24 @@ describe('EIP712Repository', () => {
     expect(req.primaryType).toBe('Permit');
     expect(req.network).toBe('mainnet');
     expect(req.messageRows).toHaveLength(5);
-    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'failed' });
+  });
+
+  it('reports contractPackage as partial when some lookups return no data', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    jest
+      .spyOn(contractPackageRepository, 'getContractPackage')
+      .mockImplementation(async ({ contractPackageHash }) =>
+        contractPackageHash === pkg.contractPackageHash ? pkg : null,
+      );
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
+    expect(req.enrichment.contractPackage).toBe('partial');
   });
 
   it('calls getContractPackage once per unique package hash', async () => {
@@ -504,6 +522,7 @@ describe('EIP712Repository', () => {
       name: 'Wrapped CSPR',
       symbol: 'WCSPR',
       decimals: 9,
+      hasDecimals: true,
     };
 
     const prepare = (

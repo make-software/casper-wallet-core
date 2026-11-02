@@ -629,6 +629,21 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     }
   });
 
+  it.each(['PermitTransferFrom', 'PermitBatchTransferFrom', 'PermitWitnessTransferFrom'] as const)(
+    'reads a %s deadline as seconds even when it is >= 1e12',
+    primaryType => {
+      const seconds = '1793612672000';
+      const year = String(new Date(Number(seconds) * 1000).getUTCFullYear());
+      const row = build(primaryType, {
+        ...sample(primaryType),
+        deadline: seconds,
+      }).messageRows.find(r => r.label === 'Deadline')!;
+      expect(row.presentation).toBe('date');
+      expect(row.displayValue).toContain(year);
+      expect(row.displayValue).not.toContain('2026');
+    },
+  );
+
   it('shows the raw number for an expiration too large to be a date in seconds', () => {
     const huge = '9000000000000';
     const rows = build('PermitSingle', {
@@ -668,7 +683,7 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     )!;
     expect(row.displayValue).toBe('Unlimited');
     expect(row.value).toBe(u160);
-    expect(row.presentation).toBe('number');
+    expect(row.presentation).toBe('amount');
 
     const u256 = (2n ** 256n - 1n).toString();
     const transfer = build('PermitTransferFrom', {
@@ -939,5 +954,47 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
   it('gives raw decimals and a null token without enrichment', () => {
     const r = row(build('PermitTransferFrom', undefined, {}).messageRows, 'Permitted › Amount');
     expect(r).toMatchObject({ displayValue: '1000', token: null });
+  });
+});
+
+describe('buildTypedDataEIP712DisplayModel — CEP-2612 deadline', () => {
+  it('keeps the millisecond guess for a flat Permit deadline', () => {
+    const ms = '1793612672000';
+    const row = buildTypedDataEIP712DisplayModel({
+      domain: { chain_name: 'casper' },
+      types: {
+        EIP712Domain: [{ name: 'chain_name', type: 'string' }],
+        Permit: [{ name: 'deadline', type: 'uint256' }],
+      },
+      primaryType: 'Permit',
+      message: { deadline: ms },
+    }).messageRows[0];
+    expect(row.displayValue).toBe(formatEip712Date(ms));
+    expect(row.displayValue).toContain('2026');
+  });
+});
+
+describe('buildTypedDataEIP712DisplayModel — deepest nesting', () => {
+  it('shows a leaf four structs deep as its own row', () => {
+    const rows = buildTypedDataEIP712DisplayModel({
+      domain: { chain_name: 'casper' },
+      types: {
+        EIP712Domain: [{ name: 'chain_name', type: 'string' }],
+        P: [{ name: 'n', type: 'S1' }],
+        S1: [{ name: 'n', type: 'S2' }],
+        S2: [{ name: 'n', type: 'S3' }],
+        S3: [{ name: 'n', type: 'S4' }],
+        S4: [{ name: 'v', type: 'uint256' }],
+      },
+      primaryType: 'P',
+      message: { n: { n: { n: { n: { v: '7' } } } } },
+    }).messageRows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      path: ['n', 'n', 'n', 'n', 'v'],
+      depth: 4,
+      value: '7',
+      presentation: 'number',
+    });
   });
 });

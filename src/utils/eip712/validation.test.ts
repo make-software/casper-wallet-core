@@ -351,7 +351,7 @@ describe('validateTypedDataEIP712Values', () => {
 });
 
 describe('validateTypedDataEIP712FieldTypes — whitelist', () => {
-  it.each(['uintFoo', 'uint7', 'uint264', 'int0', 'bytes33', 'Foo'])(
+  it.each(['uintFoo', 'uint7', 'uint264', 'int0', 'bytes33', 'Foo', 'uint08', 'int0256'])(
     'rejects %s with UNSUPPORTED_TYPE',
     type =>
       expectInvalid(
@@ -665,4 +665,50 @@ describe('validateTypedDataEIP712 — nested values', () => {
     expectInvalid(run('PermitTransferFrom', message, { rejectUnknownFields: true }));
     expect(run('PermitTransferFrom', message)).not.toThrow();
   });
+});
+
+describe('validateTypedDataEIP712FieldTypes — wide struct graphs', () => {
+  const fanOut = (width: number): IEIP712Types => {
+    const names = ['P', 'A', 'B', 'C', 'D'];
+    const types: IEIP712Types = {};
+    names.forEach((name, i) => {
+      const next = names[i + 1];
+      types[name] = next
+        ? Array.from({ length: width }, (_, j) => ({ name: `f${j}`, type: next }))
+        : [{ name: 'v', type: 'uint256' }];
+    });
+    return types;
+  };
+
+  it('validates a wide depth-4 graph in linear time', () => {
+    const started = Date.now();
+    expect(() => validateTypedDataEIP712FieldTypes(fanOut(100), 'P')).not.toThrow();
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+});
+
+describe('validateTypedDataEIP712Values — unsupported types', () => {
+  it.each(['TokenPermissions', 'uint256[]', 'bytes4', 'uint7'])(
+    'rejects %s with UNSUPPORTED_TYPE',
+    type =>
+      expectInvalid(
+        () => validateTypedDataEIP712Values('T', [{ name: 'a', type }], { a: 'garbage' }),
+        SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+      ),
+  );
+});
+
+describe('validateTypedDataEIP712 — malformed type definitions', () => {
+  const typedData = (types: unknown) =>
+    ({ domain: DOMAIN, types, primaryType: 'T', message: { a: 1n } }) as never;
+
+  it.each([
+    ['a non-array type', { T: [{ name: 'a', type: 'uint256' }], Z: 5 }],
+    ['a null field', { T: [{ name: 'a', type: 'uint256' }], Z: [null] }],
+    ['a non-string field type', { T: [{ name: 'a', type: ['uint256'] }] }],
+    ['a non-string field name', { T: [{ name: 1, type: 'uint256' }] }],
+    ['a non-array EIP712Domain', { T: [{ name: 'a', type: 'uint256' }], EIP712Domain: 5 }],
+  ])('rejects %s with INVALID_PARAMS', (_, types) =>
+    expectInvalid(() => validateTypedDataEIP712(typedData(types))),
+  );
 });

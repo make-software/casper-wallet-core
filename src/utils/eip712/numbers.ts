@@ -1,7 +1,7 @@
-import { IEIP712Field, IEIP712Types } from '../../domain';
+import { IEIP712Types } from '../../domain';
 import { isEip712StructType, parseEip712FieldType } from './types';
 
-const NUMBER_TYPE_PATTERN = /^(u?)int(\d*)$/;
+const NUMBER_TYPE_PATTERN = /^(u?)int([1-9]\d*)?$/;
 const DECIMAL_PATTERN = /^\d+$/;
 const HEX_WORD_PATTERN = /^[0-9a-fA-F]{64}$/;
 const HEX_PATTERN = /^0x[0-9a-fA-F]{1,64}$/;
@@ -17,7 +17,7 @@ export function parseNumberType(type: string): IEIP712NumberType | null {
   if (!match) {
     return null;
   }
-  const bits = match[2] === '' ? 256 : Number(match[2]);
+  const bits = match[2] === undefined ? 256 : Number(match[2]);
   if (bits % 8 !== 0 || bits < 8 || bits > 256) {
     return null;
   }
@@ -49,27 +49,6 @@ export function parseEip712Number(value: unknown): bigint | null {
     }
   }
   return null;
-}
-
-/**
- * Copy of `values` with every parseable number-typed field of `fields` replaced by its bigint.
- * Top-level fields only; `normalizeEip712Struct` also normalises nested structs and arrays.
- */
-export function normalizeEip712Numbers(
-  fields: IEIP712Field[],
-  values: Record<string, unknown>,
-): Record<string, unknown> {
-  const normalized: Record<string, unknown> = { ...values };
-  for (const { name, type } of fields) {
-    if (!parseNumberType(type)) {
-      continue;
-    }
-    const parsed = parseEip712Number(values[name]);
-    if (parsed !== null) {
-      normalized[name] = parsed;
-    }
-  }
-  return normalized;
 }
 
 /** Copy of `value` (an instance of struct `typeName`) with every parseable number at any depth replaced by its bigint. */

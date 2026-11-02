@@ -144,25 +144,23 @@ export class EIP712Repository implements IEIP712Repository {
     );
 
     let anyOk = false;
-    let anyFailed = false;
+    let anyMissing = false;
     results.forEach((result, i) => {
-      if (result.status === 'fulfilled') {
-        if (result.value) {
-          contractPackageMap[packageHashes[i]] = result.value;
-        }
+      if (result.status === 'fulfilled' && result.value) {
+        contractPackageMap[packageHashes[i]] = result.value;
         anyOk = true;
+      } else if (result.status === 'fulfilled') {
+        anyMissing = true;
       } else {
-        anyFailed = true;
+        anyMissing = true;
         this._logger.reportError(
           result.reason,
           'EIP712Repository.prepareSignatureRequest: getContractPackage',
         );
       }
     });
-    // Distinguish a degraded `partial` (some succeeded, some threw) from a clean `ok`/`failed`,
-    // so consumers can surface a partial-enrichment warning instead of trusting a coarse `ok`.
     const contractPackageStatus: EIP712ContractEnrichmentStatus = anyOk
-      ? anyFailed
+      ? anyMissing
         ? 'partial'
         : 'ok'
       : 'failed';

@@ -30,7 +30,17 @@ const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline', 'sigdeadline
 const MS_THRESHOLD = 1e12;
 
 // Permit2 reads these as seconds, so the millisecond heuristic must not apply to them.
-const SECONDS_ONLY_DATE_FIELDS = new Set(['sigdeadline', 'expiration']);
+const SECONDS_ONLY_DATE_FIELDS: ReadonlySet<string> = new Set(['sigdeadline', 'expiration']);
+const PERMIT2_TRANSFER_PRIMARY_TYPES = new Set([
+  'PermitTransferFrom',
+  'PermitBatchTransferFrom',
+  'PermitWitnessTransferFrom',
+  'PermitBatchWitnessTransferFrom',
+]);
+const PERMIT2_TRANSFER_SECONDS_ONLY_DATE_FIELDS: ReadonlySet<string> = new Set([
+  ...SECONDS_ONLY_DATE_FIELDS,
+  'deadline',
+]);
 
 /**
  * Format an EIP-712 unix timestamp: seconds, or ms when >= 1e12 unless `unit` is `'seconds'`.
@@ -139,7 +149,8 @@ export interface IEIP712DisplayEnrichment {
   resolveToken?: (packageHash: string) => Maybe<IEIP712RowToken>;
 }
 
-interface IAmountContext {
+interface IMessageRowContext {
+  secondsOnlyDateFields: ReadonlySet<string>;
   parentFields: IEIP712Field[];
   parentValue: Record<string, unknown>;
   primaryFields: IEIP712Field[];
@@ -147,7 +158,7 @@ interface IAmountContext {
 }
 
 function findAmountToken(
-  ctx: IAmountContext,
+  ctx: IMessageRowContext,
   depth: number,
   enrichment: IEIP712DisplayEnrichment,
 ): Maybe<IEIP712RowToken> {
@@ -171,7 +182,7 @@ function toRow(
   rawValue: string,
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
-  amountContext?: IAmountContext,
+  messageContext?: IMessageRowContext,
 ): IEIP712DisplayRow {
   const label = pathToLabel(path);
   const key = [...path]
@@ -249,7 +260,8 @@ function toRow(
 
   // Known timestamp fields -> date (with sentinels), else fall through.
   if (isDateField(key, type)) {
-    const unit = SECONDS_ONLY_DATE_FIELDS.has(key.toLowerCase()) ? 'seconds' : 'auto';
+    const secondsOnly = messageContext?.secondsOnlyDateFields ?? SECONDS_ONLY_DATE_FIELDS;
+    const unit = secondsOnly.has(key.toLowerCase()) ? 'seconds' : 'auto';
     const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value, unit);
     if (formatted) {
       return {
@@ -269,7 +281,7 @@ function toRow(
   }
 
   if (AMOUNT_FIELDS.has(key) && parsed !== null) {
-    const token = amountContext ? findAmountToken(amountContext, depth, enrichment) : null;
+    const token = messageContext ? findAmountToken(messageContext, depth, enrichment) : null;
     const isMax = parsed === unsignedTypeMax(type, UNLIMITED_MIN_BITS);
     if (token || isMax) {
       let displayValue = 'Unlimited';
@@ -282,7 +294,7 @@ function toRow(
         label,
         value,
         displayValue,
-        presentation: 'number',
+        presentation: 'amount',
         type,
         copyValue: null,
         accountInfo: null,
@@ -345,11 +357,15 @@ export function buildTypedDataEIP712DisplayModel(
   const domainPackageHash =
     rawDomainPackage === undefined ? null : stripHexPrefix(String(rawDomainPackage));
   const primaryFields = types[primaryType] ?? [];
+  const secondsOnlyDateFields = PERMIT2_TRANSFER_PRIMARY_TYPES.has(primaryType)
+    ? PERMIT2_TRANSFER_SECONDS_ONLY_DATE_FIELDS
+    : SECONDS_ONLY_DATE_FIELDS;
 
   const messageRows = getTypedDataEIP712Leaves(primaryType, types, message).map(leaf =>
     Array.isArray(leaf.value) && leaf.value.length === 0
       ? emptyArrayRow(leaf.path, leaf.type)
       : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message', {
+          secondsOnlyDateFields,
           parentFields: leaf.parentFields,
           parentValue: leaf.parentValue,
           primaryFields,

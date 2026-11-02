@@ -61,7 +61,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
           const isCep18 =
             pkg?.latestVersionContractTypeId === ContractTypeId.Cep18 ||
             pkg?.latestVersionContractTypeId === ContractTypeId.CustomCep18;
-          return pkg && isCep18 && pkg.symbol
+          return pkg && isCep18 && pkg.symbol && pkg.hasDecimals !== false
             ? { contractPackageHash: packageHash, symbol: pkg.symbol, decimals: pkg.decimals }
             : null;
         },
