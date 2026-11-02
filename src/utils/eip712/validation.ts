@@ -44,7 +44,7 @@ function validateNumber(
     throw invalidValue(
       owner,
       name,
-      'expected a bigint, a safe integer, a decimal string or an even-length 0x hex string',
+      'expected a bigint, a safe integer, a decimal string, an even-length 0x hex string or a 64-character hex word',
     );
   }
   const { unsigned, bits } = numberType;

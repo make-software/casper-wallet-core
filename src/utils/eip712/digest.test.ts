@@ -161,6 +161,22 @@ describe('computeTypedDataEIP712Digest — numeric forms', () => {
     expect(digestOf(1000)).toBe(digestOf(1000n));
   });
 
+  it('hashes a 64-character hex word like the same bigint', () => {
+    expect(digestOf('0'.repeat(61) + '3e8')).toBe(digestOf(1000n));
+    expect(digestOf('0'.repeat(61) + '3e8')).toBe(digestOf('0x03e8'));
+    expect(digestOf('0'.repeat(61) + '3e8')).toBe(digestOf('1000'));
+  });
+
+  it('rejects a 64-digit decimal-looking word and an out-of-range word for uint48', () => {
+    expectInvalidParams(withValue('1' + '0'.repeat(63)));
+    expectInvalidParams({
+      domain: DOMAIN,
+      types: { T: [{ name: 'v', type: 'uint48' }] },
+      primaryType: 'T',
+      message: { v: '0'.repeat(51) + '1' + '0'.repeat(12) },
+    });
+  });
+
   const expectInvalidParams = (td: Parameters<typeof computeTypedDataEIP712Digest>[0]) =>
     expect(() => computeTypedDataEIP712Digest(td)).toThrow(
       expect.objectContaining({ errorCode: SignTypedDataErrorCodes.INVALID_PARAMS }),

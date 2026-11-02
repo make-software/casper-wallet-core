@@ -24,6 +24,31 @@ describe('parseEip712Number', () => {
     expect(parseEip712Number(-1n)).toBe(-1n);
   });
 
+  const word = (tail: string) => tail.padStart(64, '0');
+
+  it.each([
+    [word('3e8'), 1000n],
+    [
+      '5e38ac48c5f84e841a8b87d06afc49adb9aa117f1eb4dd4c797bf1c0d3a032be',
+      BigInt('0x5e38ac48c5f84e841a8b87d06afc49adb9aa117f1eb4dd4c797bf1c0d3a032be'),
+    ],
+    [word('3E8'), 1000n],
+    [word('10'), 16n],
+    [word('1'), 1n],
+    ['f'.repeat(64), (1n << 256n) - 1n],
+    ['1000', 1000n],
+    [((1n << 256n) - 1n).toString(), (1n << 256n) - 1n],
+    ['0x03e8', 1000n],
+  ])('reads %p as %p', (value, expected) => expect(parseEip712Number(value)).toBe(expected));
+
+  it.each([
+    ['1' + '0'.repeat(63)],
+    ['3e8'],
+    ['03e8'],
+    ['3' + 'e'.repeat(62)],
+    ['0'.repeat(62) + '3e8'],
+  ])('rejects unprefixed %p', value => expect(parseEip712Number(value)).toBeNull());
+
   it.each([
     ['-1'],
     ['0x3e8'],

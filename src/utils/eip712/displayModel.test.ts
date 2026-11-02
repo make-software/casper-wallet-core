@@ -287,6 +287,14 @@ describe('buildTypedDataEIP712DisplayModel — date sentinels & trim', () => {
     expect(model.messageRows.find(r => r.label === 'Deadline')!.displayValue).toBe('Expired');
   });
 
+  it('shows a 64-character hex word deadline as a date', () => {
+    const row = buildTypedDataEIP712DisplayModel(
+      td({ deadline: '0'.repeat(56) + '6ae85b80' }, [{ name: 'deadline', type: 'uint256' }]),
+    ).messageRows.find(r => r.label === 'Deadline')!;
+    expect(row.value).toBe('1793612672');
+    expect(row.presentation).toBe('date');
+  });
+
   it('no longer treats validUntil/expiry as dates (trimmed)', () => {
     const row = buildTypedDataEIP712DisplayModel(
       td({ validUntil: '1782680400' }, [{ name: 'validUntil', type: 'uint256' }]),
