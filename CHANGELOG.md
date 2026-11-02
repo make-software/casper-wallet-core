@@ -11,12 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - EIP-712: nested struct and one-dimensional array types (`T[]`, `T[N]`) are accepted, hashed
   and displayed, so all Permit2 types sign. Limits: nesting 4 levels, array length 64, 256
   message rows.
-- EIP-712: `IEIP712DisplayRow` gains optional `path`, `depth` and `token`, set on every row the
-  library builds. Nested rows are labelled `Permitted #1 › Token`. Wallets may group rows by
+- EIP-712: `IEIP712DisplayRow` gains optional `path`, `depth`, `token` and `isAmount`, set on
+  every row the library builds. Nested rows are labelled `Permitted #1 › Token`. Wallets may group rows by
   `path`. Rows built by hand (e.g. a synthetic network row) need no change.
-- EIP-712: `EIP712FieldPresentation` gains `'amount'`, used by amount rows shown in token units
-  or as `Unlimited`. Render these from `displayValue`, which differs from `value`; a renderer
-  that formats `value` for `'number'` rows needs no change for them.
+- EIP-712: `IEIP712DisplayRow.isAmount` is `true` for an amount shown in token units or as
+  `Unlimited`. Its `presentation` stays `'number'` but its `displayValue` differs from `value`:
+  a renderer that formats `value` for `'number'` rows should show `displayValue` when `isAmount`
+  is `true`.
 - `IContractPackage.hasDecimals` (optional): `false` when the API sent no valid
   `metadata.decimals` and `decimals` is a `0` placeholder.
 
@@ -25,17 +26,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - EIP-712: an `expiration` field equal to 0 shows `Current block only` (valid in the current
   block only, as Permit2 defines it) instead of `Expired`.
 - EIP-712: amount rows paired with a CEP-18 token show token units and symbol (`7.5 WCSPR`),
-  including existing x402 and permit flows, with `presentation: 'amount'`. A token whose
+  including existing x402 and permit flows, with `isAmount: true`. A token whose
   metadata has no decimals is not paired, so its amount shows the raw integer. Amounts at the
   maximum of a `uint` type of 160 bits or wider show `Unlimited`; narrower types show the exact
   number. `sigDeadline` and `expiration` render as dates and are always read as seconds, never
-  milliseconds; so is `deadline` in the Permit2 transfer types (`PermitTransferFrom`,
-  `PermitBatchTransferFrom` and their witness variants).
+  milliseconds.
 - EIP-712: `enrichment.contractPackage` is `ok` only when every package lookup returned data. A
   lookup that returned no data now counts like one that threw: `partial` when others returned
-  data, `failed` when none did.
+  data, `failed` when none did. A CEP-18 token with no symbol or no valid decimals also makes it
+  `partial`, since its amount shows unscaled.
 - EIP-712: integer types with a leading-zero width (`uint08`, `int0256`) are rejected with
-  `UNSUPPORTED_TYPE`.
+  `UNSUPPORTED_TYPE`, and struct types with such names with `INVALID_PARAMS`.
 - EIP-712: a malformed `types` entry (not an array, a non-object field, a non-string `name` or
   `type`) is rejected with `INVALID_PARAMS` instead of a raw `TypeError`.
 - EIP-712: `validateTypedDataEIP712Values` rejects struct, array and unknown field types with
@@ -53,6 +54,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   array value of the wrong shape shows as one row with its string.
 - EIP-712: a date field at the maximum of a `uint` type narrower than 48 bits shows a date, not
   `No expiry`.
+
+### Fixed
+
+- CEP-18 transaction signing: for a token whose metadata has no valid decimals, the action's
+  `symbol` is empty, so the raw amount is no longer shown as whole tokens of that symbol.
 
 ### Deprecated
 

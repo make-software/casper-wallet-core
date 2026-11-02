@@ -24,6 +24,12 @@ describe('ContractPackageDto', () => {
     expect(dto.hasDecimals).toBe(false);
   });
 
+  it('keeps zero metadata decimals as known', () => {
+    const dto = new ContractPackageDto({ metadata: { decimals: 0, symbol: 'TKN' } as never });
+    expect(dto.decimals).toBe(0);
+    expect(dto.hasDecimals).toBe(true);
+  });
+
   it('falls back to empty defaults', () => {
     const dto = new ContractPackageDto();
     expect(dto.contractPackageHash).toBe('');

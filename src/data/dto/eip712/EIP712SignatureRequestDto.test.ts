@@ -207,6 +207,7 @@ describe('EIP712SignatureRequestDto', () => {
         enrichment: { accounts: 'ok', contractPackage: 'ok' },
       });
       expect(amountRow(d)).toMatchObject({ displayValue: '0.000001 MTK', value: '1000' });
+      expect(d.enrichment.contractPackage).toBe('ok');
     });
 
     it('leaves the amount raw for a package that is not CEP-18', () => {
@@ -235,6 +236,7 @@ describe('EIP712SignatureRequestDto', () => {
         enrichment: { accounts: 'ok', contractPackage: 'ok' },
       });
       expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+      expect(d.enrichment.contractPackage).toBe('partial');
     });
 
     it('leaves the amount raw for a CEP-18 package whose API metadata has no decimals', () => {
@@ -254,10 +256,26 @@ describe('EIP712SignatureRequestDto', () => {
         enrichment: { accounts: 'ok', contractPackage: 'ok' },
       });
       expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+      expect(d.enrichment.contractPackage).toBe('partial');
     });
 
-    it('marks the amount row as an amount presentation', () => {
-      expect(amountRow(build(2)).presentation).toBe('amount');
+    it('marks the amount row with isAmount and keeps the number presentation', () => {
+      expect(amountRow(build(2))).toMatchObject({ presentation: 'number', isAmount: true });
+    });
+
+    it('keeps a failed contractPackage status for an unusable CEP-18 package', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd7',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: { ...contractPackage, latestVersionContractTypeId: 2, symbol: '' },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'failed' },
+      });
+      expect(d.enrichment.contractPackage).toBe('failed');
     });
   });
 });

@@ -243,7 +243,7 @@ describe('EIP712Repository', () => {
   it('prepareSignatureRequest builds an enriched request', async () => {
     const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
     jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
-    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(pkg);
 
     const req = await r.prepareSignatureRequest({
       typedData: TYPED_DATA,
@@ -254,6 +254,19 @@ describe('EIP712Repository', () => {
     expect(req.primaryType).toBe('Permit');
     expect(req.network).toBe('mainnet');
     expect(req.messageRows).toHaveLength(5);
+    expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'ok' });
+  });
+
+  it('reports contractPackage as failed when no lookup returns data', async () => {
+    const { repo: r, accountInfoRepository, contractPackageRepository } = buildRepo();
+    jest.spyOn(accountInfoRepository, 'getAccountsInfo').mockResolvedValue({});
+    jest.spyOn(contractPackageRepository, 'getContractPackage').mockResolvedValue(null);
+
+    const req = await r.prepareSignatureRequest({
+      typedData: TYPED_DATA,
+      signingPublicKeyHex: SIGNING_PK,
+    });
+
     expect(req.enrichment).toEqual({ accounts: 'ok', contractPackage: 'failed' });
   });
 

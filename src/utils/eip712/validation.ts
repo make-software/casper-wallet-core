@@ -19,6 +19,7 @@ import {
 } from './types';
 
 const BYTES_1_TO_31_PATTERN = /^bytes([1-9]|[12][0-9]|3[01])$/;
+const INTEGER_NAME_PATTERN = /^u?int\d*$/;
 const STRICT_HEX_PATTERN = /^(?:0x)?(?:[0-9a-fA-F]{2})*$/;
 const PRIMITIVE_TYPES = new Set(['address', 'bool', 'bytes', 'bytes32', 'string']);
 const CAIP_2_CASPER_PREFIX = 'casper:';
@@ -115,7 +116,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Validates `value` as struct `typeName` at every depth; `path` prefixes error messages.
  * Returns the number of leaf rows the value displays as (an empty array counts as one).
- * @throws EIP712Error `INVALID_PARAMS`.
+ * @throws EIP712Error `INVALID_PARAMS`; `UNSUPPORTED_TYPE` on a field type that is not a primitive
+ * or a declared struct.
  */
 export function validateTypedDataEIP712Struct(
   typeName: string,
@@ -154,7 +156,11 @@ export function validateTypedDataEIP712Struct(
     }
     const parsed = parseEip712FieldType(type);
     if (!parsed) {
-      throw invalidValue(path, name, `unsupported type "${type}"`);
+      throw new EIP712Error(
+        new Error(`Unsupported type "${type}" in ${path}.${name}`),
+        'validateTypedDataEIP712',
+        SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+      );
     }
     const walk = (element: unknown, elementPath: string): number => {
       if (isEip712StructType(types, parsed.base)) {
@@ -328,7 +334,11 @@ export function validateTypedDataEIP712FieldTypes(types: IEIP712Types, primaryTy
         SignTypedDataErrorCodes.INVALID_PARAMS,
       );
     }
-    if (isSupportedFieldType(typeName) || BYTES_1_TO_31_PATTERN.test(typeName)) {
+    if (
+      isSupportedFieldType(typeName) ||
+      BYTES_1_TO_31_PATTERN.test(typeName) ||
+      INTEGER_NAME_PATTERN.test(typeName)
+    ) {
       throw new EIP712Error(
         new Error(`Type name "${typeName}" shadows a primitive type`),
         'validateTypedDataEIP712',
@@ -409,6 +419,9 @@ function validateStructGraph(types: IEIP712Types, primaryType: string): void {
         );
       if (visiting.has(base)) {
         throw fail('Recursive type');
+      }
+      if (visiting.size > MAX_EIP712_STRUCT_DEPTH) {
+        throw fail(`Struct nesting deeper than ${MAX_EIP712_STRUCT_DEPTH} levels`);
       }
       const fieldHeight = height(base) + 1;
       if (fieldHeight > MAX_EIP712_STRUCT_DEPTH) {

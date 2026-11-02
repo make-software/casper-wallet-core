@@ -30,17 +30,7 @@ const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline', 'sigdeadline
 const MS_THRESHOLD = 1e12;
 
 // Permit2 reads these as seconds, so the millisecond heuristic must not apply to them.
-const SECONDS_ONLY_DATE_FIELDS: ReadonlySet<string> = new Set(['sigdeadline', 'expiration']);
-const PERMIT2_TRANSFER_PRIMARY_TYPES = new Set([
-  'PermitTransferFrom',
-  'PermitBatchTransferFrom',
-  'PermitWitnessTransferFrom',
-  'PermitBatchWitnessTransferFrom',
-]);
-const PERMIT2_TRANSFER_SECONDS_ONLY_DATE_FIELDS: ReadonlySet<string> = new Set([
-  ...SECONDS_ONLY_DATE_FIELDS,
-  'deadline',
-]);
+const SECONDS_ONLY_DATE_FIELDS = new Set(['sigdeadline', 'expiration']);
 
 /**
  * Format an EIP-712 unix timestamp: seconds, or ms when >= 1e12 unless `unit` is `'seconds'`.
@@ -149,8 +139,10 @@ export interface IEIP712DisplayEnrichment {
   resolveToken?: (packageHash: string) => Maybe<IEIP712RowToken>;
 }
 
+type BuiltDisplayRow = IEIP712DisplayRow &
+  Required<Pick<IEIP712DisplayRow, 'path' | 'depth' | 'token' | 'isAmount'>>;
+
 interface IMessageRowContext {
-  secondsOnlyDateFields: ReadonlySet<string>;
   parentFields: IEIP712Field[];
   parentValue: Record<string, unknown>;
   primaryFields: IEIP712Field[];
@@ -183,7 +175,7 @@ function toRow(
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
   messageContext?: IMessageRowContext,
-): IEIP712DisplayRow {
+): BuiltDisplayRow {
   const label = pathToLabel(path);
   const key = [...path]
     .reverse()
@@ -207,6 +199,7 @@ function toRow(
       path,
       depth,
       token: null,
+      isAmount: false,
     };
   }
 
@@ -226,6 +219,7 @@ function toRow(
         path,
         depth,
         token: null,
+        isAmount: false,
       };
     }
     if (kind === 'package' && hash) {
@@ -241,6 +235,7 @@ function toRow(
         path,
         depth,
         token: null,
+        isAmount: false,
       };
     }
     return {
@@ -255,13 +250,13 @@ function toRow(
       path,
       depth,
       token: null,
+      isAmount: false,
     };
   }
 
   // Known timestamp fields -> date (with sentinels), else fall through.
   if (isDateField(key, type)) {
-    const secondsOnly = messageContext?.secondsOnlyDateFields ?? SECONDS_ONLY_DATE_FIELDS;
-    const unit = secondsOnly.has(key.toLowerCase()) ? 'seconds' : 'auto';
+    const unit = SECONDS_ONLY_DATE_FIELDS.has(key.toLowerCase()) ? 'seconds' : 'auto';
     const formatted = dateSentinelLabel(key, type, value) ?? formatEip712Date(value, unit);
     if (formatted) {
       return {
@@ -276,6 +271,7 @@ function toRow(
         path,
         depth,
         token: null,
+        isAmount: false,
       };
     }
   }
@@ -294,7 +290,7 @@ function toRow(
         label,
         value,
         displayValue,
-        presentation: 'amount',
+        presentation: 'number',
         type,
         copyValue: null,
         accountInfo: null,
@@ -302,6 +298,7 @@ function toRow(
         path,
         depth,
         token,
+        isAmount: true,
       };
     }
   }
@@ -320,10 +317,11 @@ function toRow(
     path,
     depth,
     token: null,
+    isAmount: false,
   };
 }
 
-function emptyArrayRow(path: EIP712PathSegment[], type: string): IEIP712DisplayRow {
+function emptyArrayRow(path: EIP712PathSegment[], type: string): BuiltDisplayRow {
   return {
     label: pathToLabel(path),
     value: '',
@@ -336,6 +334,7 @@ function emptyArrayRow(path: EIP712PathSegment[], type: string): IEIP712DisplayR
     path,
     depth: pathToDepth(path),
     token: null,
+    isAmount: false,
   };
 }
 
@@ -357,15 +356,11 @@ export function buildTypedDataEIP712DisplayModel(
   const domainPackageHash =
     rawDomainPackage === undefined ? null : stripHexPrefix(String(rawDomainPackage));
   const primaryFields = types[primaryType] ?? [];
-  const secondsOnlyDateFields = PERMIT2_TRANSFER_PRIMARY_TYPES.has(primaryType)
-    ? PERMIT2_TRANSFER_SECONDS_ONLY_DATE_FIELDS
-    : SECONDS_ONLY_DATE_FIELDS;
 
   const messageRows = getTypedDataEIP712Leaves(primaryType, types, message).map(leaf =>
     Array.isArray(leaf.value) && leaf.value.length === 0
       ? emptyArrayRow(leaf.path, leaf.type)
       : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message', {
-          secondsOnlyDateFields,
           parentFields: leaf.parentFields,
           parentValue: leaf.parentValue,
           primaryFields,

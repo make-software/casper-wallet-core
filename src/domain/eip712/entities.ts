@@ -39,11 +39,7 @@ export interface IEIP712Digest {
   hashArtifacts?: IEIP712HashArtifacts;
 }
 
-/**
- * How a row is shown. `amount` rows (token units, `Unlimited`) must be rendered from `displayValue`,
- * which differs from `value`; `number` rows have `displayValue === value`.
- */
-export type EIP712FieldPresentation = 'hash' | 'number' | 'amount' | 'account' | 'string' | 'date';
+export type EIP712FieldPresentation = 'hash' | 'number' | 'account' | 'string' | 'date';
 
 /** One step from the message or domain root: a field name, or a zero-based array index. */
 export type EIP712PathSegment = string | number;
@@ -55,7 +51,7 @@ export interface IEIP712RowToken {
   decimals: number;
 }
 
-/** `path`, `depth` and `token` are set on every row the library builds. */
+/** `path`, `depth`, `token` and `isAmount` are set on every row the library builds. */
 export interface IEIP712DisplayRow {
   label: string;
   value: string;
@@ -74,6 +70,11 @@ export interface IEIP712DisplayRow {
    * with no `token` field the domain package. Null when unpaired or not CEP-18 with metadata.
    */
   token?: Maybe<IEIP712RowToken>;
+  /**
+   * True for an amount shown in token units or as `Unlimited`: a `number` row whose `displayValue`
+   * differs from `value`, so render `displayValue`.
+   */
+  isAmount?: boolean;
 }
 
 export interface IEIP712DisplayModel {
@@ -83,13 +84,14 @@ export interface IEIP712DisplayModel {
 }
 
 /**
- * Outcome of a best-effort enrichment lookup, so consumers can tell a failed lookup from absent data.
- * `skipped` is no longer produced: a valid domain always names a network.
+ * Outcome of a best-effort enrichment lookup. For contract packages, a lookup that returned no data
+ * counts as failed, like one that threw. `skipped` is no longer produced: a valid domain always
+ * names a network.
  */
 export type EIP712EnrichmentStatus = 'ok' | 'failed' | 'skipped';
 /**
- * Contract-package enrichment adds `partial` (some package lookups returned data, others threw or
- * returned none).
+ * Contract-package enrichment adds `partial` (some package lookups returned usable data, others
+ * threw, returned none, or returned a CEP-18 token without symbol or decimals).
  * `absent` is no longer produced: a valid domain always carries `contract_package_hash`.
  */
 export type EIP712ContractEnrichmentStatus = EIP712EnrichmentStatus | 'absent' | 'partial';
@@ -98,8 +100,8 @@ export interface IEIP712Enrichment {
   /** Account-info batch: `ok` (batch succeeded) or `failed` (batch threw). */
   accounts: EIP712EnrichmentStatus;
   /**
-   * Contract package: `ok` (every lookup returned data), `partial` (some did), `failed` (none did:
-   * each threw or returned no data).
+   * Contract package: `ok` (every lookup returned data, and every CEP-18 token has symbol and
+   * decimals), `partial` (some lookups did), `failed` (none did: each threw or returned no data).
    */
   contractPackage: EIP712ContractEnrichmentStatus;
 }

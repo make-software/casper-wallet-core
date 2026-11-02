@@ -449,7 +449,7 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     buildTypedDataEIP712DisplayModel(buildPermit2TypedData(primaryType, message, 33), enrichment);
   const sample = (primaryType: Permit2PrimaryType) => PERMIT2_MESSAGES[primaryType][33];
 
-  it('keeps flat rows unchanged and adds path, depth and token', () => {
+  it('keeps flat rows unchanged and adds path, depth, token and isAmount', () => {
     const model = buildTypedDataEIP712DisplayModel({
       domain: { chain_name: 'casper' },
       types: {
@@ -474,8 +474,14 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
       path: ['owner'],
       depth: 0,
       token: null,
+      isAmount: false,
     });
-    expect(model.domainRows[0]).toMatchObject({ path: ['chain_name'], depth: 0, token: null });
+    expect(model.domainRows[0]).toMatchObject({
+      path: ['chain_name'],
+      depth: 0,
+      token: null,
+      isAmount: false,
+    });
   });
 
   it('flattens a nested struct into labelled rows', () => {
@@ -629,20 +635,34 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     }
   });
 
-  it.each(['PermitTransferFrom', 'PermitBatchTransferFrom', 'PermitWitnessTransferFrom'] as const)(
-    'reads a %s deadline as seconds even when it is >= 1e12',
-    primaryType => {
-      const seconds = '1793612672000';
-      const year = String(new Date(Number(seconds) * 1000).getUTCFullYear());
-      const row = build(primaryType, {
-        ...sample(primaryType),
-        deadline: seconds,
-      }).messageRows.find(r => r.label === 'Deadline')!;
-      expect(row.presentation).toBe('date');
-      expect(row.displayValue).toContain(year);
-      expect(row.displayValue).not.toContain('2026');
-    },
-  );
+  it.each([
+    'PermitTransferFrom',
+    'PermitBatchTransferFrom',
+    'PermitWitnessTransferFrom',
+    'PermitBatchWitnessTransferFrom',
+  ] as const)('reads a %s deadline >= 1e12 as milliseconds', primaryType => {
+    const ms = '1793612672000';
+    const row = build(primaryType, {
+      ...sample(primaryType),
+      deadline: ms,
+    }).messageRows.find(r => r.label === 'Deadline')!;
+    expect(row.presentation).toBe('date');
+    expect(row.displayValue).toBe(formatEip712Date(ms));
+  });
+
+  it('reads a nested deadline the same way whatever the primary type is named', () => {
+    const deadlineOf = (primaryType: string) =>
+      buildTypedDataEIP712DisplayModel({
+        domain: { chain_name: 'casper' },
+        types: {
+          [primaryType]: [{ name: 'witness', type: 'W' }],
+          W: [{ name: 'deadline', type: 'uint256' }],
+        },
+        primaryType,
+        message: { witness: { deadline: '1793612672000' } },
+      }).messageRows[0].displayValue;
+    expect(deadlineOf('PermitWitnessTransferFrom')).toBe(deadlineOf('OrderWithPermit'));
+  });
 
   it('shows the raw number for an expiration too large to be a date in seconds', () => {
     const huge = '9000000000000';
@@ -683,7 +703,8 @@ describe('buildTypedDataEIP712DisplayModel — nested and array values', () => {
     )!;
     expect(row.displayValue).toBe('Unlimited');
     expect(row.value).toBe(u160);
-    expect(row.presentation).toBe('amount');
+    expect(row.presentation).toBe('number');
+    expect(row.isAmount).toBe(true);
 
     const u256 = (2n ** 256n - 1n).toString();
     const transfer = build('PermitTransferFrom', {
@@ -798,6 +819,12 @@ describe('buildTypedDataEIP712DisplayModel — token-aware amounts', () => {
     expect(r.displayValue).toBe('0.000001 WCSPR');
     expect(r.value).toBe('1000');
     expect(r.token).toEqual(WCSPR);
+    expect(r).toMatchObject({ presentation: 'number', isAmount: true });
+  });
+
+  it('marks only token-unit and Unlimited amounts as isAmount', () => {
+    const rows = build('PermitTransferFrom', undefined, { resolveToken: () => null }).messageRows;
+    expect(rows.every(r => r.isAmount === false)).toBe(true);
   });
 
   it('formats each batch entry with its own token', () => {

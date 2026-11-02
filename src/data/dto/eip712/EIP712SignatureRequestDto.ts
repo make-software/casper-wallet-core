@@ -50,6 +50,7 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     contractPackageMap,
     enrichment,
   }: IEIP712SignatureRequestDtoProps) {
+    let hasUnusableToken = false;
     const { domainRows, messageRows } = buildTypedDataEIP712DisplayModel(
       typedData,
       {
@@ -61,9 +62,14 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
           const isCep18 =
             pkg?.latestVersionContractTypeId === ContractTypeId.Cep18 ||
             pkg?.latestVersionContractTypeId === ContractTypeId.CustomCep18;
-          return pkg && isCep18 && pkg.symbol && pkg.hasDecimals !== false
-            ? { contractPackageHash: packageHash, symbol: pkg.symbol, decimals: pkg.decimals }
-            : null;
+          if (!pkg || !isCep18) {
+            return null;
+          }
+          if (!pkg.symbol || pkg.hasDecimals === false) {
+            hasUnusableToken = true;
+            return null;
+          }
+          return { contractPackageHash: packageHash, symbol: pkg.symbol, decimals: pkg.decimals };
         },
       },
       [EIP712_CHAIN_NAME_KEY],
@@ -86,7 +92,10 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.rawJson = JSON.stringify(typedData, (_key, value) =>
       typeof value === 'bigint' ? value.toString() : value,
     );
-    this.enrichment = enrichment;
+    this.enrichment =
+      hasUnusableToken && enrichment.contractPackage === 'ok'
+        ? { ...enrichment, contractPackage: 'partial' }
+        : enrichment;
     this.id = digest;
   }
 }

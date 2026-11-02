@@ -9,6 +9,7 @@ import {
   validateTypedDataEIP712,
   validateTypedDataEIP712Domain,
   validateTypedDataEIP712FieldTypes,
+  validateTypedDataEIP712Struct,
   validateTypedDataEIP712Values,
 } from './validation';
 
@@ -198,7 +199,36 @@ describe('validateTypedDataEIP712FieldTypes', () => {
     );
   });
 
-  it.each(['address', 'uint256', 'bytes32', 'uint48'])(
+  it('rejects depth 5 through a struct first reached at a shallower depth', () => {
+    const types: IEIP712Types = {
+      P: [field('a', 'S'), field('b', 'X1')],
+      X1: [field('c', 'X2')],
+      X2: [field('d', 'X3')],
+      X3: [field('e', 'S')],
+      S: [field('g', 'T')],
+      T: [field('v', 'uint256')],
+    };
+    expect(() => validateTypedDataEIP712FieldTypes(types, 'P')).toThrow(
+      code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE),
+    );
+  });
+
+  it('rejects a 20 000-struct chain with UNSUPPORTED_TYPE', () => {
+    expect(() => validateTypedDataEIP712FieldTypes(chain(20_000), 'P')).toThrow(
+      code(SignTypedDataErrorCodes.UNSUPPORTED_TYPE),
+    );
+  });
+
+  it.each([
+    ['a non-array type', { T: 5 }],
+    ['a null field', { T: [null] }],
+  ])('rejects %s with INVALID_PARAMS', (_, types) => {
+    expect(() => validateTypedDataEIP712FieldTypes(types as never)).toThrow(
+      code(SignTypedDataErrorCodes.INVALID_PARAMS),
+    );
+  });
+
+  it.each(['address', 'uint256', 'bytes32', 'uint48', 'uint08', 'int0256'])(
     'rejects a type named %s with INVALID_PARAMS',
     name => {
       expect(() => validateTypedDataEIP712FieldTypes({ [name]: [field('v', 'uint256')] })).toThrow(
@@ -695,6 +725,15 @@ describe('validateTypedDataEIP712Values — unsupported types', () => {
         () => validateTypedDataEIP712Values('T', [{ name: 'a', type }], { a: 'garbage' }),
         SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
       ),
+  );
+});
+
+describe('validateTypedDataEIP712Struct — unsupported types', () => {
+  it.each(['uint256[][]', 'bytes4'])('rejects a %s field with UNSUPPORTED_TYPE', type =>
+    expectInvalid(
+      () => validateTypedDataEIP712Struct('T', { T: [{ name: 'a', type }] }, { a: '1' }, 'T'),
+      SignTypedDataErrorCodes.UNSUPPORTED_TYPE,
+    ),
   );
 });
 

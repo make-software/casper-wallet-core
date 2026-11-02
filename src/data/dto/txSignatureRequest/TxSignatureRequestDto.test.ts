@@ -178,6 +178,27 @@ describe('TxSignatureRequestDto — action mapping per fixture', () => {
       }
     });
 
+    it('shows a CEP18 amount raw and without a symbol when the token decimals are unknown', () => {
+      const dto = baseDto('cep18-transfer', {
+        contractPackage: {
+          id: 'cep18-pkg',
+          contractPackageHash: '7fd113f60890c8ea77daf90880852f544b618c62315bcfd2dd93304c389fa19d',
+          name: 'MockUSD',
+          symbol: 'MUSD',
+          decimals: 0,
+          hasDecimals: false,
+          iconUrl: null,
+          latestVersionContractTypeId: 2,
+        },
+      });
+      expect(isTxSignatureRequestCep18Action(dto.action)).toBe(true);
+      if (isTxSignatureRequestCep18Action(dto.action)) {
+        expect(dto.action.symbol).toBe('');
+        expect(dto.action.decimals).toBe(0);
+        expect(dto.action.decimalAmount).toBe(dto.action.amount);
+      }
+    });
+
     it('maps cspr-market list_token → CSPR_MARKET', () => {
       const dto = baseDto('cspr-market-list');
       expect(isTxSignatureRequestCasperMarketAction(dto.action)).toBe(true);
