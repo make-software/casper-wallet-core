@@ -1,0 +1,117 @@
+[
+  {
+    "name": "PermitTransferFrom",
+    "typedData": {
+      "domain": {
+        "name": "Permit2",
+        "version": "1",
+        "chain_name": "casper:casper-test",
+        "contract_package_hash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "types": {
+        "PermitTransferFrom": [
+          {
+            "name": "permitted",
+            "type": "TokenPermissions"
+          },
+          {
+            "name": "spender",
+            "type": "address"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ],
+        "TokenPermissions": [
+          {
+            "name": "token",
+            "type": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256"
+          }
+        ]
+      },
+      "primaryType": "PermitTransferFrom",
+      "message": {
+        "permitted": {
+          "token": "0x011111111111111111111111111111111111111111111111111111111111111111",
+          "amount": "0x01f4"
+        },
+        "spender": "0x002222222222222222222222222222222222222222222222222222222222222222",
+        "nonce": "0x07",
+        "deadline": "0x03e8"
+      }
+    },
+    "digest": "0x4f84ca195caea8538b516c5b8392be40d1e625242738f61b0b8c255387550833",
+    "typeHash": "0x939c21a48a8dbe3a9a2404a1d46691e4d39f6583d6ec6b35714604c986d80106",
+    "domainSeparator": "0xe1f1655ad0239b294905bbbcd1c3fc241f3021e56eae13c29accdf3e4286f055",
+    "source": "casper-permit2 (github.com/davidatwhiletrue/casper-permit2) @ 574d876, src/eip712.rs golden_digest_vectors, 2026-11-02"
+  },
+  {
+    "name": "PermitSingle",
+    "typedData": {
+      "domain": {
+        "name": "Permit2",
+        "version": "1",
+        "chain_name": "casper:casper-test",
+        "contract_package_hash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "types": {
+        "PermitSingle": [
+          {
+            "name": "details",
+            "type": "PermitDetails"
+          },
+          {
+            "name": "spender",
+            "type": "address"
+          },
+          {
+            "name": "sigDeadline",
+            "type": "uint256"
+          }
+        ],
+        "PermitDetails": [
+          {
+            "name": "token",
+            "type": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "name": "expiration",
+            "type": "uint256"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256"
+          }
+        ]
+      },
+      "primaryType": "PermitSingle",
+      "message": {
+        "details": {
+          "token": "0x011111111111111111111111111111111111111111111111111111111111111111",
+          "amount": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "expiration": "0x07d0",
+          "nonce": "0x03"
+        },
+        "spender": "0x002222222222222222222222222222222222222222222222222222222222222222",
+        "sigDeadline": "0x05dc"
+      }
+    },
+    "digest": "0x57a384b2550ed543ff6f860932942cc5e6f39cdd9f64a5f18cf1910c5964872c",
+    "typeHash": "0xf967c88c4af375718d43bcb74dc12c109bfc1a0c2aa7b582e367f7bc6ba6fc57",
+    "domainSeparator": "0xe1f1655ad0239b294905bbbcd1c3fc241f3021e56eae13c29accdf3e4286f055",
+    "source": "casper-permit2 (github.com/davidatwhiletrue/casper-permit2) @ 574d876, src/eip712.rs golden_digest_vectors, 2026-11-02"
+  }
+]

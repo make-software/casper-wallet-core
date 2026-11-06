@@ -4,6 +4,68 @@ All notable changes to **CasperWalletCore** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-02 — EIP-712: Permit2 and a stricter signing screen
+
+The approval screen now shows exactly what is hashed, and typed data it cannot show faithfully
+is rejected with `EIP712Error` before a digest exists.
+
+### Added
+
+- EIP-712: nested structs and one-dimensional arrays (`T[]`, `T[N]`), so all six Permit2 types
+  sign. Limits: nesting 4 levels, arrays 64 entries, 256 message rows.
+- `IEIP712DisplayRow` gains optional `path`, `depth`, `token` and `isAmount`, set on every row the
+  library builds. Nested rows are labelled `Permitted #1 › Token`. When `isAmount` is `true`,
+  render `displayValue` (`7.5 WCSPR`, `Unlimited`), not `value`.
+- `IContractPackage.hasDecimals`: `false` when the API sent no valid decimals and `decimals` is a
+  placeholder `0`.
+- Exports: `validateTypedDataEIP712` (the check every digest path runs),
+  `resolveTypedDataEIP712Network`, `parseEip712Number`, `formatEip712TokenAmount`.
+
+### Changed
+
+What a dApp must now send; everything else fails with `INVALID_PARAMS` unless noted.
+
+- Numbers: `bigint`, safe integer, decimal string (`'1000'`), `0x` hex, or a 64-character hex
+  word without `0x`. A 64-digit string not starting with `0` is ambiguous and rejected; negative
+  and out-of-range values are rejected.
+- Values must match their type: `bool` a boolean, `string` a string, `address` 20 or 33 bytes,
+  `bytes32` 32 bytes, `bytes` a hex string. Missing and `null` fields are rejected.
+- Types: struct references and `T[]`/`T[N]` of supported types only. `T[][]`, recursive types,
+  `bytes1`–`bytes31` and other unknown types fail with `UNSUPPORTED_TYPE`; duplicate fields,
+  non-identifier names, names shadowing a primitive and malformed `types` entries with
+  `INVALID_PARAMS`.
+- Domain: all four Casper fields, with `chain_name` one of `casper`, `casper-test`, `dev-net`,
+  `integration-test`, optionally prefixed `casper:`. `types.EIP712Domain` and
+  `options.domainTypes` must be omitted or equal `CASPER_DOMAIN_TYPES` (`DOMAIN_TYPES_REQUIRED`).
+- `buildDisplayModel` and `recoverSigner` validate first and throw what `computeDigest` throws.
+- Display:
+  - A CEP-18 amount shows token units and symbol: a nested amount with its sibling `token`; a
+    top-level `amount`/`value` with the domain token in `Permit`, `TransferWithAuthorization` and
+    `ReceiveWithAuthorization` only.
+  - `Unlimited` at the maximum of a `uint` of 160 bits or wider.
+  - `sigDeadline` and `expiration` are dates read as seconds; `expiration` 0 shows `0`.
+  - `deadline` or `validBefore` of 1e12 or more shows the raw number, not a guessed date.
+  - `No expiry` at the maximum of a `uint` of 48 bits or wider.
+- `enrichment.contractPackage` is `ok` only when every lookup returned data and every paired
+  token has a symbol and decimals; otherwise `partial` or `failed`. A request from
+  `prepareSignatureRequest` always has a `network`.
+
+### Fixed
+
+- EIP-712: a decimal string was hashed as hex (`'1000'` as 4096) while the screen showed 1000.
+- EIP-712: a duplicate field name let the screen show one value while another was hashed.
+- EIP-712: a `chain_name` such as `'evil:casper'` was accepted and labelled as mainnet.
+- EIP-712: a `primaryType` such as `'constructor'` threw a raw `TypeError`.
+- CEP-18 transaction signing: a token with no valid decimals no longer shows the raw amount as
+  whole tokens of its symbol.
+
+### Deprecated
+
+- `IPrepareEIP712SignatureRequestParams.network` is ignored; the network comes from
+  `domain.chain_name`.
+- `validateNoUnknownMessageFields`: use `validateTypedDataEIP712` with `rejectUnknownFields`,
+  which also checks nested structs.
+
 ## [2.0.0] - 2026-09-21 — Swap / DEX, shared transactions and Ledger
 
 ### Added
@@ -359,6 +421,7 @@ Tag exists; no GitHub release notes were published. See the
 Tagged but not published as GitHub Releases. See the
 [tag list](https://github.com/make-software/casper-wallet-core/tags) for history.
 
+[2.1.0]: https://github.com/make-software/casper-wallet-core/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/make-software/casper-wallet-core/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/make-software/casper-wallet-core/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/make-software/casper-wallet-core/compare/v1.2.1...v1.3.0

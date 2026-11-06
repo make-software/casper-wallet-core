@@ -1,3 +1,4 @@
+import { ContractPackageDto } from '../contractPackage';
 import { EIP712SignatureRequestDto } from './EIP712SignatureRequestDto';
 
 const OWNER = 'a'.repeat(64);
@@ -161,5 +162,120 @@ describe('EIP712SignatureRequestDto', () => {
       enrichment: { accounts: 'ok', contractPackage: 'absent' },
     });
     expect(dto2.domainRows.find(r => r.label === 'Package Hash')!.contractPackage).toBeNull();
+  });
+
+  describe('token-aware amounts', () => {
+    const build = (latestVersionContractTypeId: number, map = true) =>
+      new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd3',
+        accountInfoMap: {},
+        contractPackageMap: map
+          ? { [PKG_HASH]: { ...contractPackage, latestVersionContractTypeId } }
+          : {},
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+    const amountRow = (d: EIP712SignatureRequestDto) =>
+      d.messageRows.find(r => r.label === 'Value')!;
+
+    it.each([2, 3])('formats the amount for a CEP-18 package (type id %s)', typeId => {
+      expect(amountRow(build(typeId))).toMatchObject({
+        displayValue: '0.000001 MTK',
+        value: '1000',
+        token: { contractPackageHash: PKG_HASH, symbol: 'MTK', decimals: 9 },
+      });
+    });
+
+    it('pairs the amount for an uppercase-hex domain package keyed as the collector keys it', () => {
+      const upperHash = 'AB'.repeat(32);
+      const upperTypedData = { ...typedData, domain: { contract_package_hash: '0x' + upperHash } };
+      const d = new EIP712SignatureRequestDto({
+        typedData: upperTypedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd4',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [upperHash]: {
+            ...contractPackage,
+            contractPackageHash: upperHash,
+            latestVersionContractTypeId: 2,
+          },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '0.000001 MTK', value: '1000' });
+      expect(d.enrichment.contractPackage).toBe('ok');
+    });
+
+    it('leaves the amount raw for a package that is not CEP-18', () => {
+      expect(amountRow(build(6))).toMatchObject({ displayValue: '1000', token: null });
+    });
+
+    it('leaves the amount raw when the package is not in the map', () => {
+      expect(amountRow(build(2, false))).toMatchObject({ displayValue: '1000', token: null });
+    });
+
+    it('leaves the amount raw for a CEP-18 package without token metadata', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd5',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: {
+            ...contractPackage,
+            latestVersionContractTypeId: 2,
+            symbol: '',
+            decimals: 0,
+          },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+      expect(d.enrichment.contractPackage).toBe('partial');
+    });
+
+    it('leaves the amount raw for a CEP-18 package whose API metadata has no decimals', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd6',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: new ContractPackageDto({
+            contract_package_hash: PKG_HASH,
+            latest_version_contract_type_id: 2,
+            metadata: { symbol: 'MTK' } as never,
+          }),
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'ok' },
+      });
+      expect(amountRow(d)).toMatchObject({ displayValue: '1000', token: null });
+      expect(d.enrichment.contractPackage).toBe('partial');
+    });
+
+    it('marks the amount row with isAmount and keeps the number presentation', () => {
+      expect(amountRow(build(2))).toMatchObject({ presentation: 'number', isAmount: true });
+    });
+
+    it('keeps a failed contractPackage status for an unusable CEP-18 package', () => {
+      const d = new EIP712SignatureRequestDto({
+        typedData,
+        signingPublicKeyHex: SIGNING_PK,
+        network: 'mainnet',
+        digest: '0xd7',
+        accountInfoMap: {},
+        contractPackageMap: {
+          [PKG_HASH]: { ...contractPackage, latestVersionContractTypeId: 2, symbol: '' },
+        },
+        enrichment: { accounts: 'ok', contractPackage: 'failed' },
+      });
+      expect(d.enrichment.contractPackage).toBe('failed');
+    });
   });
 });

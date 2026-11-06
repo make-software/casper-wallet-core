@@ -26,6 +26,8 @@ module.exports = [
     rules: {
       'jest/expect-expect': 'off',
       'jest/no-disabled-tests': 'off',
+      // Only bigint shifts (`1n << 256n`) use these; tsc already rejects `|`/`&` on booleans.
+      'no-bitwise': 'off',
     },
   },
   {

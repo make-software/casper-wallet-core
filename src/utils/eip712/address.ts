@@ -9,6 +9,10 @@ export interface IEip712DecodedAddress {
   hash: Maybe<string>;
 }
 
+/** Strip an optional `0x` prefix. */
+export const stripHexPrefix = (value: string): string =>
+  value.startsWith('0x') ? value.slice(2) : value;
+
 const HEX_33_BYTES = /^[\da-f]{66}$/;
 const HEX_32_BYTES = /^[\da-f]{64}$/;
 

@@ -6,30 +6,49 @@ import {
   IContractPackage,
   IEIP712DisplayModel,
   IEIP712DisplayRow,
+  IEIP712Field,
+  IEIP712RowToken,
   IEIP712TypedData,
   IEIP712Types,
+  EIP712PathSegment,
 } from '../../domain';
 import { Maybe } from '../../typings';
-import { decodeEip712Address } from './address';
+import { shiftDecimal } from '../decimal';
+import { decodeEip712Address, stripHexPrefix } from './address';
+import { parseEip712Number, parseNumberType } from './numbers';
+import { getTypedDataEIP712Leaves, pathToLabel, pathToDepth } from './walk';
 
 const BYTES_TYPE_REGEX = /^bytes(?:[1-9]|[12]\d|3[0-2])$/;
 const NUMBER_TYPE_REGEX = /^u?int\d*$/;
 
 // Lower-bound (valid-from) fields: 0 = valid since the epoch, u64::MAX = never reaches validity.
 const LOWER_BOUND_DATE_FIELDS = new Set(['validafter']);
-// Upper-bound (valid-until) fields: 0 = already expired, u64::MAX = no expiry.
-const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline']);
+// Upper-bound (valid-until) fields: see `dateSentinelLabel` for the 0 and maximum labels.
+const UPPER_BOUND_DATE_FIELDS = new Set(['validbefore', 'deadline', 'sigdeadline', 'expiration']);
 
 /** Unix values at/above this are already milliseconds; below are seconds. */
 const MS_THRESHOLD = 1e12;
 
-/** Format an EIP-712 unix timestamp (seconds, or ms when >= 1e12). Null on non-positive/unparseable. */
-export function formatEip712Date(value: string): Maybe<string> {
+// Permit2 reads these as seconds, so the millisecond heuristic must not apply to them.
+const SECONDS_ONLY_DATE_FIELDS = new Set(['sigdeadline', 'expiration']);
+
+// The flat types whose top-level amount is denominated in the domain contract's own token.
+const DOMAIN_TOKEN_PRIMARY_TYPES = new Set([
+  'Permit',
+  'TransferWithAuthorization',
+  'ReceiveWithAuthorization',
+]);
+
+/**
+ * Format an EIP-712 unix timestamp: seconds, or ms when >= 1e12 unless `unit` is `'seconds'`.
+ * Null on non-positive, unparseable or out-of-range input.
+ */
+export function formatEip712Date(value: string, unit: 'auto' | 'seconds' = 'auto'): Maybe<string> {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) {
     return null;
   }
-  const ms = num >= MS_THRESHOLD ? num : num * 1000;
+  const ms = unit === 'auto' && num >= MS_THRESHOLD ? num : num * 1000;
   const date = new Date(ms);
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -41,12 +60,33 @@ export function formatEip712Date(value: string): Maybe<string> {
 // (e.g. casper-wallet), where BigInt literals are a TS2737 error.
 const U64_MAX = BigInt('18446744073709551615');
 
+/** `2^bits - 1` for a `uintN` type of at least `minBits`, else null. */
+function unsignedTypeMax(type: string, minBits = 8): Maybe<bigint> {
+  const numberType = parseNumberType(type);
+  if (!numberType || !numberType.unsigned || numberType.bits < minBits) {
+    return null;
+  }
+  return (BigInt(1) << BigInt(numberType.bits)) - BigInt(1);
+}
+
+/** Narrower amount types at their maximum are real quantities, shown exactly. */
+const UNLIMITED_MIN_BITS = 160;
+
+const AMOUNT_FIELDS = new Set(['amount', 'value']);
+
+/** Exact token amount: integer part grouped with `,`, full fraction without trailing zeros, then the symbol. */
+export function formatEip712TokenAmount(raw: bigint, decimals: number, symbol: string): string {
+  const [int, frac] = shiftDecimal(raw.toString(), -decimals).toFixed().split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${frac ? `${grouped}.${frac}` : grouped} ${symbol}`;
+}
+
 /**
- * Friendly text for EIP-712 timestamp sentinels, else null. The label depends on the field's role:
- * the same 0 / u64::MAX value means the opposite for a lower bound (valid-from) vs an upper bound
- * (valid-until), so a shared mapping would mislabel one of them in a signing UI.
+ * Friendly text for EIP-712 timestamp sentinels, else null. 0 / u64::MAX mean opposite things for a
+ * lower vs upper bound; `expiration` at 0 has no sentinel, since contracts disagree on its meaning.
+ * A type maximum is a sentinel only for `uintN` with N >= 48.
  */
-function dateSentinelLabel(name: string, value: string): Maybe<string> {
+function dateSentinelLabel(name: string, type: string, value: string): Maybe<string> {
   if (value.trim() === '') {
     return null;
   }
@@ -57,8 +97,12 @@ function dateSentinelLabel(name: string, value: string): Maybe<string> {
     return null;
   }
   const isLowerBound = LOWER_BOUND_DATE_FIELDS.has(name.toLowerCase());
-  if (n === BigInt(0)) return isLowerBound ? 'Always' : 'Expired';
-  if (n >= U64_MAX) return isLowerBound ? 'Never' : 'No expiry';
+  if (n === BigInt(0)) {
+    if (isLowerBound) return 'Always';
+    return name.toLowerCase() === 'expiration' ? null : 'Expired';
+  }
+  const isWideTypeMax = n === unsignedTypeMax(type, 48);
+  if (n >= U64_MAX || isWideTypeMax) return isLowerBound ? 'Never' : 'No expiry';
   return null;
 }
 
@@ -91,18 +135,6 @@ function getTypeForField(fieldName: string, types: IEIP712Types, typeName: strin
   return fields.find(f => f.name === fieldName)?.type ?? '';
 }
 
-export function keyToLabel(key: string): string {
-  switch (key) {
-    case 'contract_package_hash':
-      return 'Package Hash';
-    default:
-      return key
-        .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase: validAfter → valid After
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, match => match.toUpperCase());
-  }
-}
-
 /**
  * @internal
  * Optional enrichment for display rows. `utils` stays free of `data`-layer imports: the data layer
@@ -111,16 +143,59 @@ export function keyToLabel(key: string): string {
 export interface IEIP712DisplayEnrichment {
   resolveAccountInfo?: (accountHash: string) => Maybe<IAccountInfo>;
   resolveContractPackage?: (packageHash: string) => Maybe<IContractPackage>;
+  resolveToken?: (packageHash: string) => Maybe<IEIP712RowToken>;
+}
+
+type BuiltDisplayRow = IEIP712DisplayRow &
+  Required<Pick<IEIP712DisplayRow, 'path' | 'depth' | 'token' | 'isAmount'>>;
+
+interface IMessageRowContext {
+  primaryType: string;
+  parentFields: IEIP712Field[];
+  parentValue: Record<string, unknown>;
+  primaryFields: IEIP712Field[];
+  domainPackageHash: Maybe<string>;
+}
+
+function findAmountToken(
+  ctx: IMessageRowContext,
+  depth: number,
+  enrichment: IEIP712DisplayEnrichment,
+): Maybe<IEIP712RowToken> {
+  if (!enrichment.resolveToken) {
+    return null;
+  }
+  const tokenField = ctx.parentFields.find(f => f.name === 'token' && f.type === 'address');
+  if (tokenField) {
+    const { kind, hash } = decodeEip712Address(String(ctx.parentValue.token));
+    return kind === 'package' && hash ? enrichment.resolveToken(hash) : null;
+  }
+  if (
+    depth === 0 &&
+    DOMAIN_TOKEN_PRIMARY_TYPES.has(ctx.primaryType) &&
+    !ctx.primaryFields.some(f => f.name === 'token') &&
+    ctx.domainPackageHash
+  ) {
+    return enrichment.resolveToken(ctx.domainPackageHash);
+  }
+  return null;
 }
 
 function toRow(
-  key: string,
+  path: EIP712PathSegment[],
   type: string,
-  value: string,
+  rawValue: string,
   enrichment: IEIP712DisplayEnrichment,
   section: 'domain' | 'message',
-): IEIP712DisplayRow {
-  const label = keyToLabel(key);
+  messageContext?: IMessageRowContext,
+): BuiltDisplayRow {
+  const label = pathToLabel(path);
+  const key = [...path]
+    .reverse()
+    .find((segment): segment is string => typeof segment === 'string')!;
+  const depth = pathToDepth(path);
+  const parsed = parseNumberType(type) ? parseEip712Number(rawValue) : null;
+  const value = parsed === null ? rawValue : parsed.toString();
 
   // Domain contract_package_hash is a bytes32 (no Key tag) — always a package hash.
   if (section === 'domain' && key === 'contract_package_hash') {
@@ -134,6 +209,10 @@ function toRow(
       copyValue: packageHash,
       accountInfo: null,
       contractPackage: enrichment.resolveContractPackage?.(packageHash) ?? null,
+      path,
+      depth,
+      token: null,
+      isAmount: false,
     };
   }
 
@@ -150,6 +229,10 @@ function toRow(
         copyValue: hash,
         accountInfo: enrichment.resolveAccountInfo?.(hash) ?? null,
         contractPackage: null,
+        path,
+        depth,
+        token: null,
+        isAmount: false,
       };
     }
     if (kind === 'package' && hash) {
@@ -162,6 +245,10 @@ function toRow(
         copyValue: hash,
         accountInfo: null,
         contractPackage: enrichment.resolveContractPackage?.(hash) ?? null,
+        path,
+        depth,
+        token: null,
+        isAmount: false,
       };
     }
     return {
@@ -173,12 +260,23 @@ function toRow(
       copyValue: value,
       accountInfo: null,
       contractPackage: null,
+      path,
+      depth,
+      token: null,
+      isAmount: false,
     };
   }
 
-  // Known timestamp fields -> date (with sentinels), else fall through.
+  // Known timestamp fields -> date (with sentinels), else fall through. An upper bound that would
+  // need the millisecond guess is shown raw: misread seconds would show a far-off expiry as near.
   if (isDateField(key, type)) {
-    const formatted = dateSentinelLabel(key, value) ?? formatEip712Date(value);
+    const lower = key.toLowerCase();
+    const unit = SECONDS_ONLY_DATE_FIELDS.has(lower) ? 'seconds' : 'auto';
+    const isGuessedUpperBound =
+      unit === 'auto' && UPPER_BOUND_DATE_FIELDS.has(lower) && Number(value) >= MS_THRESHOLD;
+    const formatted =
+      dateSentinelLabel(key, type, value) ??
+      (isGuessedUpperBound ? null : formatEip712Date(value, unit));
     if (formatted) {
       return {
         label,
@@ -189,6 +287,37 @@ function toRow(
         copyValue: null,
         accountInfo: null,
         contractPackage: null,
+        path,
+        depth,
+        token: null,
+        isAmount: false,
+      };
+    }
+  }
+
+  if (AMOUNT_FIELDS.has(key) && parsed !== null) {
+    const token = messageContext ? findAmountToken(messageContext, depth, enrichment) : null;
+    const isMax = parsed === unsignedTypeMax(type, UNLIMITED_MIN_BITS);
+    if (token || isMax) {
+      let displayValue = 'Unlimited';
+      if (token) {
+        displayValue = isMax
+          ? `Unlimited ${token.symbol}`
+          : formatEip712TokenAmount(parsed, token.decimals, token.symbol);
+      }
+      return {
+        label,
+        value,
+        displayValue,
+        presentation: 'number',
+        type,
+        copyValue: null,
+        accountInfo: null,
+        contractPackage: null,
+        path,
+        depth,
+        token,
+        isAmount: true,
       };
     }
   }
@@ -204,6 +333,27 @@ function toRow(
     copyValue: isHashLike ? value : null,
     accountInfo: null,
     contractPackage: null,
+    path,
+    depth,
+    token: null,
+    isAmount: false,
+  };
+}
+
+function emptyArrayRow(path: EIP712PathSegment[], type: string): BuiltDisplayRow {
+  return {
+    label: pathToLabel(path),
+    value: '',
+    displayValue: 'None',
+    presentation: 'string',
+    type,
+    copyValue: null,
+    accountInfo: null,
+    contractPackage: null,
+    path,
+    depth: pathToDepth(path),
+    token: null,
+    isAmount: false,
   };
 }
 
@@ -218,12 +368,24 @@ export function buildTypedDataEIP712DisplayModel(
   const domainRows = Object.entries(domain)
     .filter(([key]) => !exclude.has(key))
     .map(([key, val]) =>
-      toRow(key, getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
+      toRow([key], getTypeForField(key, types, 'EIP712Domain'), String(val), enrichment, 'domain'),
     );
 
-  const messageFields = types[primaryType] ?? [];
-  const messageRows = messageFields.map(field =>
-    toRow(field.name, field.type, String(message[field.name]), enrichment, 'message'),
+  const rawDomainPackage = domain.contract_package_hash;
+  const domainPackageHash =
+    rawDomainPackage === undefined ? null : stripHexPrefix(String(rawDomainPackage));
+  const primaryFields = types[primaryType] ?? [];
+
+  const messageRows = getTypedDataEIP712Leaves(primaryType, types, message).map(leaf =>
+    Array.isArray(leaf.value) && leaf.value.length === 0
+      ? emptyArrayRow(leaf.path, leaf.type)
+      : toRow(leaf.path, leaf.type, String(leaf.value), enrichment, 'message', {
+          primaryType,
+          parentFields: leaf.parentFields,
+          parentValue: leaf.parentValue,
+          primaryFields,
+          domainPackageHash,
+        }),
   );
 
   return { domainRows, messageRows, primaryType };

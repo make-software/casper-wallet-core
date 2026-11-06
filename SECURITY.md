@@ -8,17 +8,17 @@ Only the latest minor release line of CasperWalletCore receives security patches
 
 | Version | Supported          |
 | ------- | ------------------ |
-| `1.2.x` | :white_check_mark: |
-| `< 1.2` | :x:                |
+| `2.1.x` | :white_check_mark: |
+| `< 2.1` | :x:                |
 
-If you are vendoring an older version, please update to the latest `1.2.x` release before reporting; the issue may already be fixed.
+If you are vendoring an older version, please update to the latest `2.1.x` release before reporting; the issue may already be fixed.
 
 ## Reporting a vulnerability
 
 **Please do not file public GitHub issues for security problems.** Use one of the private channels below:
 
-1. **GitHub private vulnerability reports** (preferred): <https://github.com/make-software/casper-wallet-core/security/advisories/new>
-2. **Email:** [security@make.software](mailto:security@make.software)
+1. **GitHub private vulnerability reports** (primary): <https://github.com/make-software/casper-wallet-core/security/advisories/new>. Attach PoC files here.
+2. **Email:** [security@make.software](mailto:security@make.software) — text only. The mailing list drops attachments; put PoC code inline or link to a private repository or gist.
 
 Include in your report:
 
@@ -32,7 +32,7 @@ If your report is sensitive enough to require encryption, request a PGP key in y
 
 ## Disclosure process & timeline
 
-- **Acknowledgement:** within **3 business days** of receipt.
+- **Acknowledgement:** within **2 business days** of receipt.
 - **Initial assessment:** within **7 business days** — we will confirm whether the report is in scope, set a severity, and share an expected fix timeline.
 - **Fix target:**
   - Critical / High: **30 days**

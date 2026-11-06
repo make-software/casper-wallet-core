@@ -9,4 +9,6 @@ export interface IContractPackage extends IEntity {
 
   readonly symbol: string;
   readonly decimals: number;
+  /** False when the API sent no valid `metadata.decimals`, so `decimals` is a 0 placeholder. */
+  readonly hasDecimals?: boolean;
 }

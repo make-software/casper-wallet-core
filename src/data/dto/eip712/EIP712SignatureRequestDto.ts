@@ -11,7 +11,7 @@ import {
   IEIP712TypedData,
 } from '../../../domain';
 import { buildTypedDataEIP712DisplayModel } from '../../../utils';
-import { deriveKeyType, getAccountInfoFromMap } from '../common';
+import { ContractTypeId, deriveKeyType, getAccountInfoFromMap } from '../common';
 import { EIP712_CHAIN_NAME_KEY } from './common';
 
 export interface IEIP712SignatureRequestDtoProps {
@@ -50,12 +50,27 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     contractPackageMap,
     enrichment,
   }: IEIP712SignatureRequestDtoProps) {
+    let hasUnusableToken = false;
     const { domainRows, messageRows } = buildTypedDataEIP712DisplayModel(
       typedData,
       {
         resolveAccountInfo: accountHash =>
           getAccountInfoFromMap(accountInfoMap, accountHash, 'accountHash') ?? null,
         resolveContractPackage: packageHash => contractPackageMap[packageHash] ?? null,
+        resolveToken: packageHash => {
+          const pkg = contractPackageMap[packageHash];
+          const isCep18 =
+            pkg?.latestVersionContractTypeId === ContractTypeId.Cep18 ||
+            pkg?.latestVersionContractTypeId === ContractTypeId.CustomCep18;
+          if (!pkg || !isCep18) {
+            return null;
+          }
+          if (!pkg.symbol || pkg.hasDecimals === false) {
+            hasUnusableToken = true;
+            return null;
+          }
+          return { contractPackageHash: packageHash, symbol: pkg.symbol, decimals: pkg.decimals };
+        },
       },
       [EIP712_CHAIN_NAME_KEY],
     );
@@ -77,7 +92,10 @@ export class EIP712SignatureRequestDto implements IEIP712SignatureRequest {
     this.rawJson = JSON.stringify(typedData, (_key, value) =>
       typeof value === 'bigint' ? value.toString() : value,
     );
-    this.enrichment = enrichment;
+    this.enrichment =
+      hasUnusableToken && enrichment.contractPackage === 'ok'
+        ? { ...enrichment, contractPackage: 'partial' }
+        : enrichment;
     this.id = digest;
   }
 }

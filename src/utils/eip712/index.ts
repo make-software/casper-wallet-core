@@ -3,7 +3,10 @@
 // from the package root instead, so the public API is unchanged — import it by path
 // (`casper-wallet-core/src/utils/eip712/sign`) from anywhere that already links the SDK.
 export * from './address';
+export { parseEip712Number, parseNumberType } from './numbers';
+export type { IEIP712NumberType } from './numbers';
 export * from './validation';
 export * from './digest';
 export * from './displayModel';
+export { keyToLabel } from './walk';
 export * from './recover';

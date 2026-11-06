@@ -15,8 +15,9 @@ export function getTxSignatureRequestCep18Action(
   accountInfoMap: Record<string, IAccountInfo> = {},
   contractPackage: Maybe<IContractPackage>,
 ): ITxSignatureRequestCep18Action {
+  const hasUnknownDecimals = contractPackage?.hasDecimals === false;
   const decimals = contractPackage?.decimals ?? 18;
-  const symbol = contractPackage?.symbol ?? '';
+  const symbol = hasUnknownDecimals ? '' : (contractPackage?.symbol ?? '');
 
   const amount = tx.args.getByName('amount')?.toString() ?? '0';
 
