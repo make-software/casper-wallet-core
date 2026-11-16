@@ -1186,30 +1186,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/devices@npm:8.18.1":
-  version: 8.18.1
-  resolution: "@ledgerhq/devices@npm:8.18.1"
+"@ledgerhq/devices@npm:8.19.0":
+  version: 8.19.0
+  resolution: "@ledgerhq/devices@npm:8.19.0"
   dependencies:
     semver: "npm:7.8.5"
-  checksum: 10c0/a1665d3632b3ac4db414de61b8681530bad0746cb391fa153cd3742ccae5a3732697b992ac4a29d064204241ef5ad2b074fede957e5df26b34fe6389b8a9aa36
+  checksum: 10c0/be92edfd386bbf45bb598925cbddc679f6af6d022214c6519e7cfddbb7743bfd75e65f1086add80c8448b764f0793f96254fab797bcdca205aec795564273fc1
   languageName: node
   linkType: hard
 
-"@ledgerhq/hw-transport@npm:^6.36.1":
-  version: 6.36.1
-  resolution: "@ledgerhq/hw-transport@npm:6.36.1"
+"@ledgerhq/hw-transport@npm:^6.37.0":
+  version: 6.37.0
+  resolution: "@ledgerhq/hw-transport@npm:6.37.0"
   dependencies:
-    "@ledgerhq/devices": "npm:8.18.1"
-    "@ledgerhq/logs": "npm:6.19.0"
+    "@ledgerhq/devices": "npm:8.19.0"
+    "@ledgerhq/logs": "npm:6.20.0"
     events: "npm:^3.3.0"
-  checksum: 10c0/a9fe3258c5723fe75fb8d6d62bb80820437644c54d4a9999a32fb91758785f0ac7a61761cb0b41a3c6c9996a165d0de04830f96c6911f3a476192f8803743387
+  checksum: 10c0/6c8a936c74b31b0f9f808d3d68884cf64ee02aa9169a10fc60ecb6faffc97eb291d83ce63c4859dcb60b15c661f5cee0aecd8ec58eb085cbbd2c849683c10b18
   languageName: node
   linkType: hard
 
-"@ledgerhq/logs@npm:6.19.0":
-  version: 6.19.0
-  resolution: "@ledgerhq/logs@npm:6.19.0"
-  checksum: 10c0/ef5c33aab2a39276ca066bef7f72ae42962b814645c3715a4dcc385537e51b39b9e930dab56c84834059b7ce5865057db0c94c3a29f2bf57a927141a9adecc0b
+"@ledgerhq/logs@npm:6.20.0":
+  version: 6.20.0
+  resolution: "@ledgerhq/logs@npm:6.20.0"
+  checksum: 10c0/0f1a446d745c577c45d6ff4c38ce976aa2fecadbf4832334d108888f6eee492cda1096921a3267ec403c903afaecf27b9eff1711666f9be8e75ee769e055fe41
   languageName: node
   linkType: hard
 
@@ -1390,25 +1390,25 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/query-core@npm:5.106.1":
-  version: 5.106.1
-  resolution: "@tanstack/query-core@npm:5.106.1"
-  checksum: 10c0/514065f943faacdaae39659fc936956906f51677a4385342508ff39c2846c6df8d6acba8ce6167ac3c86bda75a64b714f739f9ada82634e93524f6d6b70ad9f6
+"@tanstack/query-core@npm:5.107.1":
+  version: 5.107.1
+  resolution: "@tanstack/query-core@npm:5.107.1"
+  checksum: 10c0/991070e0d7b9a7fb7459f6399090f22e9769dd30efcea316c3e9a0b5442990378fcdd9ed37548cec0729c627189e091100dbe7d3778c666100c373db0b978963
   languageName: node
   linkType: hard
 
-"@tanstack/react-query@npm:5.106.1":
-  version: 5.106.1
-  resolution: "@tanstack/react-query@npm:5.106.1"
+"@tanstack/react-query@npm:5.107.1":
+  version: 5.107.1
+  resolution: "@tanstack/react-query@npm:5.107.1"
   dependencies:
-    "@tanstack/query-core": "npm:5.106.1"
+    "@tanstack/query-core": "npm:5.107.1"
   peerDependencies:
     "@types/react": ^18 || ^19
     react: ^18 || ^19
   peerDependenciesMeta:
     "@types/react":
       optional: true
-  checksum: 10c0/508752957de016b2e8acabc2f1253716d732ba327a1e8897e187d5ea4ec0d250cee1fdaf1ec00251e1cce86cea27284c2240c5f1ab34d183a5e0a0d5b33a0715
+  checksum: 10c0/c4a46bbacf5fe69fbe487495e74bad3e17857d19eeccad5e066cf4bbe148a831c082b429a6646874b7809cdf245bbdf08e93cfe3fae52b605edf0c38dcab7369
   languageName: node
   linkType: hard
 
@@ -1879,10 +1879,10 @@ __metadata:
     "@casper-ecosystem/casper-eip-712": "npm:1.2.1"
     "@eslint/eslintrc": "npm:^3.3.7"
     "@eslint/js": "npm:^9.39.5"
-    "@ledgerhq/hw-transport": "npm:^6.36.1"
+    "@ledgerhq/hw-transport": "npm:^6.37.0"
     "@noble/hashes": "npm:^1.8.0"
     "@react-native/eslint-config": "npm:^0.88.1"
-    "@tanstack/react-query": "npm:5.106.1"
+    "@tanstack/react-query": "npm:5.107.1"
     "@testing-library/dom": "npm:10.4.2"
     "@testing-library/react": "npm:16.3.3"
     "@types/big.js": "npm:^7.0.0"
@@ -1906,7 +1906,7 @@ __metadata:
     jest-environment-jsdom: "npm:30.5.2"
     lint-staged: "npm:^17.6.0"
     lru-cache: "npm:11.5.3"
-    prettier: "npm:^3.9.10"
+    prettier: "npm:^3.10.1"
     react: "npm:19.3.1"
     react-dom: "npm:19.3.1"
     rxjs: "npm:^7.8.2"
@@ -1914,7 +1914,7 @@ __metadata:
     typescript: "npm:^5.9.3"
     uuid: "npm:^14.0.3"
   peerDependencies:
-    "@ledgerhq/hw-transport": ^6.36.1
+    "@ledgerhq/hw-transport": ^6.37.0
     "@tanstack/react-query": ^5
     "@zondax/ledger-casper": ^2.6.4
     react: ">=18"
@@ -5602,12 +5602,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.9.10":
-  version: 3.9.10
-  resolution: "prettier@npm:3.9.10"
+"prettier@npm:^3.10.1":
+  version: 3.10.1
+  resolution: "prettier@npm:3.10.1"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/0b3531593aa6fb36ac6baf629cb058bda472c59a6938774f931fe55283a07c62e6f56e621b043a82d8a3e21fc284c08c34f9e539fc70072635f79b7bae1a1067
+  checksum: 10c0/e8c03ea575a30e15afa75a3700e94609050502980d7c906374aea4cf623eef4dce0816100126207e675cc1ed54b7dfce60f02dbee8d61ec27dc69ce5df6c3723
   languageName: node
   linkType: hard
 
